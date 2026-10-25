@@ -1,0 +1,4 @@
+# astraOS boot animation: static logo centered on black
+logo logo.png
+background #000000
+logo_width_percent 50

@@ -1,0 +1,8 @@
+# astraOS device node permissions
+SUBSYSTEM=="input", GROUP="input", MODE="0660"
+SUBSYSTEM=="drm", KERNEL=="card[0-9]*", GROUP="video", MODE="0660"
+SUBSYSTEM=="drm", KERNEL=="renderD[0-9]*", GROUP="graphics", MODE="0660"
+SUBSYSTEM=="dma_heap", GROUP="graphics", MODE="0660"
+SUBSYSTEM=="sound", GROUP="audio", MODE="0660"
+SUBSYSTEM=="video4linux", GROUP="camera", MODE="0660"
+KERNEL=="rfkill", GROUP="system", MODE="0660"

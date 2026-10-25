@@ -1,0 +1,23 @@
+{
+    "package": "com.astra.clock",
+    "name": "Clock",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "World clock, alarms, stopwatch and timers.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "widgets": [
+        {
+            "id": "analog",
+            "name": "Analog clock",
+            "qml": "widgets/Analog.qml",
+            "size": "small"
+        }
+    ]
+}

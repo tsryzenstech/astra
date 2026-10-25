@@ -1,0 +1,25 @@
+{
+    "package": "com.astra.messages",
+    "name": "Messages",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "SMS, RCS and astra messaging in one place.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.INTERNET"
+    ],
+    "widgets": [
+        {
+            "id": "unread",
+            "name": "Unread messages",
+            "qml": "widgets/Unread.qml",
+            "size": "small"
+        }
+    ]
+}

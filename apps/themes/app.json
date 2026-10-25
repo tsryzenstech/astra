@@ -1,0 +1,18 @@
+{
+    "package": "com.astra.themes",
+    "name": "Themes",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Wallpapers, icon packs, fonts and colours for every corner of astraOS.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.INTERNET"
+    ],
+    "widgets": []
+}

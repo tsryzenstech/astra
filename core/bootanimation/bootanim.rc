@@ -1,0 +1,8 @@
+# Started from init.rc (on init) as soon as device nodes exist.
+# SysBoard stops it by writing "stop" to /run/astra/bootanim.ctl.
+service bootanim /system/bin/bootanim
+    class early
+    user graphics
+    group system graphics video
+    oneshot
+    disabled

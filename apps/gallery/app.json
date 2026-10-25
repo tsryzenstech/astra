@@ -1,0 +1,16 @@
+{
+    "package": "com.astra.gallery",
+    "name": "Gallery",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "All your photos and videos, beautifully organised.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "widgets": []
+}

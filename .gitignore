@@ -1,0 +1,18 @@
+# Design references live outside the repository
+/assets/
+
+# Build output
+/out/
+/build/
+/build-*/
+CMakeLists.txt.user
+compile_commands.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Editors
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,31 @@
+{
+    "package": "com.astra.settings",
+    "name": "Settings",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Configure astraOS.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.MANAGE_SETTINGS",
+        "astra.permission.MANAGE_LOCK",
+        "astra.permission.MANAGE_PACKAGES",
+        "astra.permission.MANAGE_NOTIFICATIONS",
+        "astra.permission.MEDIA_CONTROL",
+        "astra.permission.HARDWARE",
+        "astra.permission.POWER"
+    ],
+    "widgets": [
+        {
+            "id": "battery",
+            "name": "Battery",
+            "qml": "widgets/Battery.qml",
+            "size": "small"
+        }
+    ]
+}

@@ -1,0 +1,23 @@
+{
+    "package": "com.astra.tune",
+    "name": "Tune",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Your music, with the lock screen player and Control Center controls.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "widgets": [
+        {
+            "id": "nowplaying",
+            "name": "Now playing",
+            "qml": "widgets/NowPlaying.qml",
+            "size": "wide"
+        }
+    ]
+}

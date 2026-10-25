@@ -1,0 +1,25 @@
+{
+    "package": "com.astra.planet",
+    "name": "Planet",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Planet is the astra AI search. Ask Cosmo about weather, music, your calendar and the web.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.INTERNET"
+    ],
+    "widgets": [
+        {
+            "id": "cosmo",
+            "name": "Cosmo",
+            "qml": "widgets/Cosmo.qml",
+            "size": "small"
+        }
+    ]
+}

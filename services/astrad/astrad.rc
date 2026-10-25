@@ -1,0 +1,5 @@
+# astrad - system server (packages, activities, notifications, settings...)
+service astrad /system/bin/astrad
+    class core
+    critical
+    setenv QT_LOGGING_RULES "*.debug=false"

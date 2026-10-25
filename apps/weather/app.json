@@ -1,0 +1,25 @@
+{
+    "package": "com.astra.weather",
+    "name": "Weather",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Forecasts, air quality and severe weather alerts for the places you care about.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.INTERNET"
+    ],
+    "widgets": [
+        {
+            "id": "current",
+            "name": "Current conditions",
+            "qml": "widgets/Current.qml",
+            "size": "wide"
+        }
+    ]
+}

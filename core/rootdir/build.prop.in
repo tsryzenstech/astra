@@ -1,0 +1,10 @@
+# astraOS system properties
+ro.astra.version=@PROJECT_VERSION@
+ro.astra.release=@ASTRA_RELEASE_NAME@
+ro.astra.api_level=@ASTRA_API_LEVEL@
+ro.build.display.id=astraOS @PROJECT_VERSION@ (@ASTRA_RELEASE_NAME@)
+ro.build.type=@ASTRA_BUILD_TYPE@
+ro.system.font.family=Poppins
+ro.system.wallpaper=/system/media/wallpapers/default_wallpaper.png
+ro.system.apps.home=/system/app
+ro.system.apps.priv=/system/priv-app

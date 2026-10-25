@@ -1,0 +1,23 @@
+{
+    "package": "com.astra.camera",
+    "name": "Camera",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Photos, videos and QR codes.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "widgets": [
+        {
+            "id": "shutter",
+            "name": "Camera",
+            "qml": "widgets/Shutter.qml",
+            "size": "small"
+        }
+    ]
+}

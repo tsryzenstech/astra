@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: Apache-2.0
+#include "system.h"
+#include "common.h"
+
+#include <astra/client.h>
+#include <astra/global.h>
+#include <astra/paths.h>
+#include <astra/properties.h>
+
+#include <QJsonObject>
+
+namespace astra::qml {
+
+SystemInfo::SystemInfo(QObject *parent)
+    : QObject(parent)
+{
+    Client *c = Client::instance();
+    c->subscribe({QStringLiteral("hardware"), QStringLiteral("system")});
+    connect(c, &Client::connectedChanged, this, [this](bool up) {
+        Q_EMIT connectedChanged();
+        if (up)
+            reload();
+    });
+    connect(c, &Client::event, this, [this](const QString &name, const QJsonValue &data) {
+        if (name == QLatin1String("hardware.battery")) {
+            m_hw.insert(QStringLiteral("battery"), data.toVariant());
+            Q_EMIT hardwareChanged();
+        } else if (name == QLatin1String("hardware.changed")) {
+            const QJsonObject o = data.toObject();
+            m_hw.insert(o.value(QLatin1String("key")).toString(), o.value(QLatin1String("value")).toVariant());
+            Q_EMIT hardwareChanged();
+        } else if (name == QLatin1String("system.bootCompleted")) {
+            reload();
+            Q_EMIT bootCompleted();
+        }
+    });
+    if (c->isConnected())
+        reload();
+}
+
+void SystemInfo::reload()
+{
+    Client::instance()->call(QStringLiteral("system.info"), {}, [this](const QJsonValue &r, const QString &) {
+        m_info = r.toObject().toVariantMap();
+        Q_EMIT infoChanged();
+    });
+    Client::instance()->call(QStringLiteral("hardware.state"), {}, [this](const QJsonValue &r, const QString &) {
+        if (r.isObject()) {
+            m_hw = r.toObject().toVariantMap();
+            Q_EMIT hardwareChanged();
+        }
+    });
+}
+
+bool SystemInfo::connected() const
+{
+    return Client::instance()->isConnected();
+}
+
+int SystemInfo::batteryLevel() const
+{
+    return m_hw.value(QStringLiteral("battery")).toMap().value(QStringLiteral("level"), 100).toInt();
+}
+
+bool SystemInfo::charging() const
+{
+    return m_hw.value(QStringLiteral("battery")).toMap().value(QStringLiteral("charging")).toBool();
+}
+
+QString SystemInfo::version() const
+{
+    return QString::fromLatin1(astra::version());
+}
+
+void SystemInfo::setBrightness(qreal value)
+{
+    m_hw.insert(QStringLiteral("brightness"), value); // optimistic, keeps sliders smooth
+    Q_EMIT hardwareChanged();
+    Client::instance()->call(QStringLiteral("hardware.setBrightness"), {{QStringLiteral("value"), value}});
+}
+
+void SystemInfo::setTorch(bool on)
+{
+    Client::instance()->call(QStringLiteral("hardware.setTorch"), {{QStringLiteral("on"), on}});
+}
+
+void SystemInfo::setRadio(const QString &radio, bool enabled)
+{
+    m_hw.insert(radio, enabled);
+    Q_EMIT hardwareChanged();
+    Client::instance()->call(QStringLiteral("hardware.setRadio"),
+                             {{QStringLiteral("radio"), radio}, {QStringLiteral("enabled"), enabled}});
+}
+
+void SystemInfo::power(const QString &action, const QJSValue &callback)
+{
+    Client::instance()->call(QStringLiteral("system.power"), {{QStringLiteral("action"), action}},
+                             [this, callback](const QJsonValue &r, const QString &e) { invokeCallback(this, callback, r, e); });
+}
+
+void SystemInfo::markBootCompleted()
+{
+    Client::instance()->call(QStringLiteral("system.bootCompleted"));
+}
+
+QString SystemInfo::property(const QString &key, const QString &fallback) const
+{
+    return Properties::get(key, fallback);
+}
+
+QUrl SystemInfo::fileUrl(const QString &path) const
+{
+    return QUrl::fromLocalFile(Paths::resolve(path));
+}
+
+void SystemInfo::call(const QString &method, const QVariantMap &params, const QJSValue &callback)
+{
+    Client::instance()->call(method, QJsonObject::fromVariantMap(params),
+                             [this, callback](const QJsonValue &r, const QString &e) { invokeCallback(this, callback, r, e); });
+}
+
+} // namespace astra::qml

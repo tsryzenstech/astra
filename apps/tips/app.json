@@ -1,0 +1,23 @@
+{
+    "package": "com.astra.tips",
+    "name": "Tips",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Get the most out of astraOS.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "widgets": [
+        {
+            "id": "tip",
+            "name": "Tip of the day",
+            "qml": "widgets/Tip.qml",
+            "size": "wide"
+        }
+    ]
+}

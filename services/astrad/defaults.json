@@ -1,0 +1,39 @@
+{
+    "account.name": "astra user",
+    "account.service": "nebula ID",
+
+    "radio.wifi": true,
+    "radio.bluetooth": false,
+    "radio.cellular": true,
+
+    "display.brightness": 0.7,
+    "audio.volume": 0.6,
+
+    "home.layout": {
+        "pages": [
+            ["com.astra.weather", "com.astra.clock", "com.astra.tune", "com.astra.themes",
+             "com.astra.market", "com.astra.meetup", "com.astra.gallery", "com.astra.settings"],
+            ["com.astra.tips"]
+        ],
+        "dock": ["com.astra.phone", "com.astra.messages", "com.astra.planet", "com.astra.camera"]
+    },
+
+    "lockscreen.clock_weight": "SemiBold",
+    "lockscreen.widgets": ["com.astra.weather/current", "com.astra.settings/battery", "com.astra.planet/cosmo"],
+
+    "controls.location": false,
+    "controls.sound": true,
+    "controls.game": false,
+    "controls.cast": false,
+    "controls.focus": false,
+    "controls.scanner": false,
+    "controls.work": true,
+    "controls.dnd": false,
+
+    "weather.enabled": true,
+    "weather.city": "Milan",
+    "weather.latitude": 45.4642,
+    "weather.longitude": 9.19,
+
+    "system.welcome_posted": false
+}

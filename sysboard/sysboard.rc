@@ -1,0 +1,14 @@
+# SysBoard - compositor and system shell (status bar, lock screen,
+# home screen, Control/Notification Center).
+service sysboard /system/bin/sysboard
+    class main
+    user system
+    group system graphics input video audio
+    critical
+    setenv XDG_RUNTIME_DIR /run/astra/display
+    setenv QT_QPA_PLATFORM eglfs
+    setenv QT_QPA_EGLFS_INTEGRATION eglfs_kms
+    setenv QT_QPA_EGLFS_KMS_ATOMIC 1
+    setenv QT_QPA_EGLFS_HIDECURSOR 1
+    setenv QT_IM_MODULE qtvirtualkeyboard
+    setenv HOME /data/system

@@ -1,0 +1,6 @@
+astraOS
+Copyright 2026 The astraOS authors
+
+Third-party components:
+- Poppins typeface (prebuilt/fonts): SIL Open Font License 1.1, see prebuilt/fonts/OFL.txt
+- Qt 6 (linked dynamically): LGPL-3.0, https://www.qt.io/licensing

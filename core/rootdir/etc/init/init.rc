@@ -1,0 +1,61 @@
+# astraOS - system boot sequence
+#
+# Executed by /system/bin/init (second stage). The root filesystem is the
+# read-only system partition: /sdcard, /mnt and the other root entries are
+# created when the image is built. Triggers run in order:
+#   early-init -> init -> fs -> post-fs-data -> boot
+# Components ship their own .rc files next to this one
+# (bootanim.rc, astrad.rc, sysboard.rc); vendor specific rules live in
+# /vendor/etc/init.
+
+on early-init
+    write /proc/sys/kernel/printk "4 4 1 7"
+    mkdir /dev/socket 0755 root root
+    mkdir /run/astra 0775 root system
+    mkdir /run/astra/display 0770 system graphics
+    mkdir /run/user 0755 root root
+    symlink /proc/self/fd /dev/fd
+    symlink /proc/self/fd/0 /dev/stdin
+    symlink /proc/self/fd/1 /dev/stdout
+    symlink /proc/self/fd/2 /dev/stderr
+    hostname astra
+
+on init
+    write /proc/sys/kernel/panic_on_oops 1
+    write /proc/sys/kernel/kptr_restrict 2
+    write /proc/sys/vm/overcommit_memory 1
+    start ueventd
+    exec -- /system/bin/udevadm trigger --action=add
+    exec -- /system/bin/udevadm settle --timeout=10
+    start bootanim
+
+on fs
+    mount_all /vendor/etc/fstab
+
+on post-fs-data
+    # Android style /data layout
+    mkdir /data/system 0775 system system
+    mkdir /data/system/users 0775 system system
+    mkdir /data/system/users/0 0775 system system
+    mkdir /data/app 0771 system system
+    mkdir /data/data 0771 system system
+    mkdir /data/user 0711 system system
+    symlink /data/data /data/user/0
+    mkdir /data/media 0775 system system
+    mkdir /data/media/0 0775 system system
+    mkdir /data/misc 0771 system system
+    mkdir /data/local 0751 root root
+    mkdir /data/local/tmp 0771 root root
+    mkdir /data/var 0755 root root
+    mkdir /data/var/lib 0755 root root
+    mkdir /data/var/cache 0755 root root
+    mkdir /data/var/log 0755 root root
+
+on boot
+    write /proc/sys/net/ipv4/tcp_fastopen 3
+    class_start core
+    class_start main
+
+service ueventd /system/bin/udevd
+    class early
+    critical
