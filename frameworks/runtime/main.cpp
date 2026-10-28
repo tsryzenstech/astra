@@ -8,6 +8,7 @@
 // SysBoard matches windows to launcher icons.
 
 #include <astra/client.h>
+#include <astra/localization.h>
 #include <astra/paths.h>
 
 #include <QDir>
@@ -79,7 +80,13 @@ int main(int argc, char **argv)
     QGuiApplication::setApplicationName(info.value(QLatin1String("name")).toString());
     QGuiApplication::setApplicationDisplayName(info.value(QLatin1String("name")).toString());
 
+    // The app's own strings first, then the framework's; English otherwise.
+    auto *l10n = astra::Localization::instance();
+    l10n->addDirectory(info.value(QLatin1String("codePath")).toString() + QStringLiteral("/i18n"));
+    l10n->addDirectory(Paths::resolve(QStringLiteral("/system/framework/i18n")));
+
     QQuickView view;
+    QObject::connect(l10n, &astra::Localization::languageChanged, view.engine(), [&view] { view.engine()->retranslate(); });
     view.engine()->addImportPath(Paths::frameworkQml());
     view.engine()->addImportPath(info.value(QLatin1String("codePath")).toString() + QStringLiteral("/qml"));
     view.setColor(QColor(info.value(QLatin1String("background")).toString(QStringLiteral("#000000"))));

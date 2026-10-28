@@ -222,8 +222,6 @@ Page {
             value: Weather.available ? Weather.current.city + " " + Weather.current.temperature + "°" : "no data"
             onClicked: System.call("weather.refresh", {}, null)
         }
-        ListItem { text: "Restart SysBoard"; onClicked: System.power("restart-sysboard") }
-        ListItem { text: "Reboot"; destructive: true; onClicked: System.power("reboot") }
-        ListItem { text: "Reboot to bootloader"; destructive: true; separator: false; onClicked: System.power("bootloader") }
+        ListItem { text: "Restart SysBoard"; separator: false; onClicked: System.power("restart-sysboard") }
     }
 }

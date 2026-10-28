@@ -10,6 +10,7 @@
 #include <QtQml/qqmlregistration.h>
 
 class QLocalServer;
+class QJsonValue;
 
 // Glue between SysBoard's QML and the platform: display hand-over from the
 // boot animation, Wayland socket publication, power key and screen power.
@@ -44,6 +45,8 @@ public:
 
     Q_INVOKABLE void compositorReady(QQuickWindow *window);
     Q_INVOKABLE void setScreenOn(bool on);
+    // Saves what is on screen as a PNG.
+    Q_INVOKABLE bool saveScreenshot(const QString &path);
 
 Q_SIGNALS:
     void powerKeyPressed();
@@ -55,6 +58,8 @@ protected:
 private:
     explicit SysBoardHost(QObject *parent = nullptr);
     void startDevAutomation();
+    void onSystemEvent(const QString &name, const QJsonValue &data);
+    void restartSelf();
 
     QPointer<QQuickWindow> m_window;
     QLocalServer *m_automation = nullptr;

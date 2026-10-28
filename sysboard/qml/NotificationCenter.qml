@@ -126,7 +126,7 @@ Item {
                         color: Qt.rgba(0, 0, 0, 0.62)
                         Text {
                             anchors.centerIn: parent
-                            text: "Clear"
+                            text: qsTr("Clear")
                             font.family: Theme.fontFamily
                             font.pixelSize: 12
                             color: "white"

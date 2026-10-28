@@ -15,7 +15,9 @@
 #include <QLibraryInfo>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QJsonObject>
 #include <QPointingDevice>
+#include <QProcess>
 #include <QQuickWindow>
 #include <QThread>
 #include <QTimer>
@@ -41,6 +43,48 @@ SysBoardHost::SysBoardHost(QObject *parent)
     : QObject(parent)
 {
     qApp->installEventFilter(this);
+    astra::Client *c = astra::Client::instance();
+    c->subscribe({QStringLiteral("system")});
+    connect(c, &astra::Client::event, this, &SysBoardHost::onSystemEvent);
+}
+
+void SysBoardHost::onSystemEvent(const QString &name, const QJsonValue &data)
+{
+    if (name == QLatin1String("system.screenshot")) {
+        // Requested by adud or a developer tool: capture, then answer astrad.
+        const QJsonObject req = data.toObject();
+        const QString path = req.value(QLatin1String("path")).toString();
+        const bool ok = saveScreenshot(path);
+        astra::Client::instance()->call(QStringLiteral("system.screenshotDone"),
+                                        {{QStringLiteral("id"), req.value(QLatin1String("id"))},
+                                         {QStringLiteral("path"), path},
+                                         {QStringLiteral("ok"), ok}});
+    } else if (name == QLatin1String("system.restartShell")) {
+        restartSelf();
+    }
+}
+
+bool SysBoardHost::saveScreenshot(const QString &path)
+{
+    if (!m_window || path.isEmpty())
+        return false;
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    return m_window->grabWindow().save(path, "PNG");
+}
+
+// Development trees have no init to restart SysBoard ("Restart SysBoard" in
+// Developer options): start a fresh copy, which comes up on the lock screen.
+void SysBoardHost::restartSelf()
+{
+    qInfo("sysboard: restarting");
+    QProcess p;
+    p.setProgram(QCoreApplication::applicationFilePath());
+    p.setArguments(QCoreApplication::arguments().mid(1));
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("ASTRA_SYSBOARD_WAIT_PID"), QString::number(QCoreApplication::applicationPid()));
+    p.setProcessEnvironment(env);
+    if (p.startDetached())
+        QTimer::singleShot(0, qApp, &QCoreApplication::quit);
 }
 
 QString SysBoardHost::socketName() const
@@ -141,7 +185,8 @@ bool SysBoardHost::eventFilter(QObject *watched, QEvent *event)
 // ---------------------------------------------------------------------------
 // Development automation: lets scripts drive a nested SysBoard.
 //   echo "tap 200 400" | socat - UNIX-CONNECT:$ASTRA_ROOT/run/astra/sysboard-dev.sock
-// Commands: screenshot <png>, tap x y, press x y ms, swipe x1 y1 x2 y2 ms, key power
+// Commands: screenshot <png>, tap x y, press x y ms, swipe x1 y1 x2 y2 ms,
+// swipehold x1 y1 x2 y2 ms hold_ms (stays down at the end), key power
 
 namespace {
 void sendMouse(QQuickWindow *w, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
@@ -152,7 +197,7 @@ void sendMouse(QQuickWindow *w, QEvent::Type type, QPointF pos, Qt::MouseButtons
     QCoreApplication::sendEvent(w, &ev);
 }
 
-void gesture(QQuickWindow *w, QPointF from, QPointF to, int ms, std::function<void()> done)
+void gesture(QQuickWindow *w, QPointF from, QPointF to, int ms, std::function<void()> done, int holdMs = 0)
 {
     sendMouse(w, QEvent::MouseButtonPress, from, Qt::LeftButton);
     const int steps = qMax(1, ms / 16);
@@ -163,10 +208,12 @@ void gesture(QQuickWindow *w, QPointF from, QPointF to, int ms, std::function<vo
         const QPointF p = from + (to - from) * (double(*step) / steps);
         if (*step <= steps && from != to)
             sendMouse(w, QEvent::MouseMove, p, Qt::LeftButton);
-        if (*step >= steps) {
+        if (*step >= steps + holdMs / 16) {
             sendMouse(w, QEvent::MouseButtonRelease, to, Qt::NoButton);
             timer->deleteLater();
             done();
+        } else if (*step > steps && *step % 4 == 0) {
+            sendMouse(w, QEvent::MouseMove, to, Qt::LeftButton); // a resting finger still reports
         }
     });
     timer->start(16);
@@ -207,6 +254,9 @@ void SysBoardHost::startDevAutomation()
                 } else if (a[0] == QLatin1String("swipe") && a.size() == 6) {
                     gesture(m_window, QPointF(a[1].toDouble(), a[2].toDouble()), QPointF(a[3].toDouble(), a[4].toDouble()),
                             a[5].toInt(), [reply] { reply("ok"); });
+                } else if (a[0] == QLatin1String("swipehold") && a.size() == 7) {
+                    gesture(m_window, QPointF(a[1].toDouble(), a[2].toDouble()), QPointF(a[3].toDouble(), a[4].toDouble()),
+                            a[5].toInt(), [reply] { reply("ok"); }, a[6].toInt());
                 } else if (a[0] == QLatin1String("key") && a.value(1) == QLatin1String("power")) {
                     Q_EMIT powerKeyPressed();
                     reply("ok");

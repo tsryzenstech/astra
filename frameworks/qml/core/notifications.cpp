@@ -87,6 +87,20 @@ QVariant NotificationModel::data(const QModelIndex &index, int role) const
     return {};
 }
 
+QVariantMap NotificationModel::get(int id) const
+{
+    for (int i = 0; i < m_items.size(); ++i) {
+        if (m_items.at(i).value(QLatin1String("id")).toInt() != id)
+            continue;
+        QVariantMap out;
+        const QHash<int, QByteArray> roles = roleNames();
+        for (auto it = roles.cbegin(); it != roles.cend(); ++it)
+            out.insert(QString::fromLatin1(it.value()), data(index(i), it.key()));
+        return out;
+    }
+    return {};
+}
+
 QHash<int, QByteArray> NotificationModel::roleNames() const
 {
     return {

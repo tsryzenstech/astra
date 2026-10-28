@@ -14,16 +14,16 @@ Rectangle {
 
     radius: width / 2
     color: Theme.glassButton
-    clip: true
     scale: area.pressed ? 1.04 : 1
     Behavior on scale { SpringNumberAnimation { preset: Motion.bouncy } }
 
+    // The fill is a pill of its own, so it stays round at every level.
     Rectangle {
         anchors.bottom: parent.bottom
         width: parent.width
-        height: Math.max(0, Math.min(1, root.value)) * parent.height
+        height: parent.width + Math.max(0, Math.min(1, root.value)) * (parent.height - parent.width)
         color: Qt.rgba(1, 1, 1, 0.92)
-        radius: height > parent.height - parent.radius ? parent.radius : 0
+        radius: width / 2
     }
 
     Icon {

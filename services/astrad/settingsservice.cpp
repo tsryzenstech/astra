@@ -43,6 +43,30 @@ void SettingsService::setValue(const QString &key, const QJsonValue &v)
                         [key](const Caller &c) { return !key.startsWith(QLatin1String("secure.")) || c.isSystem(); });
 }
 
+// Who may change a key besides MANAGE_SETTINGS holders: an app owns its
+// "app.<package>." namespace, a few system apps own their feature's keys.
+bool SettingsService::mayWrite(const QString &key, const Caller &caller) const
+{
+    if (caller.can(QLatin1String(permissions::MANAGE_SETTINGS)))
+        return true;
+    if (key.startsWith(QStringLiteral("app.%1.").arg(caller.package)))
+        return true;
+    static const QHash<QString, QString> owners{
+        {QStringLiteral("weather."), QStringLiteral("com.astra.weather")},
+        {QStringLiteral("clock."), QStringLiteral("com.astra.clock")},
+        {QStringLiteral("market."), QStringLiteral("com.astra.market")},
+        {QStringLiteral("planet."), QStringLiteral("com.astra.planet")},
+        {QStringLiteral("camera."), QStringLiteral("com.astra.camera")},
+    };
+    for (auto it = owners.cbegin(); it != owners.cend(); ++it)
+        if (key.startsWith(it.key()) && caller.package == it.value())
+            return true;
+    if ((key.startsWith(QLatin1String("ui.")) || key.startsWith(QLatin1String("lockscreen.")) ||
+         key.startsWith(QLatin1String("wallpaper."))) && caller.can(QLatin1String(permissions::MANAGE_THEMES)))
+        return true;
+    return false;
+}
+
 QJsonValue SettingsService::handle(const QString &call, const QJsonObject &params, const Caller &caller)
 {
     const QString key = params.value(QLatin1String("key")).toString();
@@ -66,11 +90,12 @@ QJsonValue SettingsService::handle(const QString &call, const QJsonObject &param
         return out;
     }
     if (call == QLatin1String("set") || call == QLatin1String("reset")) {
-        caller.require(QLatin1String(permissions::MANAGE_SETTINGS));
         if (key.isEmpty())
             throw RpcError{protocol::InvalidParams, QStringLiteral("key is required")};
         if (secure)
             caller.requireSystem();
+        if (!mayWrite(key, caller))
+            throw RpcError{protocol::PermissionDenied, QStringLiteral("%1 cannot change %2").arg(caller.package, key)};
         setValue(key, call == QLatin1String("set") ? params.value(QLatin1String("value")) : QJsonValue());
         return value(key);
     }

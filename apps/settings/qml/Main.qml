@@ -6,11 +6,31 @@ import Astra.Controls
 // Settings. Deep links (launch arguments / intents):
 //   { page: "lockscreen" }                 Lock Screen (from the lock screen long press)
 //   { page: "appinfo", package: "<pkg>" }  App Info (from the home screen menu)
-//   { page: "connectivity" }               Wi-Fi & Bluetooth (from Control Center)
-//   { page: "controlcenter" }              Control Center customization
+//   { page: "wifi" } { page: "bluetooth" } { page: "mobile" }   (from Control Center)
+//   { page: "controlcenter" }              Cards (Control Center customization)
+//   { page: "privacy" } { page: "display" } { page: "about" } { page: "update" }
+//   { page: "developer" } { page: "language" } { page: "notifications" }
 Rectangle {
     id: app
     color: Theme.background
+
+    readonly property var routes: ({
+        lockscreen: "LockScreenPage.qml",
+        wifi: "WifiPage.qml",
+        connectivity: "WifiPage.qml",
+        bluetooth: "BluetoothPage.qml",
+        mobile: "MobilePage.qml",
+        controlcenter: "CardsPage.qml",
+        privacy: "PrivacyPage.qml",
+        display: "DisplayPage.qml",
+        about: "AboutPage.qml",
+        update: "UpdatePage.qml",
+        developer: "DeveloperPage.qml",
+        language: "LanguagePage.qml",
+        notifications: "NotificationsPage.qml",
+        battery: "BatteryPage.qml",
+        sound: "SoundPage.qml"
+    })
 
     PageStack {
         id: stack
@@ -21,17 +41,10 @@ Rectangle {
         if (!args || !args.page)
             return
         stack.pop(null)
-        switch (args.page) {
-        case "lockscreen":
-            stack.open(Qt.resolvedUrl("LockScreenPage.qml"))
-            break
-        case "appinfo":
+        if (args.page === "appinfo")
             stack.open(Qt.resolvedUrl("AppInfoPage.qml"), { packageName: args.package })
-            break
-        case "controlcenter":
-            stack.open(Qt.resolvedUrl("ComingSoonPage.qml"), { title: "Control Center" })
-            break
-        }
+        else if (routes[args.page])
+            stack.open(Qt.resolvedUrl(routes[args.page]))
     }
 
     Component.onCompleted: {

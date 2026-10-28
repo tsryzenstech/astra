@@ -10,17 +10,41 @@
 #include "host.h"
 
 #include <astra/client.h>
+#include <astra/localization.h>
 #include <astra/paths.h>
 #include <astra/properties.h>
 
 #include <QDir>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QFontDatabase>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
 
+#include <csignal>
+#include <unistd.h>
+
 using astra::Paths;
 using astra::Properties;
+
+// A setting read straight from astrad's store: needed before the
+// application object (and so the astrad connection) exists.
+static QJsonValue userSetting(const QString &key)
+{
+    for (const QString &path : {Paths::dataSystem() + QStringLiteral("/settings.json"),
+                                Paths::resolve(QStringLiteral("/vendor/etc/settings/defaults.json")),
+                                Paths::resolve(QStringLiteral("/system/etc/settings/defaults.json"))}) {
+        QFile f(path);
+        if (!f.open(QIODevice::ReadOnly))
+            continue;
+        const QJsonObject o = QJsonDocument::fromJson(f.readAll()).object();
+        if (o.contains(key))
+            return o.value(key);
+    }
+    return {};
+}
 
 static void setDefaultEnv(const char *key, const QByteArray &value)
 {
@@ -30,6 +54,13 @@ static void setDefaultEnv(const char *key, const QByteArray &value)
 
 int main(int argc, char **argv)
 {
+    // Restarted by the previous SysBoard: wait until it released the display.
+    if (const qint64 previous = qEnvironmentVariableIntValue("ASTRA_SYSBOARD_WAIT_PID")) {
+        for (int i = 0; i < 100 && ::kill(pid_t(previous), 0) == 0; ++i)
+            ::usleep(50000);
+        qunsetenv("ASTRA_SYSBOARD_WAIT_PID");
+    }
+
     if (!Paths::isDevelopmentRoot()) {
         // On devices SysBoard drives the panel directly through KMS.
         setDefaultEnv("QT_QPA_PLATFORM", "eglfs");
@@ -38,9 +69,15 @@ int main(int argc, char **argv)
         setDefaultEnv("QT_QPA_EGLFS_HIDECURSOR", "1");
         setDefaultEnv("QT_IM_MODULE", "qtvirtualkeyboard");
         setDefaultEnv("XDG_RUNTIME_DIR", QFile::encodeName(Paths::displayDir()));
-        const QString scale = Properties::get(QStringLiteral("ro.astra.ui.scale"));
-        if (!scale.isEmpty())
-            setDefaultEnv("QT_SCALE_FACTOR", scale.toLatin1());
+        // Display size (Settings > Display): the device density times the
+        // user's UI size; resolution and refresh rate from astrad's kms.json.
+        const double density = Properties::get(QStringLiteral("ro.astra.ui.scale"), QStringLiteral("1")).toDouble();
+        const double uiScale = qBound(0.8, userSetting(QStringLiteral("display.ui_scale")).toDouble(1.0), 1.3);
+        if (density > 0)
+            setDefaultEnv("QT_SCALE_FACTOR", QByteArray::number(density * uiScale, 'f', 3));
+        const QString kms = Paths::dataSystem() + QStringLiteral("/kms.json");
+        if (QFileInfo::exists(kms))
+            setDefaultEnv("QT_QPA_EGLFS_KMS_CONFIG", QFile::encodeName(kms));
     }
     setDefaultEnv("QT_WAYLAND_COMPOSITOR_NO_THROTTLE", "0");
     setDefaultEnv("QT_QUICK_CONTROLS_STYLE", "Basic");
@@ -58,7 +95,12 @@ int main(int argc, char **argv)
     QGuiApplication::setFont(QFont(QStringLiteral("Poppins")));
 
     SysBoardHost::instance();
+    auto *l10n = astra::Localization::instance();
+    l10n->addDirectory(Paths::resolve(QStringLiteral("/system/etc/i18n/sysboard")));
+    l10n->addDirectory(Paths::resolve(QStringLiteral("/system/framework/i18n")));
+
     QQmlApplicationEngine engine;
+    QObject::connect(l10n, &astra::Localization::languageChanged, &engine, [&engine] { engine.retranslate(); });
     engine.addImportPath(Paths::frameworkQml());
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);

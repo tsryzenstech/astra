@@ -18,6 +18,8 @@ Item {
     property bool interactive: true
     property bool editing: false
     property bool animateLayout: false
+    // The package whose window is growing out of (or back into) its icon.
+    property string hiddenPackage: ""
 
     // ---- geometry (reference: 393 x 852 logical px) ----------------------
     readonly property real sidePadding: 10
@@ -256,7 +258,7 @@ Item {
 
         Image {
             anchors.fill: parent
-            source: Host.wallpaper
+            source: home.shell ? home.shell.wallpaper : Host.wallpaper
             fillMode: Image.PreserveAspectCrop
             sourceSize: Qt.size(width * 2, height * 2)
             asynchronous: true
@@ -284,7 +286,7 @@ Item {
                 Text {
                     x: 14
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Search with Cosmo.."
+                    text: qsTr("Search with Cosmo..")
                     font.family: Theme.fontFamily
                     font.pixelSize: 14
                     color: Qt.rgba(1, 1, 1, 0.7)
@@ -304,7 +306,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 404
                 textFormat: Text.StyledText
-                text: "<b>Planet</b> • AI Search"
+                text: "<b>Planet</b> • " + qsTr("AI Search")
                 font.family: Theme.fontFamily
                 font.pixelSize: 14
                 font.weight: Font.Normal
@@ -340,7 +342,7 @@ Item {
                 Behavior on opacity { NumberAnimation { duration: 150 } }
                 Icon { name: "search"; size: 11; anchors.verticalCenter: parent.verticalCenter }
                 Text {
-                    text: "Search"
+                    text: qsTr("Search")
                     font.family: Theme.fontFamily
                     font.pixelSize: 12
                     color: "white"
@@ -392,6 +394,7 @@ Item {
                 pressed: touch.pressedIndex === index && !touch.paging && !touch.dragging
                 jiggle: home.editing
                 hidden: touch.dragging && touch.dragIndex === index || focusMenu.index === index && focusMenu.visible
+                        || pkg === home.hiddenPackage
 
                 readonly property real targetX: home.localX(container, slot)
                 readonly property real targetY: home.localY(container, slot)
@@ -609,7 +612,7 @@ Item {
         Text {
             id: doneText
             anchors.centerIn: parent
-            text: "Done"
+            text: qsTr("Done")
             font.family: Theme.fontFamily
             font.pixelSize: 14
             font.weight: Font.DemiBold

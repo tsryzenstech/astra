@@ -3,13 +3,16 @@
 
 #include "server.h"
 
+#include <QHash>
+
 namespace astrad {
 
 class NotificationService;
 class PackageManager;
 class SettingsService;
 
-// System information, boot state and power control (through init).
+// System information, boot state, power control (through init), time zone,
+// factory reset and screenshots (taken by SysBoard).
 class SystemService : public Service
 {
     Q_OBJECT
@@ -22,13 +25,15 @@ public:
 private:
     QJsonObject info() const;
     void bootCompleted();
-    static bool sendToInit(const QByteArray &command);
+    void applyTimezone(const QString &tz);
 
     Server *m_server;
     SettingsService *m_settings;
     NotificationService *m_notifications;
     PackageManager *m_packages;
     bool m_bootCompleted = false;
+    QHash<int, PendingReply> m_screenshots;
+    int m_nextScreenshot = 1;
 };
 
 } // namespace astrad

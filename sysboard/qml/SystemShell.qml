@@ -6,8 +6,9 @@ import Astra.Animation
 
 // Root of the system UI. Layers, bottom to top:
 //   screenContent (wallpaper, home screen, app windows, lock screen)
-//   panels        (Notification Center / Control Center over a live blur)
-//   edge gestures, home indicator
+//   Recents, panels (Notification Center / Control Center over a live blur)
+//   edge gestures, home indicator, push notification banners
+//   incoming call, alarms, system dialogs
 //   status bar    (always fixed and sharp)
 Item {
     id: shell
@@ -19,9 +20,12 @@ Item {
     property bool locked: true
     readonly property bool appOpen: apps.activeWindow !== null
     readonly property bool panelOpen: panels.reveal > 0.001
+    readonly property url wallpaper: Settings.values["display.wallpaper"]
+                                     ? System.fileUrl(Settings.values["display.wallpaper"]) : Host.wallpaper
 
     function lock() {
         panels.close()
+        recents.close()
         lockScreen.lock()
         locked = true
     }
@@ -33,39 +37,77 @@ Item {
             action()
     }
 
+    // Answering a call: without a PIN the phone unlocks so the Phone app can
+    // show the call; with one the call simply goes on.
+    function unlockForCall() {
+        if (!locked)
+            return true
+        if (Lock.hasPin)
+            return false
+        lockScreen.authenticate(null)
+        return true
+    }
+
     function launch(packageName, args, fromRect) {
         if (locked)
             return
         panels.close()
-        apps.launch(packageName, args || {}, fromRect || null)
+        recents.close()
+        // An icon on the visible home page is the natural origin.
+        const origin = fromRect || (!appOpen ? home.iconRect(packageName) : null)
+        apps.launch(packageName, args || {}, origin)
     }
 
     function goHome() {
+        recents.close()
         if (apps.activeWindow)
             apps.closeActive(0)
+    }
+
+    function openRecents() {
+        panels.close()
+        recents.open()
+        if (apps.activeWindow)
+            apps.closeActiveToCard(recents.firstCardRect(), recents.cardRadius, 0)
     }
 
     Item {
         id: screenContent
         anchors.fill: parent
 
-        Image {
-            id: wallpaper
+        Item {
+            id: homeLayer
             anchors.fill: parent
-            source: Host.wallpaper
-            fillMode: Image.PreserveAspectCrop
-            sourceSize: Qt.size(width * 2, height * 2)
-            asynchronous: true
-            // The home screen zooms slightly behind opening apps.
-            scale: 1 + 0.06 * apps.progress
+
+            Image {
+                id: wallpaper
+                anchors.fill: parent
+                source: shell.wallpaper
+                fillMode: Image.PreserveAspectCrop
+                sourceSize: Qt.size(width * 2, height * 2)
+                asynchronous: true
+                // The home screen zooms slightly behind opening apps.
+                scale: 1 + 0.06 * apps.progress
+            }
+
+            HomeScreen {
+                id: home
+                anchors.fill: parent
+                shell: shell
+                appProgress: apps.progress
+                hiddenPackage: apps.morphingPackage
+                interactive: !shell.locked && !shell.appOpen && !shell.panelOpen && !recents.shown
+            }
         }
 
-        HomeScreen {
-            id: home
+        // Between home and apps: windows shrink into and grow out of the
+        // cards above the blur.
+        Recents {
+            id: recents
             anchors.fill: parent
             shell: shell
-            appProgress: apps.progress
-            interactive: !shell.locked && !shell.appOpen && !shell.panelOpen
+            apps: apps
+            blurSource: homeLayer
         }
 
         AppLayer {
@@ -85,6 +127,7 @@ Item {
     Panels {
         id: panels
         anchors.fill: parent
+        z: 3
         shell: shell
         blurSource: screenContent
     }
@@ -97,7 +140,8 @@ Item {
         height: 44
         z: 10
         // Must not depend on panels.dragging: disabling a MouseArea mid-press cancels the gesture.
-        enabled: !panels.opened && !lockScreen.pinPadVisible && !home.editing
+        enabled: !panels.opened && !lockScreen.pinPadVisible && !home.editing && !dialogs.active && !alarm.active
+                 && !call.ringingFull
         preventStealing: true
         property real startY: 0
         property bool dragging: false
@@ -112,6 +156,7 @@ Item {
             topVelocity.addPoint(m.x, m.y)
             if (!dragging && m.y - startY > 8) {
                 dragging = true
+                recents.close()
                 panels.beginDrag(m.x < width / 2 ? "notifications" : "controls")
             }
             if (dragging)
@@ -129,50 +174,136 @@ Item {
         }
     }
 
-    // Swipe up from the bottom edge: close the current app.
+    // Swipe up from the bottom edge: close the current app. Swipe up and
+    // hold still for a moment: Recents (from an app or from home).
     MouseArea {
         id: bottomEdge
         anchors.bottom: parent.bottom
         width: parent.width
         height: Theme.homeIndicatorHeight
         z: 10
-        enabled: !shell.locked && shell.appOpen && !shell.panelOpen
+        enabled: !shell.locked && !shell.panelOpen && !recents.shown && !dialogs.active && !home.editing
         preventStealing: true
         property point start
+        property point anchor          // where the finger last stopped
+        property bool inApp: false
+        property bool toRecents: false
         VelocityTracker { id: bottomVelocity }
+
         onPressed: (m) => {
             start = Qt.point(m.x, m.y)
+            anchor = start
+            toRecents = false
+            inApp = shell.appOpen
             bottomVelocity.reset()
             bottomVelocity.addPoint(m.x, m.y)
-            apps.beginCloseGesture()
+            if (inApp) {
+                apps.beginCloseGesture()
+                indicator.following = true
+            }
+            holdTimer.stop()
         }
         onPositionChanged: (m) => {
             bottomVelocity.addPoint(m.x, m.y)
-            apps.updateCloseGesture(m.x - start.x, start.y - m.y)
+            if (toRecents)
+                return
+            const dy = start.y - m.y
+            if (inApp) {
+                apps.updateCloseGesture(m.x - start.x, dy)
+                const w = apps.activeWindow
+                if (w) {
+                    // Sit just under the shrinking window.
+                    indicator.followX = w.gestureX
+                    indicator.followY = shell.height / 2 * (1 - w.gestureScale) + w.gestureY * 0.35
+                }
+            }
+            // Holding still (after a real swipe) opens Recents.
+            if (Math.hypot(m.x - anchor.x, m.y - anchor.y) > 10) {
+                anchor = Qt.point(m.x, m.y)
+                holdTimer.restart()
+            }
+            if (dy < 60)
+                holdTimer.stop()
         }
         onReleased: {
+            holdTimer.stop()
             const v = bottomVelocity.velocity()
-            apps.endCloseGesture(v.x, -v.y)
+            indicator.release(v.x, v.y)
+            if (toRecents)
+                return
+            if (inApp)
+                apps.endCloseGesture(v.x, -v.y)
+        }
+        onCanceled: {
+            holdTimer.stop()
+            indicator.release(0, 0)
+            if (inApp && !toRecents)
+                apps.endCloseGesture(0, 0)
+        }
+        Timer {
+            id: holdTimer
+            interval: 900
+            onTriggered: {
+                bottomEdge.toRecents = true
+                indicator.release(0, 0)
+                shell.openRecents()
+            }
         }
     }
 
-    // Home indicator: shown on every screen, like the concepts.
-    Rectangle {
-        anchors.horizontalCenter: parent.horizontalCenter
+    HomeIndicator {
+        id: indicator
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 9
-        width: 120
-        height: 5
-        radius: 2.5
-        color: "white"
         z: 11
-        opacity: lockScreen.pinPadVisible ? 0 : 1
+        opacity: lockScreen.pinPadVisible || alarm.active || call.ringingFull ? 0 : 1
+    }
+
+    NotificationBanner {
+        id: banner
+        z: 12
+        shell: shell
+        suppressed: panels.opened || call.ringingFull || alarm.active
+                    || (shell.locked && Settings.values["notifications.lockscreen"] === false)
+    }
+
+    CallScreen {
+        id: call
+        anchors.fill: parent
+        z: 13
+        shell: shell
+    }
+
+    AlarmScreen {
+        id: alarm
+        anchors.fill: parent
+        z: 14
+    }
+
+    SystemDialog {
+        id: dialogs
+        anchors.fill: parent
+        z: 15
+    }
+
+    // Night light: a warm filter over everything but the status bar.
+    Rectangle {
+        anchors.fill: parent
+        z: 19
+        enabled: false
+        color: "#FF8A1F"
+        readonly property real strength: Number(Settings.values["display.night_light_strength"] ?? 0.5)
+        opacity: Settings.values["display.night_light"] ? 0.08 + 0.17 * strength : 0
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 400 } }
     }
 
     StatusBar {
         width: parent.width
         z: 20
         showClock: !shell.locked || lockScreen.musicExpanded || shell.panelOpen || lockScreen.pinPadVisible
+        inCall: call.ongoing !== null && !(apps.activeWindow && apps.activeWindow.packageName === "com.astra.phone")
+                && !call.ringingFull
+        onCallPillClicked: shell.launch("com.astra.phone", { call: call.ongoing.id }, null)
     }
 
     Loader {
@@ -204,6 +335,32 @@ Item {
             } else {
                 Host.setScreenOn(true)
             }
+        }
+    }
+
+    // Turns the screen off after the timeout chosen in Settings > Display.
+    Timer {
+        id: idle
+        // Battery saver at 20% or less: at most 30 seconds.
+        readonly property bool saving: !!Settings.values["battery.saver"] && System.batteryLevel <= 20 && !System.charging
+        interval: Math.max(15, saving ? Math.min(30, Number(Settings.values["display.screen_timeout"] ?? 60)) || 30
+                                      : Number(Settings.values["display.screen_timeout"] ?? 60)) * 1000
+        running: Host.screenOn && !alarm.active && !call.ringingFull && call.ongoing === null
+                 && !(Settings.values["developer.stay_awake"] && System.charging)
+                 && Number(Settings.values["display.screen_timeout"] ?? 60) > 0 && !Host.development
+        onTriggered: {
+            shell.lock()
+            Host.setScreenOn(false)
+        }
+    }
+    // Any touch restarts the idle timer.
+    MouseArea {
+        anchors.fill: parent
+        z: 99
+        propagateComposedEvents: true
+        onPressed: (m) => {
+            idle.restart()
+            m.accepted = false
         }
     }
 

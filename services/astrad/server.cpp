@@ -30,6 +30,31 @@ void Caller::requireSystem() const
         throw RpcError{protocol::PermissionDenied, QStringLiteral("system only")};
 }
 
+PendingReply::PendingReply(Connection *connection, const QJsonValue &id)
+    : m_connection(connection)
+    , m_id(id)
+{
+}
+
+bool PendingReply::isValid() const
+{
+    return !m_connection.isNull();
+}
+
+void PendingReply::resolve(const QJsonValue &result) const
+{
+    if (m_connection)
+        m_connection->send({{QStringLiteral("id"), m_id}, {QStringLiteral("result"), result}});
+}
+
+void PendingReply::reject(int code, const QString &message) const
+{
+    if (m_connection)
+        m_connection->send({{QStringLiteral("id"), m_id},
+                            {QStringLiteral("error"), QJsonObject{{QStringLiteral("code"), code},
+                                                                  {QStringLiteral("message"), message}}}});
+}
+
 Connection::Connection(QLocalSocket *s, QObject *parent)
     : QObject(parent)
     , socket(s)
@@ -127,6 +152,7 @@ void Server::dispatch(Connection *c, const QJsonObject &request)
     if (m_identify && c->caller.package.isEmpty())
         m_identify(c->caller);
 
+    c->caller.requestId = id;
     try {
         QJsonValue result;
         if (method == QLatin1String("system.subscribe")) {
@@ -138,6 +164,8 @@ void Server::dispatch(Connection *c, const QJsonObject &request)
                 throw RpcError{protocol::MethodNotFound, QStringLiteral("unknown method %1").arg(method)};
             result = service->handle(method.mid(dot + 1), params, c->caller);
         }
+        if (result.isUndefined())
+            return; // deferred: the service replies through PendingReply
         reply.insert(QStringLiteral("result"), result);
     } catch (const RpcError &e) {
         reply.insert(QStringLiteral("error"), QJsonObject{{QStringLiteral("code"), e.code},
@@ -157,6 +185,11 @@ bool Server::topicAllowed(const QString &topic, const Caller &caller)
         {QStringLiteral("activity"), QString()},
         {QStringLiteral("lock"), QString()},
         {QStringLiteral("display"), QString()},
+        {QStringLiteral("dialogs"), QString()},
+        {QStringLiteral("alarms"), QLatin1String(permissions::ALARMS)},
+        {QStringLiteral("contacts"), QLatin1String(permissions::CONTACTS)},
+        {QStringLiteral("telephony"), QLatin1String(permissions::PHONE)},
+        {QStringLiteral("developer"), QLatin1String(permissions::DEVELOPER)},
     };
     if (!restricted.contains(topic))
         return true;
@@ -184,6 +217,14 @@ void Server::broadcast(const QString &event, const QJsonValue &data, const std::
     for (Connection *c : std::as_const(m_connections))
         if (c->topics.contains(topic) && (!filter || filter(c->caller)))
             c->send(msg);
+}
+
+bool Server::hasSystemSubscriber(const QString &topic) const
+{
+    for (Connection *c : std::as_const(m_connections))
+        if (c->caller.isSystem() && c->topics.contains(topic))
+            return true;
+    return false;
 }
 
 void Server::sendToPackage(const QString &package, const QString &event, const QJsonValue &data)

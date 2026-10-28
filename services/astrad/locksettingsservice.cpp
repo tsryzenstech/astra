@@ -65,6 +65,15 @@ bool LockSettingsService::check(const QString &pin)
     return false;
 }
 
+bool LockSettingsService::verifyPin(const QString &pin)
+{
+    try {
+        return check(pin);
+    } catch (const RpcError &) {
+        return false;
+    }
+}
+
 void LockSettingsService::store(const QString &pin)
 {
     if (pin.isEmpty()) {
@@ -91,7 +100,7 @@ QJsonValue LockSettingsService::handle(const QString &call, const QJsonObject &p
                            {QStringLiteral("length"), m_state.value(QLatin1String("length")).toInt(0)}};
     }
     if (call == QLatin1String("verify")) {
-        caller.requireSystem();
+        caller.require(QLatin1String(permissions::MANAGE_LOCK));
         return check(params.value(QLatin1String("pin")).toString());
     }
     if (call == QLatin1String("setPin")) {

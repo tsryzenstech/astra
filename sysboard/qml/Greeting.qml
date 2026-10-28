@@ -14,18 +14,18 @@ Item {
 
     readonly property string word: {
         switch (condition) {
-        case "sunny": return "Sunny"
-        case "clear": return "Clear"
-        case "partly-cloudy": return "Cloudy"
-        case "cloudy": return "Cloudy"
-        case "foggy": return "Foggy"
-        case "rainy": return "Rainy"
-        case "snowy": return "Snowy"
-        case "stormy": return "Stormy"
+        case "sunny": return qsTr("Sunny")
+        case "clear": return qsTr("Clear")
+        case "partly-cloudy": return qsTr("Cloudy")
+        case "cloudy": return qsTr("Cloudy")
+        case "foggy": return qsTr("Foggy")
+        case "rainy": return qsTr("Rainy")
+        case "snowy": return qsTr("Snowy")
+        case "stormy": return qsTr("Stormy")
         }
         return Qt.formatDate(SystemClock.now, "dddd")
     }
-    readonly property string tail: condition === "" ? "today" : night ? "tonight" : "outside"
+    readonly property string tail: condition === "" ? qsTr("today") : night ? qsTr("tonight") : qsTr("outside")
 
     implicitWidth: column.implicitWidth
     implicitHeight: column.implicitHeight
@@ -35,7 +35,7 @@ Item {
         spacing: -16
 
         Text {
-            text: "It’s"
+            text: qsTr("It’s")
             font.family: Theme.fontFamily
             font.pixelSize: 54
             font.weight: Font.Light

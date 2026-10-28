@@ -6,6 +6,7 @@
 #include <QJsonValue>
 #include <QList>
 #include <QObject>
+#include <QPointer>
 #include <QSet>
 #include <QStringList>
 
@@ -25,18 +26,38 @@ struct RpcError {
     QString message;
 };
 
+// A reply sent later (e.g. after the user answered a permission prompt).
+// Handlers that defer return Deferred from handle().
+class PendingReply
+{
+public:
+    PendingReply() = default;
+    PendingReply(Connection *connection, const QJsonValue &id);
+    void resolve(const QJsonValue &result) const;
+    void reject(int code, const QString &message) const;
+    bool isValid() const;
+
+private:
+    QPointer<Connection> m_connection;
+    QJsonValue m_id;
+};
+
+inline const QJsonValue Deferred = QJsonValue(QJsonValue::Undefined);
+
 // Who is calling. Identity always comes from the kernel (SO_PEERCRED).
 struct Caller {
     uid_t uid = 0;
     pid_t pid = 0;
-    QString package;        // empty for system components (SysBoard, daemons)
+    QString package;         // empty for system components (SysBoard, daemons)
     QStringList permissions; // granted permissions of the package
     Connection *connection = nullptr;
+    QJsonValue requestId;    // id of the request being handled
 
     bool isSystem() const { return package.isEmpty(); }
     bool can(const QString &permission) const { return isSystem() || permissions.contains(permission); }
     void require(const QString &permission) const;
     void requireSystem() const;
+    PendingReply defer() const { return PendingReply(connection, requestId); }
 };
 
 class Service : public QObject
@@ -78,6 +99,8 @@ public:
                    const std::function<bool(const Caller &)> &filter = {});
     // Sends an event to all connections of a package, subscribed or not.
     void sendToPackage(const QString &package, const QString &event, const QJsonValue &data);
+    // True when a system component (SysBoard) listens to the topic.
+    bool hasSystemSubscriber(const QString &topic) const;
 
 Q_SIGNALS:
     void clientDisconnected(const Caller &caller);

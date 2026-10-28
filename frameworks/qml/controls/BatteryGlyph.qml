@@ -3,12 +3,14 @@ import QtQuick
 import QtQuick.Effects
 
 // Battery pill with the charge level knocked out of it, as in the status bar
-// of the concepts. Scales with `height`.
+// of the concepts. The fill follows the level; green while charging, red
+// at 20 % and below. Scales with `height`.
 Item {
     id: root
 
     property int level: 100
     property bool charging: false
+    property bool showLevel: true
     property color color: "white"
 
     implicitHeight: 13
@@ -20,19 +22,21 @@ Item {
         visible: false
         layer.enabled: true
 
+        // The body fills up to the real charge level; the rest stays faint,
+        // so the glyph has as many stages as there are percentages.
         Rectangle {
             id: body
             width: parent.width - root.height * 0.18
             height: parent.height
             radius: height * 0.31
             color: root.color
-            // Low battery: only the filled part stays opaque.
-            Rectangle {
-                visible: root.level <= 20 && !root.charging
-                anchors.fill: parent
-                radius: parent.radius
-                color: "#FF453A"
-            }
+            opacity: 0.38
+        }
+        Rectangle {
+            width: Math.max(height * 0.62, body.width * Math.max(0, Math.min(100, root.level)) / 100)
+            height: parent.height
+            radius: height * 0.31
+            color: root.charging ? "#34D058" : root.level <= 20 ? "#FF453A" : root.color
         }
         Rectangle {
             anchors.left: body.right
@@ -57,7 +61,7 @@ Item {
             height: parent.height
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            text: root.charging ? "⚡" + root.level : root.level
+            text: !root.showLevel ? "" : root.charging ? "⚡" + root.level : root.level
             font.family: Theme.fontFamily
             font.weight: Font.Bold
             font.pixelSize: root.height * (root.level >= 100 ? 0.86 : 0.92)

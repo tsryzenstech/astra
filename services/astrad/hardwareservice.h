@@ -13,8 +13,6 @@ class SettingsService;
 //   battery    /sys/class/power_supply/<battery>/{capacity,status}
 //   brightness /sys/class/backlight/<panel>/brightness   (ro.vendor.backlight)
 //   torch      /sys/class/leds/<torch>/brightness         (ro.vendor.torch)
-//   radios     /dev/rfkill (Wi-Fi, Bluetooth); cellular is a preference
-//              until the modem stack lands.
 // Without hardware (development trees) the state is simulated in memory.
 class HardwareService : public Service
 {
@@ -24,13 +22,15 @@ public:
 
     QJsonValue handle(const QString &call, const QJsonObject &params, const Caller &caller) override;
 
+Q_SIGNALS:
+    void batteryChanged(int level, bool charging);
+
 private:
     QJsonObject battery() const;
     QJsonObject state() const;
     void pollBattery();
     void setBrightness(double value);
     void setTorch(bool on);
-    void setRadio(const QString &radio, bool enabled);
     void notify(const QString &key, const QJsonValue &value);
 
     Server *m_server;

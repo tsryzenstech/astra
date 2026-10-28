@@ -2,9 +2,12 @@
 import QtQuick
 
 // A row inside a ListGroup: label, optional subtitle/value, and an
-// accessory (chevron, switch or nothing).
+// accessory (chevron, switch or nothing). Child items are placed with the
+// trailing accessories (e.g. a signal glyph).
 Item {
     id: root
+
+    default property alias accessories: extra.data
 
     property string text
     property string subtitle
@@ -12,6 +15,11 @@ Item {
     property string iconName
     property url iconSource
     property bool chevron: false
+    property bool selected: false      // trailing accent check mark (choices)
+    property bool busy: false          // trailing spinner
+    property color iconColor: "white"
+    property real iconTile: 0          // >0: symbolic icon on a rounded colour tile of this size
+    property color tileColor: Theme.accent
     property bool showSwitch: false
     property alias checked: toggle.checked
     property bool destructive: false
@@ -26,9 +34,13 @@ Item {
     implicitHeight: Math.max(Theme.rowHeight, labels.implicitHeight + 24)
     opacity: enabled ? 1 : 0.45
 
+    // Press feedback is an inset rounded pill: no square corners even on
+    // the first and last row of a group.
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(1, 1, 1, 0.06)
+        anchors.margins: 4
+        radius: Theme.radius - 4
+        color: Qt.rgba(1, 1, 1, 0.08)
         opacity: area.pressed && (root.chevron || !root.showSwitch) ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 120 } }
     }
@@ -46,7 +58,16 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             sourceComponent: root.iconSource.toString() !== "" ? appIcon : symbolic
             Component { id: appIcon; AppIcon { source: root.iconSource; size: 30 } }
-            Component { id: symbolic; Icon { name: root.iconName; size: 22 } }
+            Component {
+                id: symbolic
+                Rectangle {
+                    width: root.iconTile > 0 ? root.iconTile : 22
+                    height: width
+                    radius: width * 0.32
+                    color: root.iconTile > 0 ? root.tileColor : "transparent"
+                    Icon { anchors.centerIn: parent; name: root.iconName; size: root.iconTile > 0 ? root.iconTile * 0.62 : 22; color: root.iconColor }
+                }
+            }
         }
 
         Column {
@@ -81,13 +102,33 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 8
 
+        Row {
+            id: extra
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 8
+        }
         Text {
             visible: root.value !== ""
             anchors.verticalCenter: parent.verticalCenter
+            width: Math.min(implicitWidth, root.width * 0.55)
+            elide: Text.ElideMiddle
             text: root.value
             font.family: Theme.fontFamily
             font.pixelSize: Theme.bodySize
             color: Theme.textSecondary
+        }
+        Icon {
+            visible: root.selected
+            name: "check"
+            size: 22
+            color: Theme.accent
+            anchors.verticalCenter: parent.verticalCenter
+        }
+        Spinner {
+            visible: root.busy
+            running: root.busy
+            size: 20
+            anchors.verticalCenter: parent.verticalCenter
         }
         Switch {
             id: toggle
@@ -109,8 +150,8 @@ Item {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: 12
-        anchors.rightMargin: 12
+        anchors.leftMargin: 16 + (root.iconName || root.iconSource.toString() ? 42 : 0)
+        anchors.rightMargin: 16
         height: 1
         color: Theme.separator
     }

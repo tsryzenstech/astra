@@ -46,7 +46,7 @@ Item {
                 hide(false)
                 root.accepted()
             } else {
-                message = error ? error : "Wrong PIN"
+                message = error ? error : qsTr("Wrong PIN")
                 entered = ""
                 shake.snap(1)
                 shake.animateTo(0, 0)
@@ -71,7 +71,7 @@ Item {
             id: title
             anchors.horizontalCenter: parent.horizontalCenter
             y: 120
-            text: root.message || "Enter PIN"
+            text: root.message || qsTr("Enter PIN")
             font.family: Theme.fontFamily
             font.pixelSize: 20
             font.weight: Font.Medium
@@ -141,7 +141,7 @@ Item {
             anchors.rightMargin: 14
             anchors.top: keys.bottom
             anchors.topMargin: 26
-            text: root.entered.length > 0 ? "Delete" : "Cancel"
+            text: root.entered.length > 0 ? qsTr("Delete") : qsTr("Cancel")
             font.family: Theme.fontFamily
             font.pixelSize: 17
             color: "white"

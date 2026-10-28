@@ -42,7 +42,7 @@ Rectangle {
             anchors.leftMargin: 12
             anchors.rightMargin: 10
             verticalAlignment: Text.AlignVCenter
-            text: "Ask about Weather, Music, Calendar..."
+            text: qsTr("Ask about Weather, Music, Calendar...")
             elide: Text.ElideRight
             font.family: Theme.fontFamily
             font.pixelSize: 14

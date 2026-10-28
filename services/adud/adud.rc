@@ -1,0 +1,5 @@
+# adud - ADU debugging daemon. Started and stopped by astrad when USB or
+# wireless debugging is toggled in Settings > Developer options.
+service adud /system/bin/adud
+    class main
+    disabled

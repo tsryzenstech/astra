@@ -3,15 +3,18 @@ import QtQuick
 import Astra.Controls
 import Astra.Animation
 
-// Wi-Fi / Bluetooth pill: tap toggles, the chevron opens the details.
+// Wi-Fi / Bluetooth pill: tap toggles; the chevron or a long press opens
+// the menu.
 Rectangle {
     id: root
 
     property string iconName
     property string text
+    property string subtitle
     property bool checked: false
     signal toggled()
     signal details()
+    signal pressAndHold()
 
     radius: height / 2
     color: checked ? Theme.highlight : Theme.glassButton
@@ -26,23 +29,37 @@ Rectangle {
         name: root.iconName
         size: 23
     }
-    Text {
+    Column {
         anchors.left: glyph.right
         anchors.leftMargin: 6
         anchors.right: chevron.left
         anchors.rightMargin: 3
         anchors.verticalCenter: parent.verticalCenter
-        text: root.text
-        elide: Text.ElideRight
-        font.family: Theme.fontFamily
-        font.pixelSize: 13
-        font.weight: Font.Bold
-        color: "white"
+        Text {
+            width: parent.width
+            text: root.text
+            elide: Text.ElideRight
+            font.family: Theme.fontFamily
+            font.pixelSize: 13
+            font.weight: Font.Bold
+            color: "white"
+        }
+        Text {
+            visible: root.subtitle !== ""
+            width: parent.width
+            text: root.subtitle
+            elide: Text.ElideRight
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            color: Qt.rgba(1, 1, 1, 0.78)
+        }
     }
     MouseArea {
         id: area
         anchors.fill: parent
+        pressAndHoldInterval: 420
         onClicked: root.toggled()
+        onPressAndHold: root.pressAndHold()
     }
     Rectangle {
         id: chevron

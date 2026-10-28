@@ -6,9 +6,13 @@
 #include <QHash>
 #include <QJsonArray>
 
+#include <functional>
+
 namespace astrad {
 
-// Installs, tracks and removes .apkg packages.
+class DialogService;
+
+// Installs, tracks and removes .apkg packages, and owns their permissions.
 //
 //  /system/priv-app/<Name>/<package>.apkg   privileged system apps
 //  /system/app/<Name>/<package>.apkg        system apps
@@ -25,27 +29,45 @@ public:
     PackageManager(Server *server, QObject *parent = nullptr);
 
     void scan();
+    void setDialogs(DialogService *dialogs) { m_dialogs = dialogs; }
+    // Current system language, used to localize app names.
+    void setLanguageProvider(std::function<QString()> language) { m_language = std::move(language); }
 
     QJsonValue handle(const QString &call, const QJsonObject &params, const Caller &caller) override;
 
     bool contains(const QString &package) const { return m_packages.contains(package); }
+    QStringList packages() const { return m_packages.keys(); }
     QJsonObject info(const QString &package) const;
     QString packageForUid(uid_t uid) const;
     QStringList permissionsOf(const QString &package) const;
+    QList<gid_t> groupsOf(const QString &package) const;
     uid_t uidOf(const QString &package) const;
     QJsonArray widgets() const;
+    bool isGranted(const QString &package, const QString &permission) const;
+    QString displayName(const QString &package) const;
+
+    // Asks the user (through a system dialog) for a runtime permission.
+    // result(granted, restartRequired)
+    void requestPermission(const QString &package, const QString &permission,
+                           std::function<void(bool, bool)> result);
 
 Q_SIGNALS:
     void packageRemoved(const QString &package);
+    void permissionsChanged(const QString &package, bool groupsChanged);
+    void dataCleared(const QString &package);
 
 private:
     bool installFrom(const QString &apkgPath, bool system, bool privileged, const QString &installer, QString *error);
     void uninstall(const QString &package);
     uid_t allocateUid() const;
     void prepareDataDir(const QString &package, uid_t uid);
+    void setRuntimeState(const QString &package, const QString &permission, const QString &state);
+    QJsonArray permissionList(const QString &package) const;
     void save();
 
     Server *m_server;
+    DialogService *m_dialogs = nullptr;
+    std::function<QString()> m_language;
     QString m_dbPath;
     QHash<QString, QJsonObject> m_packages; // package -> record
 };

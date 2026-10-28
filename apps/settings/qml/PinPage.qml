@@ -6,7 +6,7 @@ import Astra.Controls
 // Set, change or remove the lock screen PIN (4 to 8 digits).
 Page {
     id: page
-    title: "PIN"
+    title: qsTr("Screen lock PIN")
 
     // steps: "menu" (PIN set), "current", "new", "confirm"
     property string step: Lock.hasPin ? "menu" : "new"
@@ -14,12 +14,13 @@ Page {
     property string current: ""
     property string fresh: ""
     property string message: ""
+    property bool failed: false
 
     readonly property string prompt: {
         switch (step) {
-        case "current": return "Enter your current PIN"
-        case "new": return "Choose a new PIN"
-        case "confirm": return "Enter the new PIN again"
+        case "current": return qsTr("Enter your current PIN")
+        case "new": return qsTr("Choose a new PIN")
+        case "confirm": return qsTr("Enter the new PIN again")
         }
         return ""
     }
@@ -29,36 +30,47 @@ Page {
         message = ""
         step = "current"
     }
+    function report(text, bad) {
+        message = text
+        failed = bad
+        if (bad)
+            entry.shake()
+    }
 
     function submit(value) {
-        keypad.clear()
+        entry.clear()
         message = ""
         if (step === "current") {
             current = value
             if (intent === "remove") {
                 Lock.setPin(current, "", (ok, error) => {
-                    message = ok ? "PIN removed" : error
-                    step = ok ? "new" : "current"
+                    page.report(ok ? qsTr("PIN removed") : qsTr("Wrong PIN"), !ok)
+                    page.step = ok ? "new" : "current"
                 })
             } else {
-                step = "new"
+                Lock.verify(current, (ok) => {
+                    if (ok)
+                        page.step = "new"
+                    else
+                        page.report(qsTr("Wrong PIN"), true)
+                })
             }
         } else if (step === "new") {
             fresh = value
             step = "confirm"
         } else if (step === "confirm") {
             if (value !== fresh) {
-                message = "The PINs don't match"
+                report(qsTr("The PINs don't match"), true)
                 step = "new"
                 return
             }
             Lock.setPin(current, fresh, (ok, error) => {
                 if (ok) {
-                    message = "PIN saved"
-                    step = "menu"
+                    page.report(qsTr("PIN saved"), false)
+                    page.step = "menu"
                 } else {
-                    message = error
-                    step = Lock.hasPin ? "current" : "new"
+                    page.report(error, true)
+                    page.step = Lock.hasPin ? "current" : "new"
                 }
             })
         }
@@ -66,8 +78,9 @@ Page {
 
     ListGroup {
         visible: page.step === "menu"
-        ListItem { text: "Change PIN"; chevron: true; onClicked: page.start("set") }
-        ListItem { text: "Remove PIN"; destructive: true; separator: false; onClicked: page.start("remove") }
+        footer: qsTr("The PIN unlocks the phone and protects Developer Options and the camera on the lock screen.")
+        ListItem { text: qsTr("Change PIN"); chevron: true; onClicked: page.start("set") }
+        ListItem { text: qsTr("Remove PIN"); destructive: true; separator: false; onClicked: page.start("remove") }
     }
 
     Text {
@@ -77,24 +90,16 @@ Page {
         text: page.message
         font.family: Theme.fontFamily
         font.pixelSize: Theme.bodySize
-        color: Theme.accent
-    }
-
-    Text {
-        visible: page.step !== "menu"
-        width: parent.width
-        horizontalAlignment: Text.AlignHCenter
-        text: page.prompt
-        font.family: Theme.fontFamily
-        font.pixelSize: 19
         font.weight: Font.Medium
-        color: Theme.text
+        color: page.failed ? Theme.danger : Theme.success
     }
 
-    PinKeypad {
-        id: keypad
+    PinEntry {
+        id: entry
         visible: page.step !== "menu"
-        anchors.horizontalCenter: parent.horizontalCenter
-        onSubmitted: (value) => page.submit(value)
+        title: page.prompt
+        message: page.step === "new" ? qsTr("4 to 8 digits") : ""
+        length: page.step === "current" ? Lock.pinLength : page.step === "confirm" ? page.fresh.length : 0
+        onEntered: (pin) => page.submit(pin)
     }
 }

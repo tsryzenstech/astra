@@ -1,8 +1,16 @@
 # astraOS system properties
-ro.astra.version=@PROJECT_VERSION@
-ro.astra.release=@ASTRA_RELEASE_NAME@
+ro.astra.version=@ASTRA_VERSION@
+ro.astra.version.major=@ASTRA_VERSION_MAJOR@
+ro.astra.version.minor=@ASTRA_VERSION_MINOR@
+ro.astra.channel=@ASTRA_CHANNEL@
+ro.astra.codename=@ASTRA_CODENAME@
 ro.astra.api_level=@ASTRA_API_LEVEL@
-ro.build.display.id=astraOS @PROJECT_VERSION@ (@ASTRA_RELEASE_NAME@)
+ro.astra.build.number=@ASTRA_BUILD_NUMBER@
+ro.astra.build.id=@ASTRA_BUILD_ID@
+ro.astra.build.date=@ASTRA_BUILD_EPOCH@
+ro.astra.build.commit=@ASTRA_GIT_HASH@
+ro.astra.ota.url=@ASTRA_OTA_URL@
+ro.build.display.id=astraOS @ASTRA_VERSION@ "@ASTRA_CODENAME@" (@ASTRA_BUILD_ID@)
 ro.build.type=@ASTRA_BUILD_TYPE@
 ro.system.font.family=Poppins
 ro.system.wallpaper=/system/media/wallpapers/default_wallpaper.png

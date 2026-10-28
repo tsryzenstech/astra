@@ -12,7 +12,6 @@
 #include <QLoggingCategory>
 
 #include <fcntl.h>
-#include <linux/rfkill.h>
 #include <unistd.h>
 
 Q_LOGGING_CATEGORY(lcHw, "astrad.hardware")
@@ -62,30 +61,54 @@ HardwareService::HardwareService(Server *server, SettingsService *settings, QObj
         m_torch = findClassEntry(QStringLiteral("leds"), {QStringLiteral("torch"), QStringLiteral("flash")});
 
     const QDir ps(Paths::resolve(QStringLiteral("/sys/class/power_supply")));
-    for (const QString &e : ps.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::System))
-        if (readSys(ps.filePath(e) + QStringLiteral("/type")) == "Battery")
+    for (const QString &e : ps.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::System)) {
+        // Skip batteries of peripherals (e.g. a stylus or a HID device).
+        if (readSys(ps.filePath(e) + QStringLiteral("/type")) == "Battery" &&
+            readSys(ps.filePath(e) + QStringLiteral("/scope")) != "Device" && m_batteryDir.isEmpty())
             m_batteryDir = ps.filePath(e);
+    }
     qCInfo(lcHw) << "backlight:" << m_backlight << "torch:" << m_torch << "battery:" << m_batteryDir;
 
     // Restore persisted state.
     setBrightness(m_settings->value(QStringLiteral("display.brightness")).toDouble(0.7));
-    for (const char *radio : {"wifi", "bluetooth"})
-        setRadio(QLatin1String(radio), m_settings->value(QStringLiteral("radio.") + QLatin1String(radio)).toBool(true));
 
     m_lastBattery = battery();
-    m_batteryTimer.setInterval(30000);
+    m_batteryTimer.setInterval(10000);
     connect(&m_batteryTimer, &QTimer::timeout, this, &HardwareService::pollBattery);
     m_batteryTimer.start();
 }
 
 QJsonObject HardwareService::battery() const
 {
-    if (m_batteryDir.isEmpty())
-        return {{QStringLiteral("level"), 100}, {QStringLiteral("charging"), false}, {QStringLiteral("present"), false}};
+    if (m_batteryDir.isEmpty()) {
+        // Development trees without a battery report a full, healthy one.
+        return {{QStringLiteral("level"), 100}, {QStringLiteral("charging"), false}, {QStringLiteral("present"), false},
+                {QStringLiteral("status"), QStringLiteral("Full")}, {QStringLiteral("health"), QStringLiteral("Good")}};
+    }
+    auto num = [this](const char *file) { return readSys(m_batteryDir + QLatin1Char('/') + QLatin1String(file)).toLongLong(); };
     const QByteArray status = readSys(m_batteryDir + QStringLiteral("/status"));
-    return {{QStringLiteral("level"), readSys(m_batteryDir + QStringLiteral("/capacity")).toInt()},
-            {QStringLiteral("charging"), status == "Charging" || status == "Full"},
-            {QStringLiteral("present"), true}};
+    QJsonObject b{
+        {QStringLiteral("level"), int(num("capacity"))},
+        {QStringLiteral("charging"), status == "Charging" || status == "Full"},
+        {QStringLiteral("present"), true},
+        {QStringLiteral("status"), QString::fromLatin1(status)},
+        {QStringLiteral("health"), QString::fromLatin1(readSys(m_batteryDir + QStringLiteral("/health")))},
+        {QStringLiteral("technology"), QString::fromLatin1(readSys(m_batteryDir + QStringLiteral("/technology")))},
+        {QStringLiteral("temperature"), double(num("temp")) / 10.0},          // °C
+        {QStringLiteral("voltage"), double(num("voltage_now")) / 1e6},        // V
+        {QStringLiteral("current"), double(num("current_now")) / 1e3},        // mA
+    };
+    const qint64 full = num("charge_full"), design = num("charge_full_design");
+    if (full > 0 && design > 0)
+        b.insert(QStringLiteral("capacityPercent"), int(100 * full / design));
+    if (design > 0)
+        b.insert(QStringLiteral("designCapacity"), double(design) / 1e3); // mAh
+    // Some fuel gauges expose capacity only through the level class.
+    if (b.value(QStringLiteral("level")).toInt() == 0 && readSys(m_batteryDir + QStringLiteral("/capacity")).isEmpty()) {
+        const QByteArray lvl = readSys(m_batteryDir + QStringLiteral("/capacity_level"));
+        b.insert(QStringLiteral("level"), lvl == "Full" ? 100 : lvl == "High" ? 80 : lvl == "Normal" ? 50 : lvl == "Low" ? 15 : 5);
+    }
+    return b;
 }
 
 void HardwareService::pollBattery()
@@ -94,6 +117,7 @@ void HardwareService::pollBattery()
     if (b != m_lastBattery) {
         m_lastBattery = b;
         m_server->broadcast(QStringLiteral("hardware.battery"), b);
+        Q_EMIT batteryChanged(b.value(QLatin1String("level")).toInt(), b.value(QLatin1String("charging")).toBool());
     }
 }
 
@@ -104,9 +128,6 @@ QJsonObject HardwareService::state() const
         {QStringLiteral("brightness"), m_brightness},
         {QStringLiteral("torch"), m_torchOn},
         {QStringLiteral("torchAvailable"), !m_torch.isEmpty() || Paths::isDevelopmentRoot()},
-        {QStringLiteral("wifi"), m_settings->value(QStringLiteral("radio.wifi")).toBool()},
-        {QStringLiteral("bluetooth"), m_settings->value(QStringLiteral("radio.bluetooth")).toBool()},
-        {QStringLiteral("cellular"), m_settings->value(QStringLiteral("radio.cellular")).toBool()},
     };
 }
 
@@ -138,26 +159,6 @@ void HardwareService::setTorch(bool on)
     notify(QStringLiteral("torch"), on);
 }
 
-void HardwareService::setRadio(const QString &radio, bool enabled)
-{
-    const quint8 type = radio == QLatin1String("wifi") ? RFKILL_TYPE_WLAN
-                      : radio == QLatin1String("bluetooth") ? RFKILL_TYPE_BLUETOOTH : 0;
-    if (type) {
-        const int fd = open(QFile::encodeName(Paths::resolve(QStringLiteral("/dev/rfkill"))).constData(), O_WRONLY | O_CLOEXEC);
-        if (fd >= 0) {
-            struct rfkill_event ev {};
-            ev.type = type;
-            ev.op = RFKILL_OP_CHANGE_ALL;
-            ev.soft = enabled ? 0 : 1;
-            if (write(fd, &ev, RFKILL_EVENT_SIZE_V1) < 0)
-                qCWarning(lcHw) << "rfkill write failed for" << radio;
-            close(fd);
-        }
-    }
-    m_settings->setValue(QStringLiteral("radio.") + radio, enabled);
-    notify(radio, enabled);
-}
-
 QJsonValue HardwareService::handle(const QString &call, const QJsonObject &params, const Caller &caller)
 {
     if (call == QLatin1String("state"))
@@ -181,13 +182,6 @@ QJsonValue HardwareService::handle(const QString &call, const QJsonObject &param
             qCWarning(lcHw) << "cannot change panel power";
         notify(QStringLiteral("screen"), on);
         return on;
-    }
-    if (call == QLatin1String("setRadio")) {
-        const QString radio = params.value(QLatin1String("radio")).toString();
-        if (radio != QLatin1String("wifi") && radio != QLatin1String("bluetooth") && radio != QLatin1String("cellular"))
-            throw RpcError{protocol::InvalidParams, QStringLiteral("unknown radio %1").arg(radio)};
-        setRadio(radio, params.value(QLatin1String("enabled")).toBool());
-        return true;
     }
     throw RpcError{protocol::MethodNotFound, call};
 }

@@ -9,10 +9,31 @@ Item {
     id: root
 
     property bool showClock: true
+    property bool inCall: false
+    signal callPillClicked()
+
+    readonly property var wifi: Network.state.wifi || {}
+    readonly property var cell: Network.state.cellular || {}
+    readonly property bool airplane: !!Network.state.airplane
+    readonly property int cellBars: !cell.registered ? 0 : Math.max(1, Math.min(4, Math.ceil((cell.signal || 0) / 25)))
 
     height: Theme.statusBarHeight
 
+    // Clock, or a green pill with the clock during a call.
+    Rectangle {
+        x: 18
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: 2
+        width: clock.implicitWidth + 24
+        height: 26
+        radius: 13
+        color: "#30D158"
+        opacity: root.inCall ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 180 } }
+        MouseArea { anchors.fill: parent; enabled: root.inCall; onClicked: root.callPillClicked() }
+    }
     Text {
+        id: clock
         x: 30
         anchors.verticalCenter: parent.verticalCenter
         anchors.verticalCenterOffset: 2
@@ -21,7 +42,7 @@ Item {
         font.pixelSize: 17
         font.weight: Font.DemiBold
         color: "white"
-        opacity: root.showClock ? 1 : 0
+        opacity: root.showClock || root.inCall ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 180 } }
     }
 
@@ -32,27 +53,33 @@ Item {
         anchors.verticalCenterOffset: 2
         spacing: 7
 
-        Image {
-            visible: System.cellular
+        Icon {
+            visible: root.airplane
             anchors.verticalCenter: parent.verticalCenter
-            source: "qrc:/qt/qml/Astra/Controls/icons/cellular-5g.svg"
-            sourceSize.height: 26
-            height: 13
-            fillMode: Image.PreserveAspectFit
+            name: "airplane"
+            size: 15
         }
-        Image {
-            visible: System.wifi
+        CellularGlyph {
+            visible: !root.airplane && !!root.cell.available && !!root.cell.simPresent
             anchors.verticalCenter: parent.verticalCenter
-            source: "qrc:/qt/qml/Astra/Controls/icons/wifi.svg"
-            sourceSize.height: 26
+            barHeight: 11
+            bars: root.cellBars
+            // The technology only shows when mobile data is in use.
+            technology: root.cell.dataConnected && !(root.wifi.state === "connected") ? (root.cell.technology || "") : ""
+        }
+        WifiGlyph {
+            visible: !!root.wifi.powered && (root.wifi.state === "connected" || root.wifi.state === "connecting")
+            anchors.verticalCenter: parent.verticalCenter
             height: 12.5
-            fillMode: Image.PreserveAspectFit
+            strength: root.wifi.strength || 0
+            connecting: root.wifi.state === "connecting"
         }
         BatteryGlyph {
             anchors.verticalCenter: parent.verticalCenter
             height: 13
             level: System.batteryLevel
             charging: System.charging
+            showLevel: Settings.values["battery.show_percentage"] !== false
         }
     }
 }

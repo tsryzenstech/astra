@@ -1,13 +1,16 @@
 cmake_minimum_required(VERSION 3.21)
 
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/version.json _v)
+string(JSON _major GET "${_v}" major)
+string(JSON _minor GET "${_v}" minor)
 project(astraOS
-    VERSION 0.1.0
+    VERSION ${_major}.${_minor}.0
     DESCRIPTION "Welcome to astraOS"
     LANGUAGES C CXX
 )
 
-set(ASTRA_RELEASE_NAME "Developer Preview 1")
-set(ASTRA_API_LEVEL 1)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+include(AstraVersion)
 set(ASTRA_BUILD_TYPE "userdebug" CACHE STRING "Build flavour reported in build.prop (user, userdebug, eng)")
 
 option(ASTRA_BUILD_CORE "Build init and the boot animation (Linux only)" ON)
@@ -29,7 +32,6 @@ set(ASTRA_QML_DIR system/framework/qml)
 set(ASTRA_ETC_DIR system/etc)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(ASTRA_APKGTOOL ${CMAKE_CURRENT_SOURCE_DIR}/tools/apkgtool/apkgtool.py)
 
@@ -54,6 +56,7 @@ if(ASTRA_BUILD_UI)
     add_subdirectory(frameworks/qml)
     add_subdirectory(frameworks/runtime)
     add_subdirectory(services/astrad)
+    add_subdirectory(services/adud)
     add_subdirectory(sysboard)
     add_subdirectory(apps)
 endif()

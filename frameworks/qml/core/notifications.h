@@ -39,6 +39,8 @@ public:
     Q_INVOKABLE void post(const QString &title, const QString &body, const QString &package = QString(),
                           const QJSValue &callback = QJSValue());
     Q_INVOKABLE void dismiss(int id);
+    // { notificationId, packageName, appName, icon, title, body, time } or {} if gone
+    Q_INVOKABLE QVariantMap get(int id) const;
     Q_INVOKABLE void clear();
 
 Q_SIGNALS:

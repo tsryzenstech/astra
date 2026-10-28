@@ -2,6 +2,7 @@
 import QtQuick
 import Astra.Core
 import Astra.Controls
+import Astra.Animation
 
 // Now playing tile in Control Center.
 Rectangle {
@@ -9,13 +10,21 @@ Rectangle {
 
     readonly property var session: MediaController.session
     signal openRequested(string pkg)
+    signal expandRequested()
 
     radius: 30
     color: Theme.glassButton
 
+    scale: tileArea.pressed ? 0.96 : 1
+    Behavior on scale { SpringNumberAnimation { preset: Motion.bouncy } }
+
+    // Tap opens the player app, long press expands the tile.
     MouseArea {
+        id: tileArea
         anchors.fill: parent
+        pressAndHoldInterval: 420
         onClicked: root.openRequested(root.session.package || "")
+        onPressAndHold: root.expandRequested()
     }
 
     Item {
@@ -47,7 +56,7 @@ Rectangle {
             width: parent.width
             Text {
                 width: parent.width
-                text: MediaController.active ? root.session.title : "Not Playing"
+                text: MediaController.active ? root.session.title : qsTr("Not Playing")
                 elide: Text.ElideRight
                 font.family: Theme.fontFamily
                 font.pixelSize: 17

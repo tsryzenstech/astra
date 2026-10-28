@@ -18,14 +18,27 @@
         "astra.permission.MANAGE_NOTIFICATIONS",
         "astra.permission.MEDIA_CONTROL",
         "astra.permission.HARDWARE",
-        "astra.permission.POWER"
+        "astra.permission.POWER",
+        "astra.permission.MANAGE_NETWORK",
+        "astra.permission.MANAGE_THEMES",
+        "astra.permission.DEVELOPER",
+        "astra.permission.INTERNET"
     ],
     "widgets": [
         {
             "id": "battery",
             "name": "Battery",
             "qml": "widgets/Battery.qml",
-            "size": "small"
+            "size": "small",
+            "names": {
+                "it": "Batteria"
+            }
         }
-    ]
+    ],
+    "names": {
+        "it": "Impostazioni"
+    },
+    "descriptions": {
+        "it": "Configura astraOS."
+    }
 }

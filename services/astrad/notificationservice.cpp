@@ -42,6 +42,7 @@ QJsonObject NotificationService::decorate(const QJsonObject &n) const
     const QJsonObject info = m_packages->info(n.value(QLatin1String("package")).toString());
     out.insert(QStringLiteral("appName"), info.value(QLatin1String("name")).toString(n.value(QLatin1String("package")).toString()));
     out.insert(QStringLiteral("icon"), info.value(QLatin1String("icon")));
+    out.insert(QStringLiteral("accent"), info.value(QLatin1String("accent")));
     return out;
 }
 
@@ -85,6 +86,10 @@ QJsonValue NotificationService::handle(const QString &call, const QJsonObject &p
             package = params.value(QLatin1String("package")).toString();
         if (package.isEmpty() || !m_packages->contains(package))
             throw RpcError{protocol::InvalidParams, QStringLiteral("unknown package")};
+        // Apps need the (runtime) NOTIFICATIONS permission; the user can
+        // turn notifications of any app off in Settings > Notifications.
+        if (!manager && !m_packages->isGranted(package, QLatin1String(permissions::NOTIFICATIONS)))
+            throw RpcError{protocol::PermissionDenied, QStringLiteral("notifications are not allowed for %1").arg(package)};
         const QString title = params.value(QLatin1String("title")).toString();
         if (title.isEmpty())
             throw RpcError{protocol::InvalidParams, QStringLiteral("title is required")};

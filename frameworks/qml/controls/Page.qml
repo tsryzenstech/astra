@@ -10,12 +10,20 @@ Item {
     property bool showBack: stack !== null && stack.depth > 1
     property var stack: null // set by PageStack
     default property alias content: column.data
+    property alias actions: actionRow.data // buttons at the right of the navigation bar
     property real spacing: 18
+    property bool centeredTitle: false // compact bar: back button + centred title (AboutFinal.png)
+    property Component background: null // replaces the black page background
     property alias flickable: flick
 
     Rectangle {
         anchors.fill: parent
         color: Theme.background
+        visible: root.background === null
+    }
+    Loader {
+        anchors.fill: parent
+        sourceComponent: root.background
     }
 
     Flickable {
@@ -30,7 +38,8 @@ Item {
         Item {
             id: header
             width: parent.width
-            height: Theme.statusBarHeight + (root.showBack ? 44 : 30) + titleText.height + 18
+            height: root.centeredTitle ? Theme.statusBarHeight + 56
+                                       : Theme.statusBarHeight + (root.showBack ? 44 : 30) + titleText.height + 18
 
             Item {
                 id: back
@@ -44,10 +53,11 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     x: 4
                     spacing: 2
-                    Icon { name: "chevron-left"; size: 24; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
+                    Icon { name: "chevron-left"; size: root.centeredTitle ? 28 : 24; color: root.centeredTitle ? "white" : Theme.accent
+                           anchors.verticalCenter: parent.verticalCenter }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Back"
+                        text: root.centeredTitle ? "" : qsTr("Back")
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.headlineSize
                         color: Theme.accent
@@ -59,8 +69,32 @@ Item {
                 }
             }
 
+            Row {
+                id: actionRow
+                anchors.right: parent.right
+                anchors.rightMargin: Theme.margin
+                y: Theme.statusBarHeight + 4
+                height: 36
+                spacing: 12
+            }
+
+            Text {
+                visible: root.centeredTitle
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: Theme.statusBarHeight + 6
+                width: parent.width - 140
+                horizontalAlignment: Text.AlignHCenter
+                text: root.title
+                elide: Text.ElideRight
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.headlineSize + 1
+                font.weight: Font.DemiBold
+                color: Theme.text
+            }
+
             Text {
                 id: titleText
+                visible: !root.centeredTitle
                 x: Theme.margin
                 y: Theme.statusBarHeight + (root.showBack ? 44 : 30)
                 width: parent.width - 2 * Theme.margin
@@ -94,6 +128,7 @@ Item {
         width: parent.width
         height: Theme.statusBarHeight
         color: Theme.background
+        visible: root.background === null
         opacity: Math.max(0, Math.min(0.94, (flick.contentY - 8) / 30))
     }
 }

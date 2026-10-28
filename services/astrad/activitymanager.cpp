@@ -2,16 +2,19 @@
 #include "activitymanager.h"
 #include "packagemanager.h"
 #include "permissions.h"
+#include "settingsservice.h"
 
 #include <astra/global.h>
 #include <astra/paths.h>
 #include <astra/protocol.h>
 
+#include <QDateTime>
 #include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLoggingCategory>
 #include <QProcess>
+#include <QTimer>
 
 #include <grp.h>
 #include <unistd.h>
@@ -22,32 +25,62 @@ namespace astrad {
 
 using namespace astra;
 
-ActivityManager::ActivityManager(Server *server, PackageManager *packages, QObject *parent)
+ActivityManager::ActivityManager(Server *server, PackageManager *packages, SettingsService *settings, QObject *parent)
     : Service(parent)
     , m_server(server)
     , m_packages(packages)
+    , m_settings(settings)
 {
     connect(packages, &PackageManager::packageRemoved, this, &ActivityManager::stop);
+    connect(packages, &PackageManager::dataCleared, this, &ActivityManager::stop);
+    // New supplementary groups only apply to a fresh process.
+    connect(packages, &PackageManager::permissionsChanged, this, [this](const QString &pkg, bool groupsChanged) {
+        if (groupsChanged && m_running.contains(pkg))
+            restart(pkg);
+    });
 }
 
 QString ActivityManager::packageForPid(pid_t pid) const
 {
     for (auto it = m_running.cbegin(); it != m_running.cend(); ++it)
-        if (it.value()->processId() == pid)
+        if (it.value().process->processId() == pid)
             return it.key();
     return {};
 }
 
 void ActivityManager::stop(const QString &package)
 {
-    if (QProcess *p = m_running.value(package))
-        p->terminate();
+    if (m_running.contains(package))
+        m_running[package].process->terminate();
+}
+
+void ActivityManager::restart(const QString &package)
+{
+    if (!m_running.contains(package))
+        return;
+    Running &r = m_running[package];
+    r.restarting = true;
+    m_server->broadcast(QStringLiteral("activity.restarting"), QJsonObject{{QStringLiteral("package"), package}});
+    r.process->terminate();
+}
+
+void ActivityManager::startFromSystem(const QString &package, const QJsonObject &args)
+{
+    if (m_waylandDisplay.isEmpty() || !m_packages->contains(package))
+        return;
+    try {
+        start(package, args);
+    } catch (const RpcError &e) {
+        qCWarning(lcAm) << "cannot start" << package << e.message;
+    }
 }
 
 void ActivityManager::start(const QString &package, const QJsonObject &args)
 {
     if (m_running.contains(package)) {
+        m_running[package].args = args;
         m_server->sendToPackage(package, QStringLiteral("activity.intent"), args);
+        m_server->broadcast(QStringLiteral("activity.resumed"), QJsonObject{{QStringLiteral("package"), package}});
         return;
     }
     const QJsonObject info = m_packages->info(package);
@@ -64,6 +97,7 @@ void ActivityManager::start(const QString &package, const QJsonObject &args)
         QFile::setPermissions(runtimeDir, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
     }
     const QString home = info.value(QLatin1String("dataDir")).toString();
+    const QString language = m_settings->value(QStringLiteral("system.language")).toString(QStringLiteral("en"));
     env.insert(QStringLiteral("PATH"), QStringLiteral("/system/bin"));
     env.insert(QStringLiteral("HOME"), home);
     env.insert(QStringLiteral("TMPDIR"), home + QStringLiteral("/cache"));
@@ -75,14 +109,21 @@ void ActivityManager::start(const QString &package, const QJsonObject &args)
     env.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("wayland"));
     env.insert(QStringLiteral("QT_WAYLAND_DISABLE_WINDOWDECORATION"), QStringLiteral("1"));
     env.insert(QStringLiteral("QT_QUICK_CONTROLS_STYLE"), QStringLiteral("Basic"));
-    env.insert(QStringLiteral("LANG"), QStringLiteral("en_US.UTF-8"));
+    env.insert(QStringLiteral("LANG"), language + QStringLiteral(".UTF-8"));
+    env.insert(QStringLiteral("ASTRA_LANGUAGE"), language);
     env.insert(QStringLiteral("ASTRA_PACKAGE"), package);
     env.insert(QStringLiteral("ASTRA_LAUNCH_ARGS"), QString::fromUtf8(QJsonDocument(args).toJson(QJsonDocument::Compact)));
+    const QString tz = m_settings->value(QStringLiteral("system.timezone")).toString();
+    if (!tz.isEmpty())
+        env.insert(QStringLiteral("TZ"), tz);
     if (!m_scaleFactor.isEmpty())
         env.insert(QStringLiteral("QT_SCALE_FACTOR"), m_scaleFactor);
+    const double animationScale = m_settings->value(QStringLiteral("developer.animation_scale")).toDouble(1.0);
+    const bool reduceMotion = m_settings->value(QStringLiteral("accessibility.reduce_motion")).toBool() || m_batterySaving;
+    env.insert(QStringLiteral("ASTRA_ANIMATION_SCALE"), QString::number(reduceMotion ? 0.0 : animationScale));
     // Development trees keep their own library and QML locations.
-    for (const char *passthrough : {"ASTRA_ROOT", "ASTRA_ANIMATION_SCALE", "LD_LIBRARY_PATH", "QT_PLUGIN_PATH",
-                                    "QML_IMPORT_PATH", "QT_LOGGING_RULES", "TZ", "PULSE_SERVER"}) {
+    for (const char *passthrough : {"ASTRA_ROOT", "LD_LIBRARY_PATH", "QT_PLUGIN_PATH", "QML_IMPORT_PATH",
+                                    "QT_LOGGING_RULES", "PULSE_SERVER", "QT_QUICK_BACKEND", "LIBGL_ALWAYS_SOFTWARE"}) {
         const QString key = QString::fromLatin1(passthrough);
         if (qEnvironmentVariableIsSet(passthrough))
             env.insert(key, qEnvironmentVariable(passthrough));
@@ -95,21 +136,24 @@ void ActivityManager::start(const QString &package, const QJsonObject &args)
     process->setWorkingDirectory(home);
     process->setProcessChannelMode(QProcess::ForwardedChannels);
     if (asRoot) {
-        const bool internet = m_packages->permissionsOf(package).contains(QLatin1String(permissions::INTERNET));
-        process->setChildProcessModifier([uid, internet] {
-            gid_t groups[3] = {AID_GRAPHICS, AID_AUDIO, AID_INET};
-            if (setgroups(internet ? 3 : 2, groups) != 0 || setgid(uid) != 0 || setuid(uid) != 0)
+        const QList<gid_t> groups = m_packages->groupsOf(package);
+        process->setChildProcessModifier([uid, groups] {
+            if (setgroups(size_t(groups.size()), groups.constData()) != 0 || setgid(uid) != 0 || setuid(uid) != 0)
                 _exit(126);
         });
     }
 
     connect(process, &QProcess::finished, this, [this, package, process](int code, QProcess::ExitStatus status) {
         qCInfo(lcAm) << package << "exited" << code << (status == QProcess::CrashExit ? "(crashed)" : "");
-        m_running.remove(package);
+        const Running r = m_running.take(package);
         process->deleteLater();
+        if (r.restarting) {
+            QTimer::singleShot(150, this, [this, package, args = r.args] { startFromSystem(package, args); });
+            return;
+        }
         m_server->broadcast(QStringLiteral("activity.exited"), QJsonObject{{QStringLiteral("package"), package}});
     });
-    m_running.insert(package, process);
+    m_running.insert(package, Running{process, args, QDateTime::currentMSecsSinceEpoch(), false});
     process->start();
     if (!process->waitForStarted(3000)) {
         qCWarning(lcAm) << "cannot start" << package << process->errorString();
@@ -135,17 +179,39 @@ QJsonValue ActivityManager::handle(const QString &call, const QJsonObject &param
         if (m_waylandDisplay.isEmpty())
             throw RpcError{protocol::Failed, QStringLiteral("display not ready")};
         start(pkg, params.value(QLatin1String("args")).toObject());
+        // Apps opening other apps (e.g. Settings > Open) bring them to the front.
+        if (!caller.isSystem())
+            m_server->broadcast(QStringLiteral("activity.front"), QJsonObject{{QStringLiteral("package"), pkg}});
         return true;
     }
     if (call == QLatin1String("stop")) {
-        if (!caller.isSystem() && caller.package != pkg)
+        if (!caller.isSystem() && caller.package != pkg && !caller.can(QLatin1String(permissions::MANAGE_PACKAGES)))
             throw RpcError{protocol::PermissionDenied, QStringLiteral("cannot stop other apps")};
         stop(pkg);
         return true;
     }
-    if (call == QLatin1String("running")) {
+    if (call == QLatin1String("stopAll")) {
         caller.requireSystem();
-        return QJsonArray::fromStringList(m_running.keys());
+        const QStringList running = m_running.keys();
+        for (const QString &p : running)
+            stop(p);
+        return QJsonArray::fromStringList(running);
+    }
+    if (call == QLatin1String("restart")) {
+        if (!caller.isSystem() && caller.package != pkg)
+            throw RpcError{protocol::PermissionDenied, QStringLiteral("cannot restart other apps")};
+        restart(pkg.isEmpty() ? caller.package : pkg);
+        return true;
+    }
+    if (call == QLatin1String("running")) {
+        if (!caller.isSystem())
+            caller.require(QLatin1String(permissions::MANAGE_PACKAGES));
+        QJsonArray out;
+        for (auto it = m_running.cbegin(); it != m_running.cend(); ++it)
+            out.append(QJsonObject{{QStringLiteral("package"), it.key()},
+                                   {QStringLiteral("pid"), qint64(it.value().process->processId())},
+                                   {QStringLiteral("started"), double(it.value().started)}});
+        return out;
     }
     if (call == QLatin1String("registerDisplay")) {
         // SysBoard announces the Wayland socket apps must connect to.

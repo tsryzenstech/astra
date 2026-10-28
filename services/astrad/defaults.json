@@ -1,26 +1,58 @@
 {
-    "account.name": "astra user",
-    "account.service": "nebula ID",
-
+    "account.name": "",
+    "system.language": "en",
+    "system.timezone": "Europe/Rome",
+    "clock.24h": true,
+    "region.first_day": 1,
     "radio.wifi": true,
     "radio.bluetooth": false,
     "radio.cellular": true,
-
     "display.brightness": 0.7,
+    "display.screen_timeout": 60,
+    "display.night_light": false,
+    "display.night_light_strength": 0.5,
+    "display.font_scale": 1.0,
+    "display.ui_scale": 1.0,
+    "theme.accent": "orange",
     "audio.volume": 0.6,
-
+    "audio.ring_volume": 0.8,
+    "audio.notification_volume": 0.7,
+    "audio.alarm_volume": 0.8,
+    "audio.ringtone": "Orbit",
+    "audio.notification_sound": "Pop",
+    "clock.alarm_sound": "Blossom",
+    "battery.saver": false,
+    "battery.show_percentage": true,
+    "notifications.lockscreen": true,
     "home.layout": {
         "pages": [
-            ["com.astra.weather", "com.astra.clock", "com.astra.tune", "com.astra.themes",
-             "com.astra.market", "com.astra.meetup", "com.astra.gallery", "com.astra.settings"],
-            ["com.astra.tips"]
+            [
+                "com.astra.weather",
+                "com.astra.clock",
+                "com.astra.tune",
+                "com.astra.themes",
+                "com.astra.market",
+                "com.astra.meetup",
+                "com.astra.gallery",
+                "com.astra.settings"
+            ],
+            [
+                "com.astra.tips"
+            ]
         ],
-        "dock": ["com.astra.phone", "com.astra.messages", "com.astra.planet", "com.astra.camera"]
+        "dock": [
+            "com.astra.phone",
+            "com.astra.messages",
+            "com.astra.planet",
+            "com.astra.camera"
+        ]
     },
-
     "lockscreen.clock_weight": "SemiBold",
-    "lockscreen.widgets": ["com.astra.weather/current", "com.astra.settings/battery", "com.astra.planet/cosmo"],
-
+    "lockscreen.widgets": [
+        "com.astra.weather/current",
+        "com.astra.settings/battery",
+        "com.astra.planet/cosmo"
+    ],
     "controls.location": false,
     "controls.sound": true,
     "controls.game": false,
@@ -29,11 +61,28 @@
     "controls.scanner": false,
     "controls.work": true,
     "controls.dnd": false,
-
+    "controls.tiles": [
+        "location",
+        "sound",
+        "game",
+        "cast",
+        "focus",
+        "scanner",
+        "work",
+        "dnd"
+    ],
     "weather.enabled": true,
     "weather.city": "Milan",
     "weather.latitude": 45.4642,
     "weather.longitude": 9.19,
-
-    "system.welcome_posted": false
+    "weather.units": "metric",
+    "system.welcome_posted": false,
+    "developer.enabled": false,
+    "developer.usb_debugging": false,
+    "developer.wireless_debugging": false,
+    "developer.animation_scale": 1.0,
+    "developer.stay_awake": false,
+    "accessibility.reduce_motion": false,
+    "cloudy.wake_word": false,
+    "cloudy.lockscreen": false
 }

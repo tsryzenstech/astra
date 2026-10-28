@@ -60,14 +60,14 @@ Item {
                 height: 44
                 radius: 22
                 color: Qt.rgba(0, 0, 0, 0.4)
-                placeholder: "Search apps"
+                placeholder: qsTr("Search apps")
                 onTextChanged: root.query = text
                 onAccepted: if (root.results.length) { root.launchRequested(root.results[0].package); root.close() }
             }
             Text {
                 id: cancel
                 anchors.verticalCenter: parent.verticalCenter
-                text: "Cancel"
+                text: qsTr("Cancel")
                 font.family: Theme.fontFamily
                 font.pixelSize: 15
                 color: "white"

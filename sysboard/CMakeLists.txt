@@ -33,3 +33,6 @@ set_target_properties(sysboard PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
 
 install(TARGETS sysboard RUNTIME DESTINATION ${ASTRA_BIN_DIR})
 install(FILES sysboard.rc DESTINATION ${ASTRA_ETC_DIR}/init)
+
+file(GLOB SYSBOARD_I18N CONFIGURE_DEPENDS i18n/*.json)
+install(FILES ${SYSBOARD_I18N} DESTINATION ${ASTRA_ETC_DIR}/i18n/sysboard)

@@ -66,7 +66,7 @@ Item {
 
         Image {
             anchors.fill: parent
-            source: Host.wallpaper
+            source: root.shell ? root.shell.wallpaper : Host.wallpaper
             fillMode: Image.PreserveAspectCrop
             sourceSize: Qt.size(width * 2, height * 2)
             asynchronous: true
@@ -92,7 +92,8 @@ Item {
                 anchors.baseline: parent.top
                 anchors.baselineOffset: 228
                 text: SystemClock.time
-                font.family: Theme.fontFamily
+                // Settings > Lock Screen: Poppins at any weight, or another installed family.
+                font.family: Settings.values["lockscreen.clock_font"] || Theme.fontFamily
                 font.pixelSize: 118
                 font.weight: root.clockWeights[Settings.values["lockscreen.clock_weight"] || "SemiBold"] ?? Font.DemiBold
                 font.letterSpacing: -3

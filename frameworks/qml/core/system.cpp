@@ -7,6 +7,7 @@
 #include <astra/paths.h>
 #include <astra/properties.h>
 
+#include <QDir>
 #include <QJsonObject>
 
 namespace astra::qml {
@@ -84,12 +85,15 @@ void SystemInfo::setTorch(bool on)
     Client::instance()->call(QStringLiteral("hardware.setTorch"), {{QStringLiteral("on"), on}});
 }
 
-void SystemInfo::setRadio(const QString &radio, bool enabled)
+void SystemInfo::setScreen(bool on)
 {
-    m_hw.insert(radio, enabled);
-    Q_EMIT hardwareChanged();
-    Client::instance()->call(QStringLiteral("hardware.setRadio"),
-                             {{QStringLiteral("radio"), radio}, {QStringLiteral("enabled"), enabled}});
+    Client::instance()->call(QStringLiteral("hardware.setScreen"), {{QStringLiteral("on"), on}});
+}
+
+void SystemInfo::screenshot(const QJSValue &callback)
+{
+    Client::instance()->call(QStringLiteral("system.screenshot"), {},
+                             [this, callback](const QJsonValue &r, const QString &e) { invokeCallback(this, callback, r, e); });
 }
 
 void SystemInfo::power(const QString &action, const QJSValue &callback)
@@ -111,6 +115,18 @@ QString SystemInfo::property(const QString &key, const QString &fallback) const
 QUrl SystemInfo::fileUrl(const QString &path) const
 {
     return QUrl::fromLocalFile(Paths::resolve(path));
+}
+
+QStringList SystemInfo::files(const QString &dir, const QStringList &nameFilters) const
+{
+    QStringList out;
+    if (!dir.startsWith(QLatin1String("/system/")) && !dir.startsWith(QLatin1String("/product/")) &&
+        !dir.startsWith(QLatin1String("/vendor/")))
+        return out; // read-only system locations only
+    const QDir d(Paths::resolve(dir));
+    for (const QString &f : d.entryList(nameFilters, QDir::Files, QDir::Name))
+        out.append(dir + QLatin1Char('/') + f);
+    return out;
 }
 
 void SystemInfo::call(const QString &method, const QVariantMap &params, const QJSValue &callback)

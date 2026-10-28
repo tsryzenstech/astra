@@ -25,6 +25,8 @@ Q_SIGNALS:
     void changed(const QString &key, const QJsonValue &value);
 
 private:
+    bool mayWrite(const QString &key, const Caller &caller) const;
+
     Server *m_server;
     QString m_path;
     QJsonObject m_defaults;

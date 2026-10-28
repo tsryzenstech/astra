@@ -3,70 +3,111 @@ import QtQuick
 import Astra.Core
 import Astra.Controls
 
-// Settings home (SettingsHome.png).
+// Settings home (SettingsHome.png): the concept's groups first, then the
+// rest of the system. Developer options appear under About once enabled.
 Page {
     id: page
-    title: "Settings"
+    title: qsTr("Settings")
 
-    function comingSoon(title) {
-        stack.open(Qt.resolvedUrl("ComingSoonPage.qml"), { title: title })
-    }
+    readonly property var wifi: Network.state.wifi || {}
+    readonly property var bt: Network.state.bluetooth || {}
+    readonly property var cell: Network.state.cellular || {}
 
-    AccountCard {}
+    function open(file, props) { stack.open(Qt.resolvedUrl(file), props || {}) }
+
+    AccountCard { onClicked: page.open("AccountPage.qml") }
 
     ListGroup {
-        title: "Connectivity"
+        title: qsTr("Connectivity")
         ListItem {
-            text: "Wi-Fi"
+            text: qsTr("Wi-Fi")
+            subtitle: page.wifi.state === "connected" ? page.wifi.ssid : ""
             showSwitch: true
-            checked: System.wifi
-            onToggled: (on) => System.setRadio("wifi", on)
+            chevron: true
+            enabled: page.wifi.available !== false
+            checked: !!page.wifi.powered
+            onToggled: (on) => Network.call("wifiSetPowered", { on: on }, null)
+            onClicked: page.open("WifiPage.qml")
         }
         ListItem {
-            text: "Bluetooth"
+            text: qsTr("Bluetooth")
             showSwitch: true
-            checked: System.bluetooth
-            onToggled: (on) => System.setRadio("bluetooth", on)
+            chevron: true
+            enabled: page.bt.available !== false
+            checked: !!page.bt.powered
+            onToggled: (on) => Network.call("btSetPowered", { on: on }, null)
+            onClicked: page.open("BluetoothPage.qml")
         }
         ListItem {
-            text: "Cellular Data"
+            text: qsTr("Cellular Data")
+            subtitle: page.cell.simPresent ? (page.cell.operator || "") : (page.cell.available ? qsTr("No SIM card") : "")
             showSwitch: true
-            checked: System.cellular
-            separator: false
-            onToggled: (on) => System.setRadio("cellular", on)
-        }
-    }
-
-    ListGroup {
-        title: "Customization"
-        ListItem { text: "General Customization"; chevron: true; onClicked: page.comingSoon(text) }
-        ListItem { text: "Lock Screen"; chevron: true; onClicked: stack.open(Qt.resolvedUrl("LockScreenPage.qml")) }
-        ListItem { text: "Privacy Options"; chevron: true; onClicked: page.comingSoon(text) }
-        ListItem { text: "Themes"; chevron: true; onClicked: page.comingSoon(text) }
-        ListItem { text: "Cards"; chevron: true; separator: false; onClicked: page.comingSoon(text) }
-    }
-
-    ListGroup {
-        title: "PRISM exclusives"
-        ListItem { text: "Hey Cloudy"; chevron: true; onClicked: page.comingSoon(text) }
-        ListItem { text: "Store Purchases"; chevron: true; separator: false; onClicked: page.comingSoon(text) }
-    }
-
-    ListGroup {
-        title: "System"
-        ListItem { text: "Display"; chevron: true; onClicked: stack.open(Qt.resolvedUrl("DisplayPage.qml")) }
-        ListItem { text: "Apps"; chevron: true; value: Packages.count; onClicked: stack.open(Qt.resolvedUrl("AppsPage.qml")) }
-        ListItem { text: "About"; chevron: true; separator: false; onClicked: stack.open(Qt.resolvedUrl("AboutPage.qml")) }
-    }
-
-    ListGroup {
-        title: "Developer"
-        ListItem {
-            text: "Testing"
-            subtitle: "Notifications, media sessions, AnimationEngine, services"
             chevron: true
             separator: false
-            onClicked: stack.open(Qt.resolvedUrl("TestingPage.qml"))
+            enabled: !!page.cell.available
+            checked: !!page.cell.dataEnabled
+            onToggled: (on) => Network.call("cellSetData", { on: on }, null)
+            onClicked: page.open("MobilePage.qml")
+        }
+    }
+
+    ListGroup {
+        title: qsTr("Customization")
+        ListItem { text: qsTr("General Customization"); chevron: true; onClicked: page.open("GeneralPage.qml") }
+        ListItem { text: qsTr("Lock Screen"); chevron: true; onClicked: page.open("LockScreenPage.qml") }
+        ListItem { text: qsTr("Privacy Options"); chevron: true; onClicked: page.open("PrivacyPage.qml") }
+        ListItem { text: qsTr("Themes"); chevron: true; onClicked: page.open("ThemesPage.qml") }
+        ListItem { text: qsTr("Cards"); chevron: true; separator: false; onClicked: page.open("CardsPage.qml") }
+    }
+
+    ListGroup {
+        title: qsTr("PRISM exclusives")
+        ListItem { text: qsTr("Hey Cloudy"); chevron: true; onClicked: page.open("HeyCloudyPage.qml") }
+        ListItem { text: qsTr("Store Purchases"); chevron: true; separator: false; onClicked: page.open("PurchasesPage.qml") }
+    }
+
+    ListGroup {
+        title: qsTr("System")
+        ListItem { text: qsTr("Display"); chevron: true; onClicked: page.open("DisplayPage.qml") }
+        ListItem { text: qsTr("Sound"); chevron: true; onClicked: page.open("SoundPage.qml") }
+        ListItem { text: qsTr("Notifications"); chevron: true; onClicked: page.open("NotificationsPage.qml") }
+        ListItem {
+            text: qsTr("Battery")
+            value: System.batteryLevel + "%"
+            chevron: true
+            onClicked: page.open("BatteryPage.qml")
+        }
+        ListItem { text: qsTr("Storage"); chevron: true; onClicked: page.open("StoragePage.qml") }
+        ListItem { text: qsTr("Apps"); chevron: true; value: Packages.count; onClicked: page.open("AppsPage.qml") }
+        ListItem {
+            text: qsTr("Language & Region")
+            value: Language.nameOf(Language.current)
+            chevron: true
+            onClicked: page.open("LanguagePage.qml")
+        }
+        ListItem { text: qsTr("Date & Time"); chevron: true; onClicked: page.open("DateTimePage.qml") }
+        ListItem { text: qsTr("Accessibility"); chevron: true; onClicked: page.open("AccessibilityPage.qml") }
+        ListItem {
+            text: qsTr("Software Update")
+            value: Updates.state.status === "available" || Updates.state.status === "ready" ? qsTr("1 update") : ""
+            chevron: true
+            onClicked: page.open("UpdatePage.qml")
+        }
+        ListItem { text: qsTr("Reset"); chevron: true; onClicked: page.open("ResetPage.qml") }
+        ListItem {
+            text: qsTr("About")
+            chevron: true
+            separator: Developer.state.enabled === true
+            onClicked: page.open("AboutPage.qml")
+        }
+        ListItem {
+            visible: Developer.state.enabled === true
+            height: visible ? implicitHeight : 0
+            text: qsTr("Developer Options")
+            iconName: "code"
+            chevron: true
+            separator: false
+            onClicked: page.open("DeveloperPage.qml")
         }
     }
 }

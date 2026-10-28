@@ -13,6 +13,7 @@ qt_add_qml_module(astracore
         notifications.cpp notifications.h
         packages.cpp packages.h
         services.cpp services.h
+        servicestate.cpp servicestate.h
         settings.cpp settings.h
         system.cpp system.h
 )

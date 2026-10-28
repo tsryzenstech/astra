@@ -6,10 +6,11 @@ Rectangle {
     id: root
 
     default property alias content: column.data
-    property string title // optional section label shown above the card
+    property string title  // optional section label shown above the card
+    property string footer // optional explanation shown below the card
 
     width: parent ? parent.width : implicitWidth
-    implicitHeight: column.implicitHeight + (title ? header.height + 12 : 0)
+    implicitHeight: column.implicitHeight + (title ? header.height + 12 : 0) + (footer ? footerText.implicitHeight + 10 : 0)
     color: "transparent"
 
     Text {
@@ -30,11 +31,23 @@ Rectangle {
         height: column.implicitHeight
         radius: Theme.cardRadius
         color: Theme.surface
-        clip: true
 
         Column {
             id: column
             width: parent.width
         }
+    }
+
+    Text {
+        id: footerText
+        visible: root.footer !== ""
+        y: (root.title ? header.height + 12 : 0) + column.implicitHeight + 10
+        x: 14
+        width: parent.width - 28
+        text: root.footer
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.footnoteSize + 1
+        color: Theme.textTertiary
     }
 }
