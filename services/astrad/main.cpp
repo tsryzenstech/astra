@@ -30,6 +30,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
+#include <QThread>
 #include <QSocketNotifier>
 
 #include <csignal>
@@ -116,6 +117,11 @@ int main(int argc, char **argv)
     HardwareService hardware(&server, &settings);
     WeatherService weather(&server, &settings);
     SystemService system(&server, &settings, &notifications, &packages);
+    // The radios talk to their daemons over the system bus, which init
+    // starts just before us.
+    if (!Paths::isDevelopmentRoot())
+        for (int i = 0; i < 50 && !QFileInfo::exists(QStringLiteral("/run/dbus/system_bus_socket")); ++i)
+            QThread::msleep(100);
     NetworkService network(&server, &settings, &notifications, &packages);
     TelephonyFacade telephony(&network, nullptr);
     ContactsService contacts(&server);

@@ -47,7 +47,7 @@ Page {
                             radius: width / 2
                             color: "transparent"
                             border.width: 2
-                            border.color: "white"
+                            border.color: Theme.text
                         }
                         MouseArea { anchors.fill: parent; anchors.margins: -4; onClicked: Settings.setValue("theme.accent", modelData.id) }
                     }

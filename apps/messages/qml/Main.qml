@@ -168,7 +168,7 @@ Rectangle {
                         wrapMode: Text.Wrap
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.bodySize
-                        color: "white"
+                        color: bubble.mine ? Theme.accentText : Theme.text
                     }
                 }
             }
@@ -178,13 +178,14 @@ Rectangle {
         Rectangle {
             width: parent.width
             height: Theme.statusBarHeight + 56
-            color: Qt.rgba(0, 0, 0, 0.9)
+            color: Theme.background
+            opacity: 0.96
             IconButton { x: 12; y: Theme.statusBarHeight + 6; size: 40; iconName: "chevron-left"; color: Theme.surfaceRaised; onClicked: { app.open = ""; app.reload() } }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: Theme.statusBarHeight + 14
                 text: app.nameOf(app.open)
-                font.family: Theme.fontFamily; font.pixelSize: Theme.headlineSize; font.weight: Font.DemiBold; color: "white"
+                font.family: Theme.fontFamily; font.pixelSize: Theme.headlineSize; font.weight: Font.DemiBold; color: Theme.text
             }
             IconButton {
                 anchors.right: parent.right; anchors.rightMargin: 12; y: Theme.statusBarHeight + 6

@@ -1,0 +1,18 @@
+{
+    "%n apps installed": {
+        "one": "%n app installed",
+        "other": "%n apps installed"
+    },
+    "%n cores": {
+        "one": "%n core",
+        "other": "%n cores"
+    },
+    "%n minutes": {
+        "one": "%n minute",
+        "other": "%n minutes"
+    },
+    "%n more taps to turn on Developer Options.": {
+        "one": "%n more tap to turn on Developer Options.",
+        "other": "%n more taps to turn on Developer Options."
+    }
+}

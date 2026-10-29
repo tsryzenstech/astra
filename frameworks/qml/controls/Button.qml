@@ -36,7 +36,7 @@ Item {
             font.family: Theme.fontFamily
             font.pixelSize: Theme.bodySize
             font.weight: Font.DemiBold
-            color: "white"
+            color: root.primary || root.destructive ? Theme.accentText : Theme.text
         }
     }
 

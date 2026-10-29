@@ -1,0 +1,34 @@
+# Connectivity: the D-Bus system bus and the standard Linux daemons astrad
+# drives for Wi-Fi (iwd), Bluetooth (BlueZ) and mobile data and calls
+# (ModemManager), plus the Qualcomm helpers that bring up the modem and the
+# Wi-Fi/Bluetooth firmware on Snapdragon phones (rmtfs, pd-mapper,
+# tqftpserv). Daemons that are not installed are skipped by the launcher.
+
+on post-fs-data
+    mkdir /run/dbus 0755 messagebus messagebus
+    mkdir /data/var/lib/iwd 0700 root root
+    mkdir /data/var/lib/bluetooth 0700 root root
+    mkdir /data/var/lib/ModemManager 0700 root root
+    mkdir /data/var/lib/dbus 0755 root root
+    exec -- /system/bin/sh /system/etc/connectivity/launch.sh prepare
+
+service dbus /system/bin/sh /system/etc/connectivity/launch.sh dbus
+    class early
+
+service pd-mapper /system/bin/sh /system/etc/connectivity/launch.sh pd-mapper
+    class core
+
+service tqftpserv /system/bin/sh /system/etc/connectivity/launch.sh tqftpserv
+    class core
+
+service rmtfs /system/bin/sh /system/etc/connectivity/launch.sh rmtfs
+    class core
+
+service iwd /system/bin/sh /system/etc/connectivity/launch.sh iwd
+    class main
+
+service bluetoothd /system/bin/sh /system/etc/connectivity/launch.sh bluetoothd
+    class main
+
+service modemmanager /system/bin/sh /system/etc/connectivity/launch.sh modemmanager
+    class main

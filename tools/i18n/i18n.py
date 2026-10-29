@@ -7,7 +7,8 @@ qsTranslate()/QT_TR_NOOP()); each component (an app, SysBoard, the
 framework) keeps one i18n/<language>.json next to its sources.
 
   i18n.py check  [component...]     list missing and unused strings (exit 1 if any are missing)
-  i18n.py update [component...]     add missing strings as "" (= English) and drop unused ones
+  i18n.py update [component...]     add missing strings as "" (= English) and drop unused ones;
+                                    en.json keeps the English plural forms ("%n items")
 
 Without arguments every component in the tree is processed.
 """
@@ -105,6 +106,16 @@ def main(argv):
                                   ensure_ascii=False, indent=4)
                         fh.write("\n")
                 print(f"{name}/{lang}: {len(found)} strings, {len(missing)} untranslated, {len(unused)} removed")
+        if mode == "update":
+            # en.json: only the plural forms of English sources ("%n items").
+            path = os.path.join(i18n, "en.json")
+            table = load(path)
+            plurals = {k: table.get(k, {"one": k, "other": k}) for k in found if plural(k)}
+            if plurals:
+                os.makedirs(i18n, exist_ok=True)
+                with open(path, "w", encoding="utf-8", newline="\n") as fh:
+                    json.dump(dict(sorted(plurals.items(), key=lambda kv: kv[0].lower())), fh, ensure_ascii=False, indent=4)
+                    fh.write("\n")
     return 1 if mode == "check" and missing_total else 0
 
 

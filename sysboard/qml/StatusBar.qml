@@ -9,6 +9,9 @@ Item {
     id: root
 
     property bool showClock: true
+    // Content colour: white over wallpapers and dark apps, black over light apps.
+    property color tint: "white"
+    Behavior on tint { ColorAnimation { duration: 200 } }
     property bool inCall: false
     signal callPillClicked()
 
@@ -41,7 +44,7 @@ Item {
         font.family: Theme.fontFamily
         font.pixelSize: 17
         font.weight: Font.DemiBold
-        color: "white"
+        color: root.inCall ? "white" : root.tint
         opacity: root.showClock || root.inCall ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 180 } }
     }
@@ -58,11 +61,13 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             name: "airplane"
             size: 15
+            color: root.tint
         }
         CellularGlyph {
             visible: !root.airplane && !!root.cell.available && !!root.cell.simPresent
             anchors.verticalCenter: parent.verticalCenter
             barHeight: 11
+            color: root.tint
             bars: root.cellBars
             // The technology only shows when mobile data is in use.
             technology: root.cell.dataConnected && !(root.wifi.state === "connected") ? (root.cell.technology || "") : ""
@@ -71,12 +76,15 @@ Item {
             visible: !!root.wifi.powered && (root.wifi.state === "connected" || root.wifi.state === "connecting")
             anchors.verticalCenter: parent.verticalCenter
             height: 12.5
+            color: root.tint
             strength: root.wifi.strength || 0
             connecting: root.wifi.state === "connecting"
         }
         BatteryGlyph {
+            visible: System.batteryLevel >= 0
             anchors.verticalCenter: parent.verticalCenter
             height: 13
+            color: root.tint
             level: System.batteryLevel
             charging: System.charging
             showLevel: Settings.values["battery.show_percentage"] !== false

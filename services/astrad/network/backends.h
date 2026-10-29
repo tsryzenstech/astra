@@ -2,8 +2,7 @@
 #pragma once
 
 // Radio backends used by NetworkService. Each one has a real implementation
-// on top of the standard Linux daemons (D-Bus) and a simulated one for
-// development trees without radios:
+// on top of the standard Linux daemons (D-Bus): iwd, BlueZ and ModemManager.
 //
 //   Wi-Fi       iwd            (net.connman.iwd)
 //   Bluetooth   BlueZ          (org.bluez)
@@ -24,7 +23,7 @@ class WifiBackend : public QObject
     Q_OBJECT
 public:
     using QObject::QObject;
-    virtual QString kind() const = 0;          // "iwd", "simulated"
+    virtual QString kind() const = 0;          // "iwd", "bluez", "modemmanager"
     virtual bool available() const = 0;        // hardware + daemon present
     virtual bool powered() const = 0;
     virtual void setPowered(bool on) = 0;

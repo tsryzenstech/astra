@@ -31,7 +31,7 @@ qt_add_executable(astrad
     network/iwd.cpp network/iwd.h
     network/modemmanager.cpp network/modemmanager.h
     network/networkservice.cpp network/networkservice.h
-    network/simulated.cpp
+    network/backends.cpp
 )
 target_link_libraries(astrad PRIVATE astra Qt6::Core Qt6::Network Qt6::DBus)
 if(ASTRAD_LIBDRM_FOUND)

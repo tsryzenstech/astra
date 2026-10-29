@@ -110,7 +110,7 @@ Rectangle {
                             width: 38; height: 38; radius: 19
                             gradient: Gradient { GradientStop { position: 0; color: modelData.color } GradientStop { position: 1; color: modelData.deep } }
                             border.width: modelData.id === Theme.accentId ? 3 : 0
-                            border.color: "white"
+                            border.color: Theme.text
                             scale: modelData.id === Theme.accentId ? 1.12 : 1
                             Behavior on scale { SpringNumberAnimation { preset: Motion.bouncy } }
                             MouseArea { anchors.fill: parent; onClicked: Settings.setValue("theme.accent", modelData.id) }

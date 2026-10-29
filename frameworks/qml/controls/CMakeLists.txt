@@ -29,6 +29,7 @@ qt_add_qml_module(astracontrols
         PlaceholderApp.qml
         ProgressBar.qml
         SegmentedControl.qml
+        ShareSheet.qml
         Slider.qml
         Spinner.qml
         Switch.qml

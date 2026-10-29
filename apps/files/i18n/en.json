@@ -1,0 +1,22 @@
+{
+    "%n items": {
+        "one": "%n item",
+        "other": "%n items"
+    },
+    "Delete %n items?": {
+        "one": "Delete %n item?",
+        "other": "Delete %n items?"
+    },
+    "Move %n items here": {
+        "one": "Move %n item here",
+        "other": "Move %n items here"
+    },
+    "Paste %n items here": {
+        "one": "Paste %n item here",
+        "other": "Paste %n items here"
+    },
+    "Save %n items here": {
+        "one": "Save %n item here",
+        "other": "Save %n items here"
+    }
+}

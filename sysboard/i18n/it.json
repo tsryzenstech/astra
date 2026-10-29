@@ -17,6 +17,7 @@
     "Bluetooth": "Bluetooth",
     "Bluetooth is off": "Il Bluetooth è disattivato",
     "Bluetooth Settings": "Impostazioni Bluetooth",
+    "Calling…": "",
     "Can't uninstall System Apps": "Le app di sistema non si possono disinstallare",
     "Cancel": "Annulla",
     "Clear": "Cancella",
@@ -27,8 +28,11 @@
     "Connecting…": "Connessione…",
     "Decline": "Rifiuta",
     "Delete": "Elimina",
+    "Dismiss": "",
     "Done": "Fine",
     "Edit Home Screen": "Modifica schermata Home",
+    "Emergency call": "",
+    "End": "",
     "Enter PIN": "Inserisci il PIN",
     "Foggy": "Nebbioso",
     "Go": "Vai",
@@ -45,6 +49,7 @@
     "now": "ora",
     "Off": "Disattivato",
     "On": "Attivo",
+    "Open": "",
     "outside": "adesso",
     "Password": "Password",
     "Previous": "Indietro",
@@ -74,5 +79,6 @@
     "Wi-Fi is off": "Il Wi-Fi è disattivato",
     "Wi-Fi Settings": "Impostazioni Wi-Fi",
     "Wrong password": "Password errata",
-    "Wrong PIN": "PIN errato"
+    "Wrong PIN": "PIN errato",
+    "You can change this later in Settings > Apps > %1.": ""
 }

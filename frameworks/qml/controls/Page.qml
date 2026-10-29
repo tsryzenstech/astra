@@ -53,7 +53,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     x: 4
                     spacing: 2
-                    Icon { name: "chevron-left"; size: root.centeredTitle ? 28 : 24; color: root.centeredTitle ? "white" : Theme.accent
+                    Icon { name: "chevron-left"; size: root.centeredTitle ? 28 : 24; color: root.centeredTitle ? Theme.text : Theme.accent
                            anchors.verticalCenter: parent.verticalCenter }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter

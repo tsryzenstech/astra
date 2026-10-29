@@ -81,9 +81,8 @@ HardwareService::HardwareService(Server *server, SettingsService *settings, QObj
 QJsonObject HardwareService::battery() const
 {
     if (m_batteryDir.isEmpty()) {
-        // Development trees without a battery report a full, healthy one.
-        return {{QStringLiteral("level"), 100}, {QStringLiteral("charging"), false}, {QStringLiteral("present"), false},
-                {QStringLiteral("status"), QStringLiteral("Full")}, {QStringLiteral("health"), QStringLiteral("Good")}};
+        // No battery (e.g. a desktop development tree): say so, invent nothing.
+        return {{QStringLiteral("present"), false}};
     }
     auto num = [this](const char *file) { return readSys(m_batteryDir + QLatin1Char('/') + QLatin1String(file)).toLongLong(); };
     const QByteArray status = readSys(m_batteryDir + QStringLiteral("/status"));
@@ -127,7 +126,7 @@ QJsonObject HardwareService::state() const
         {QStringLiteral("battery"), m_lastBattery},
         {QStringLiteral("brightness"), m_brightness},
         {QStringLiteral("torch"), m_torchOn},
-        {QStringLiteral("torchAvailable"), !m_torch.isEmpty() || Paths::isDevelopmentRoot()},
+        {QStringLiteral("torchAvailable"), !m_torch.isEmpty()},
     };
 }
 

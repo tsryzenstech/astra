@@ -58,6 +58,16 @@ Item {
         apps.launch(packageName, args || {}, origin)
     }
 
+    // Leaving an app (or a text field) puts the keyboard away.
+    function hideKeyboard() {
+        if (Host.keyboard)
+            Host.keyboard.hide()
+    }
+    Connections {
+        target: apps
+        function onActiveWindowChanged() { shell.hideKeyboard() }
+    }
+
     function goHome() {
         recents.close()
         if (apps.activeWindow)
@@ -96,7 +106,10 @@ Item {
                 shell: shell
                 appProgress: apps.progress
                 hiddenPackage: apps.morphingPackage
-                interactive: !shell.locked && !shell.appOpen && !shell.panelOpen && !recents.shown
+                // Taps keep working until the opening app nearly covers the screen.
+                interactive: !shell.locked && !shell.panelOpen && !recents.shown
+                             && !(apps.activeWindow && apps.activeWindow.progress > 0.85)
+                appLayer: apps
             }
         }
 
@@ -200,6 +213,7 @@ Item {
             if (inApp) {
                 apps.beginCloseGesture()
                 indicator.following = true
+                shell.hideKeyboard()
             }
             holdTimer.stop()
         }
@@ -217,13 +231,16 @@ Item {
                     indicator.followY = shell.height / 2 * (1 - w.gestureScale) + w.gestureY * 0.35
                 }
             }
-            // Holding still (after a real swipe) opens Recents.
-            if (Math.hypot(m.x - anchor.x, m.y - anchor.y) > 10) {
-                anchor = Qt.point(m.x, m.y)
-                holdTimer.restart()
-            }
-            if (dy < 60)
+            // The finger resting anywhere after a real swipe (even with the
+            // app almost gone) opens Recents. A resting finger still
+            // jitters a little: speed, not position, tells it apart.
+            const v = bottomVelocity.velocity()
+            if (dy > 40 && Math.hypot(v.x, v.y) < 160) {
+                if (!holdTimer.running)
+                    holdTimer.start()
+            } else {
                 holdTimer.stop()
+            }
         }
         onReleased: {
             holdTimer.stop()
@@ -242,7 +259,7 @@ Item {
         }
         Timer {
             id: holdTimer
-            interval: 900
+            interval: 550
             onTriggered: {
                 bottomEdge.toRecents = true
                 indicator.release(0, 0)
@@ -253,6 +270,7 @@ Item {
 
     HomeIndicator {
         id: indicator
+        color: shell.lightApp ? "#0B0B0F" : "white"
         anchors.bottom: parent.bottom
         z: 11
         opacity: lockScreen.pinPadVisible || alarm.active || call.ringingFull ? 0 : 1
@@ -297,9 +315,14 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 400 } }
     }
 
+    // Light apps get dark status bar content and home indicator.
+    readonly property bool lightApp: Theme.light && apps.activeWindow !== null && apps.activeWindow.progress > 0.6
+                                     && apps.activeWindow.info.appearance !== "dark" && !panels.opened && !recents.shown
+
     StatusBar {
         width: parent.width
         z: 20
+        tint: shell.lightApp && !shell.locked ? "#0B0B0F" : "white"
         showClock: !shell.locked || lockScreen.musicExpanded || shell.panelOpen || lockScreen.pinPadVisible
         inCall: call.ongoing !== null && !(apps.activeWindow && apps.activeWindow.packageName === "com.astra.phone")
                 && !call.ringingFull
@@ -315,7 +338,10 @@ Item {
         anchors.bottom: parent.bottom
         active: Host.virtualKeyboard
         source: Qt.resolvedUrl("Keyboard.qml")
-        onLoaded: apps.keyboardInset = Qt.binding(() => item.shown ? item.panelHeight : 0)
+        onLoaded: {
+            apps.keyboardInset = Qt.binding(() => item.shown ? item.panelHeight : 0)
+            item.blurSource = screenContent
+        }
     }
 
     Rectangle {
@@ -340,6 +366,14 @@ Item {
         anchors.fill: parent
         z: 40
         blurSource: screenContent
+        onEmergencyRequested: {
+            close()
+            call.emergency = true
+            Telephony.call("dial", { number: Settings.values["telephony.emergency_number"] || "112" }, function(r, err) {
+                if (err)
+                    call.emergency = false
+            })
+        }
     }
 
     ScreenshotPreview {
@@ -357,14 +391,18 @@ Item {
 
     Connections {
         target: Host
+        // Power: unlocked -> lock screen; on the lock screen -> screen off;
+        // screen off -> on. Held: the power menu.
         function onPowerKeyPressed() {
             if (powerMenu.active) {
                 powerMenu.close()
-            } else if (Host.screenOn) {
-                shell.lock()
-                Host.setScreenOn(false)
-            } else {
+            } else if (!Host.screenOn) {
                 Host.setScreenOn(true)
+            } else if (!shell.locked) {
+                shell.hideKeyboard()
+                shell.lock()
+            } else {
+                Host.setScreenOn(false)
             }
         }
         function onPowerKeyLongPressed() {

@@ -19,5 +19,8 @@
     "widgets": [],
     "names": {
         "it": "Market"
-    }
+    },
+    "opens": [
+        "application/x-astra-apkg"
+    ]
 }

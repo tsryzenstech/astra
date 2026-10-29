@@ -92,7 +92,7 @@ void DisplayService::probe()
                           {QStringLiteral("output"), type + QString::number(conn->connector_type_id)},
                           {QStringLiteral("physicalWidth"), int(conn->mmWidth)},
                           {QStringLiteral("physicalHeight"), int(conn->mmHeight)},
-                          {QStringLiteral("simulated"), false}};
+                          };
                 drmModeFreeCrtc(crtc);
                 drmModeFreeEncoder(enc);
             }
@@ -102,19 +102,6 @@ void DisplayService::probe()
         ::close(fd);
     }
 #endif
-    if (m_modes.isEmpty() && Paths::isDevelopmentRoot()) {
-        // Development trees: pretend to be a 1080 x 2400 panel with 60/90/120 Hz.
-        for (int hz : {120, 90, 60})
-            m_modes.append(QJsonObject{{QStringLiteral("width"), 1080}, {QStringLiteral("height"), 2400},
-                                       {QStringLiteral("refresh"), hz}, {QStringLiteral("preferred"), hz == 60},
-                                       {QStringLiteral("current"), hz == 60}});
-        m_modes.append(QJsonObject{{QStringLiteral("width"), 720}, {QStringLiteral("height"), 1600},
-                                   {QStringLiteral("refresh"), 60}, {QStringLiteral("preferred"), false},
-                                   {QStringLiteral("current"), false}});
-        m_info = {{QStringLiteral("connector"), QStringLiteral("DSI")}, {QStringLiteral("output"), QStringLiteral("DSI1")},
-                  {QStringLiteral("physicalWidth"), 70},
-                  {QStringLiteral("physicalHeight"), 155}, {QStringLiteral("simulated"), true}};
-    }
     for (const QJsonValue &v : std::as_const(m_modes))
         if (v.toObject().value(QLatin1String("current")).toBool() || v.toObject().value(QLatin1String("preferred")).toBool()) {
             m_info.insert(QStringLiteral("width"), v.toObject().value(QLatin1String("width")));

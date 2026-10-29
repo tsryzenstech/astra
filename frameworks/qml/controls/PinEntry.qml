@@ -103,7 +103,7 @@ Column {
                     font.weight: parent.isKey ? Font.Normal : Font.DemiBold
                     color: parent.modelData === "ok" ? Theme.accent : Theme.text
                 }
-                Icon { anchors.centerIn: parent; visible: parent.modelData === "del"; name: "backspace"; size: 28 }
+                Icon { anchors.centerIn: parent; visible: parent.modelData === "del"; name: "backspace"; size: 28; color: Theme.text }
                 MouseArea {
                     id: key
                     anchors.fill: parent

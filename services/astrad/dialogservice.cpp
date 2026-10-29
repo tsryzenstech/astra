@@ -23,7 +23,7 @@ DialogService::DialogService(Server *server, PackageManager *packages, QObject *
         const QList<int> ids = m_pending.keys();
         for (int id : ids)
             if (m_pending.value(id).dialog.value(QLatin1String("package")).toString() == c.package)
-                finish(id, m_pending.value(id).cancelButton);
+                finish(id, QString()); // no answer
     });
 }
 

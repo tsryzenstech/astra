@@ -26,5 +26,6 @@
     ],
     "names": {
         "it": "Fotocamera"
-    }
+    },
+    "appearance": "dark"
 }

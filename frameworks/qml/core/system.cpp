@@ -62,7 +62,9 @@ bool SystemInfo::connected() const
 
 int SystemInfo::batteryLevel() const
 {
-    return m_hw.value(QStringLiteral("battery")).toMap().value(QStringLiteral("level"), 100).toInt();
+    // -1 when there is no battery.
+    const QVariantMap b = m_hw.value(QStringLiteral("battery")).toMap();
+    return b.value(QStringLiteral("present")).toBool() ? b.value(QStringLiteral("level")).toInt() : -1;
 }
 
 bool SystemInfo::charging() const

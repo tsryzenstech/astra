@@ -49,7 +49,7 @@ Item {
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.captionSize + 1
                     font.weight: index === root.currentIndex ? Font.DemiBold : Font.Medium
-                    color: index === root.currentIndex ? "white" : Theme.textSecondary
+                    color: index === root.currentIndex ? Theme.accentText : Theme.textSecondary
                 }
                 MouseArea {
                     anchors.fill: parent

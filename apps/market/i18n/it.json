@@ -10,6 +10,8 @@
     "Every app runs in its own sandbox and asks before using your camera, location or contacts.": "Ogni app funziona nella sua sandbox e chiede prima di usare fotocamera, posizione o contatti.",
     "From your Downloads": "Dai tuoi Download",
     "Get": "Ottieni",
+    "Install": "",
+    "Install this app?": "",
     "Installed": "Installate",
     "Market": "Market",
     "Market can't be reached. Check your connection.": "Market non è raggiungibile. Controlla la connessione.",

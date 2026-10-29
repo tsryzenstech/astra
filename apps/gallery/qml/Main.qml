@@ -36,10 +36,22 @@ Rectangle {
             app.reload()
         })
     }
-    Component.onCompleted: checkAccess()
+    Component.onCompleted: {
+        checkAccess()
+        openShared(Application.args)
+    }
     Connections {
         target: Application
         function onMediaChanged() { app.reload() }
+        function onIntent(args) { app.openShared(args) }
+    }
+    // Files sent from other apps ("Open with" / "Share"): show them right away.
+    function openShared(args) {
+        if (!args || !args.files || !args.files.length)
+            return
+        const list = args.files.map(p => ({ path: p, url: "file://" + p, name: p.split("/").pop(), folder: "",
+                                            video: /\.(mp4|webm|mkv)$/i.test(p), modified: new Date(), size: 0 }))
+        Qt.callLater(() => viewer.open(list, 0, null))
     }
 
     // Albums: smart ones first, then one per folder.

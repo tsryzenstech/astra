@@ -1,22 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick
+import QtQuick.Effects
 import Astra.Core
 import Astra.Controls
 import Astra.Animation
 
-// The astraOS on-screen keyboard. It types into SysBoard's own fields and
-// into apps (Wayland text-input) through the input method bridge.
-//  - springs up from the bottom, rounded on top, swipe down to dismiss
-//  - letters / numbers / symbols, shift (double tap: caps lock), automatic
-//    capitals at the start of a sentence
+// The astraOS on-screen keyboard (iOS style). It types into SysBoard's own
+// fields and into apps (Wayland text-input) through the input method bridge.
+//  - springs up from the bottom with a little bounce, on frosted glass with
+//    rounded corners; light or dark with the system appearance
+//  - layouts: letters, numbers, symbols, emoji, email (@), web (/ .com) and a
+//    number pad for digits-only fields
+//  - shift (double tap: caps lock), capitals at the start of a sentence
 //  - a bubble pops above the key under the finger; slide across keys and
 //    the key under the finger types on release
-//  - hold a vowel for accents, hold delete to repeat
-//  - digits-only fields get a phone-style number pad
+//  - hold a vowel for accents, hold delete to repeat, swipe down to dismiss
 Item {
     id: root
 
     readonly property var bridge: Host.keyboard
+    property Item blurSource: null      // what shows through the frosted panel
     readonly property bool shown: !!bridge && bridge.visible
     readonly property real panelHeight: keys.height + 18 + Theme.homeIndicatorHeight
     readonly property real visibleHeight: Math.max(0, panelHeight * reveal.value)
@@ -26,8 +29,17 @@ Item {
     readonly property bool digitsOnly: (hints & (0x10000 /* ImhDigitsOnly */ | 0x20000 /* ImhFormattedNumbersOnly */ | 0x100000 /* ImhDialableCharactersOnly */)) !== 0
     readonly property bool dialable: (hints & 0x100000) !== 0
     readonly property bool noAutoUpper: (hints & (0x4 /* ImhNoAutoUppercase */ | 0x1 /* ImhHiddenText */)) !== 0
+    readonly property bool email: (hints & 0x200000 /* ImhEmailCharactersOnly */) !== 0
+    readonly property bool url: (hints & 0x400000 /* ImhUrlCharactersOnly */) !== 0
 
-    property string page: "letters"     // letters, numbers, symbols
+    // Colours: white keys on a light frosted panel, grey keys on a dark one.
+    readonly property color keyColor: Theme.light ? "#FFFFFF" : "#5B5B62"
+    readonly property color specialColor: Theme.light ? "#ABB0BA" : "#3A3A40"
+    readonly property color pressedColor: Theme.light ? "#D5D8DE" : "#7A7A82"
+    readonly property color labelColor: Theme.light ? "#0B0B0F" : "#FFFFFF"
+    readonly property color panelColor: Theme.light ? Qt.rgba(0.82, 0.83, 0.86, 0.78) : Qt.rgba(0.12, 0.12, 0.14, 0.72)
+
+    property string page: "letters"     // letters, numbers, symbols, emoji
     property int shift: 0               // 0 off, 1 next letter, 2 caps lock
     property double lastShiftTap: 0
 
@@ -35,7 +47,8 @@ Item {
     height: panelHeight
     visible: reveal.value > 0.005
 
-    Spring { id: reveal; to: root.shown ? 1 : 0; response: 0.42; dampingFraction: 0.82 }
+    // Bouncy entrance: the spring overshoots a little.
+    Spring { id: reveal; to: root.shown ? 1 : 0; response: 0.38; dampingFraction: 0.66 }
     onShownChanged: {
         reveal.animateTo(shown ? 1 : 0, 0)
         if (shown) {
@@ -58,7 +71,9 @@ Item {
         ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
         ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
         ["⇧", "z", "x", "c", "v", "b", "n", "m", "⌫"],
-        ["123", ",", " ", ".", "⏎"]
+        email ? ["123", "@", " ", ".", "⏎"]
+              : url ? ["123", "/", ".com", " ", "⏎"]
+              : ["123", "\u{1F60A}", " ", ".", "⏎"]
     ]
     readonly property var numberRows: [
         ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
@@ -72,13 +87,21 @@ Item {
         ["123", ".", ",", "?", "!", "'", "⌫"],
         ["ABC", ",", " ", ".", "⏎"]
     ]
+    readonly property var emojiRows: [
+        ["\u{1F600}", "\u{1F602}", "\u{1F979}", "\u{1F60D}", "\u{1F60E}", "\u{1F929}", "\u{1F634}", "\u{1F914}"],
+        ["\u{1F44D}", "\u{1F44F}", "\u{1F64F}", "\u{1F4AA}", "\u{1F44B}", "\u{1F91D}", "\u{1F91E}", "\u{1F64C}"],
+        ["\u{2764}\u{FE0F}", "\u{1F525}", "\u{2728}", "\u{1F389}", "\u{2B50}", "\u{1F319}", "\u{2600}\u{FE0F}", "\u{1F308}"],
+        ["ABC", " ", "⌫"]
+    ]
     readonly property var padRows: [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], [dialable ? "+*#" : ".", "0", "⌫"]]
-    readonly property var rows: digitsOnly ? padRows : page === "numbers" ? numberRows : page === "symbols" ? symbolRows : letterRows
+    readonly property var rows: digitsOnly ? padRows : page === "numbers" ? numberRows : page === "symbols" ? symbolRows
+                              : page === "emoji" ? emojiRows : letterRows
     readonly property var accents: ({
         a: "àáâäãå", e: "èéêëē", i: "ìíîï", o: "òóôöõø", u: "ùúûü", c: "çć", n: "ñń", s: "ßś", y: "ÿ", z: "žź"
     })
+    readonly property string emojiKey: "\u{1F60A}"
 
-    function isSpecial(k) { return ["⇧", "⌫", "123", "ABC", "#+=", "⏎", " ", "+*#"].indexOf(k) >= 0 }
+    function isSpecial(k) { return ["⇧", "⌫", "123", "ABC", "#+=", "⏎", " ", "+*#", ".com", root.emojiKey].indexOf(k) >= 0 }
     function label(k) {
         if (k === " ")
             return Language.current === "it" ? "spazio" : "space"
@@ -114,11 +137,15 @@ Item {
             return
         }
         }
+        if (k === root.emojiKey && page === "letters") {
+            page = "emoji"
+            return
+        }
         bridge.commit(page === "letters" && shift > 0 ? k.toUpperCase() : k)
         if (shift === 1)
             shift = 0
         // Space or apostrophe go back to letters, like iOS.
-        if (page !== "letters" && (k === " " || k === "'"))
+        if ((page === "numbers" || page === "symbols") && (k === " " || k === "'"))
             page = "letters"
     }
 
@@ -129,14 +156,40 @@ Item {
         height: root.panelHeight
         y: (1 - reveal.value) * (root.panelHeight + 20) + Math.max(0, dismiss.offset)
 
-        Rectangle {
+        // Frosted glass: the screen below, blurred, under a tint, with
+        // rounded corners.
+        Item {
+            id: glass
             anchors.fill: parent
             anchors.bottomMargin: -40
-            radius: 28
-            color: "#1E1E22"
-            border.width: 1
-            border.color: Qt.rgba(1, 1, 1, 0.06)
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: glassMask
+                maskThresholdMin: 0.5
+                maskSpreadAtMin: 1.0
+            }
+            BlurLayer {
+                readonly property point origin: root.blurSource ? panel.mapToItem(root.blurSource, 0, 0) : Qt.point(0, 0)
+                x: -origin.x
+                y: -origin.y
+                width: root.blurSource ? root.blurSource.width : 0
+                height: root.blurSource ? root.blurSource.height : 0
+                source: root.blurSource
+                amount: root.visible && root.blurSource ? 1 : 0
+                dim: 0
+            }
+            Rectangle { anchors.fill: parent; color: root.panelColor }
         }
+        Rectangle { id: glassMask; anchors.fill: glass; radius: 28; visible: false; layer.enabled: true }
+        Rectangle {
+            anchors.fill: glass
+            radius: 28
+            color: "transparent"
+            border.width: 1
+            border.color: Theme.light ? Qt.rgba(1, 1, 1, 0.6) : Qt.rgba(1, 1, 1, 0.08)
+        }
+
         // Grab handle: swipe down to dismiss.
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -144,7 +197,7 @@ Item {
             width: 36
             height: 4
             radius: 2
-            color: Qt.rgba(1, 1, 1, 0.25)
+            color: Theme.light ? Qt.rgba(0, 0, 0, 0.25) : Qt.rgba(1, 1, 1, 0.25)
         }
         MouseArea {
             id: dismiss
@@ -174,9 +227,9 @@ Item {
                     id: row
                     required property var modelData
                     required property int index
-                    readonly property real unit: (keys.width - 6 * 9) / (root.digitsOnly ? 3 : 10)
+                    readonly property real unit: (keys.width - 6 * 9) / (root.digitsOnly ? 3 : root.page === "emoji" ? 8.6 : 10)
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: root.digitsOnly ? 6 : 6
+                    spacing: 6
 
                     Repeater {
                         model: row.modelData
@@ -189,27 +242,38 @@ Item {
                                 if (root.digitsOnly)
                                     return (keys.width - 12) / 3
                                 if (modelData === " ")
-                                    return row.unit * 5 + 24
+                                    return root.page === "emoji" ? row.unit * 5.2 : root.url ? row.unit * 3.6 + 12 : row.unit * 5 + 24
+                                if (modelData === ".com")
+                                    return row.unit * 1.4
                                 if (modelData === "⏎")
                                     return row.unit * 2 + 6
                                 if (modelData === "⇧" || modelData === "⌫" || modelData === "#+=" || (modelData === "123" && row.index === 2))
                                     return row.unit * 1.35
                                 if (["123", "ABC"].indexOf(modelData) >= 0)
                                     return row.unit * 1.2
-                                if (root.page !== "letters" && row.index === 2)
+                                if ((root.page === "numbers" || root.page === "symbols") && row.index === 2)
                                     return row.unit * 1.25
                                 return row.unit
                             }
                             height: root.digitsOnly ? 52 : 46
 
+                            // Soft shadow under every key
                             Rectangle {
+                                anchors.fill: face
+                                anchors.topMargin: 1.5
+                                anchors.bottomMargin: -1.5
+                                radius: face.radius
+                                color: Theme.light ? Qt.rgba(0, 0, 0, 0.22) : Qt.rgba(0, 0, 0, 0.35)
+                            }
+                            Rectangle {
+                                id: face
                                 anchors.fill: parent
                                 radius: 10
                                 readonly property bool lit: key.modelData === "⇧" && root.shift > 0
-                                color: key.pressed ? (key.special ? "#5A5A62" : "#6E6E76")
-                                     : lit ? "white"
+                                color: key.pressed ? root.pressedColor
+                                     : lit ? "#FFFFFF"
                                      : key.modelData === "⏎" && root.bridge && root.bridge.enterKeyType > 1 ? Theme.accent
-                                     : key.special ? "#3A3A40" : "#56565D"
+                                     : key.special && key.modelData !== " " ? root.specialColor : root.keyColor
                                 scale: key.pressed && key.special ? 0.94 : 1
                                 Behavior on scale { SpringNumberAnimation { preset: Motion.snappy } }
                                 Behavior on color { ColorAnimation { duration: 90 } }
@@ -219,16 +283,16 @@ Item {
                                 visible: key.modelData !== "⇧" && key.modelData !== "⌫"
                                 text: root.label(key.modelData)
                                 font.family: Theme.fontFamily
-                                font.pixelSize: key.special ? 15 : (root.digitsOnly ? 26 : 22)
+                                font.pixelSize: key.special && key.modelData !== root.emojiKey ? 15 : (root.digitsOnly ? 26 : 22)
                                 font.weight: key.special ? Font.Medium : Font.Normal
-                                color: "white"
+                                color: key.modelData === "⏎" && root.bridge && root.bridge.enterKeyType > 1 ? "white" : root.labelColor
                             }
                             Icon {
                                 anchors.centerIn: parent
                                 visible: key.modelData === "⇧" || key.modelData === "⌫"
                                 name: key.modelData === "⌫" ? "backspace" : "arrow-up"
                                 size: 22
-                                color: key.modelData === "⇧" && root.shift > 0 ? "#1E1E22" : "white"
+                                color: key.modelData === "⇧" && root.shift > 0 ? "#0B0B0F" : root.labelColor
                             }
                             Rectangle {
                                 // Caps lock underline
@@ -239,7 +303,7 @@ Item {
                                 width: 14
                                 height: 2
                                 radius: 1
-                                color: "#1E1E22"
+                                color: "#0B0B0F"
                             }
                         }
                     }
@@ -352,7 +416,9 @@ Item {
             width: k ? k.width + 18 : 0
             height: 62
             radius: 14
-            color: "#6E6E76"
+            color: root.keyColor
+            border.width: Theme.light ? 1 : 0
+            border.color: Qt.rgba(0, 0, 0, 0.12)
             x: k ? k.mapToItem(panel, 0, 0).x - 9 : 0
             y: k ? k.mapToItem(panel, 0, 0).y - height - 6 : 0
             scale: visible ? 1 : 0.6
@@ -362,7 +428,7 @@ Item {
                 text: bubble.k ? root.label(bubble.k.modelData) : ""
                 font.family: Theme.fontFamily
                 font.pixelSize: 32
-                color: "white"
+                color: root.labelColor
             }
         }
 
@@ -374,7 +440,9 @@ Item {
             width: list.length * 44 + 8
             height: 56
             radius: 14
-            color: "#6E6E76"
+            color: root.keyColor
+            border.width: Theme.light ? 1 : 0
+            border.color: Qt.rgba(0, 0, 0, 0.12)
             x: touch.current ? Math.max(4, Math.min(panel.width - width - 4, touch.current.mapToItem(panel, 0, 0).x - 4)) : 0
             y: touch.current ? touch.current.mapToItem(panel, 0, 0).y - height - 8 : 0
             Row {
@@ -394,7 +462,7 @@ Item {
                             text: root.shift > 0 ? modelData.toUpperCase() : modelData
                             font.family: Theme.fontFamily
                             font.pixelSize: 24
-                            color: "white"
+                            color: index === touch.accentIndex ? "white" : root.labelColor
                         }
                     }
                 }

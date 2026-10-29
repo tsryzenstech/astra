@@ -25,8 +25,7 @@ Page {
 
     ListGroup {
         title: qsTr("SIM")
-        footer: !page.cell.available ? qsTr("No modem was found on this device.")
-              : page.cell.kind === "simulated" ? qsTr("No modem was found: showing a simulated SIM.") : ""
+        footer: !page.cell.available ? qsTr("No modem was found on this device.") : ""
         ListItem { text: qsTr("Operator"); value: page.cell.simPresent ? (page.cell.operator || "—") : qsTr("No SIM card") }
         ListItem { text: qsTr("Network"); value: page.cell.registered ? (page.cell.technology || "—") : qsTr("Not registered") }
         ListItem {

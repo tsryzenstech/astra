@@ -116,8 +116,8 @@ void Localization::reload()
         delete t;
     }
     m_translators.clear();
-    if (m_language == QLatin1String("en"))
-        return; // sources are English
+    // English sources need no translation, but en.json may still give the
+    // plural forms ("%n items" -> "1 item").
     // installTranslator() searches the most recently installed first, so
     // install the generic directories first and the specific ones last.
     for (auto it = m_dirs.crbegin(); it != m_dirs.crend(); ++it) {

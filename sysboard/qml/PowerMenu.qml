@@ -11,6 +11,7 @@ Item {
 
     property Item blurSource
     readonly property bool active: reveal.to > 0.5
+    signal emergencyRequested()
 
     visible: reveal.value > 0.005
     Spring { id: reveal; to: 0; response: 0.45; dampingFraction: 0.72 }
@@ -97,12 +98,13 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 90 - 60 * (1 - reveal.value)
-        spacing: 26
+        spacing: 18
         opacity: Math.min(1, reveal.value * 1.3)
 
         Repeater {
             model: [
                 { id: "restart", icon: "refresh", label: QT_TR_NOOP("Restart") },
+                { id: "sos", icon: "phone", label: QT_TR_NOOP("Emergency call") },
                 { id: "cancel", icon: "close", label: QT_TR_NOOP("Cancel") }
             ]
             delegate: Column {
@@ -114,7 +116,8 @@ Item {
                     width: 68
                     height: 68
                     radius: 34
-                    color: area.pressed ? Qt.rgba(1, 1, 1, 0.32) : Qt.rgba(1, 1, 1, 0.18)
+                    color: modelData.id === "sos" ? (area.pressed ? "#C9241B" : "#FF3B30")
+                                                  : area.pressed ? Qt.rgba(1, 1, 1, 0.32) : Qt.rgba(1, 1, 1, 0.18)
                     scale: area.pressed ? 0.9 : 1
                     Behavior on scale { SpringNumberAnimation { preset: Motion.bouncy } }
                     Icon { anchors.centerIn: parent; name: modelData.icon; size: 30 }
@@ -124,6 +127,8 @@ Item {
                         onClicked: {
                             if (modelData.id === "restart")
                                 System.power("reboot")
+                            else if (modelData.id === "sos")
+                                root.emergencyRequested()
                             else
                                 root.close()
                         }

@@ -1,4 +1,62 @@
 {
-    "Browse and manage the files on your phone.": "Sfoglia e gestisci i file del telefono.",
-    "Files": "File"
+    "%1 free of %2": "",
+    "%n items": {
+        "one": "",
+        "other": ""
+    },
+    "Allow access": "",
+    "Allow Files to see the files on this phone.": "",
+    "Browse": "",
+    "Camera": "",
+    "Cancel": "",
+    "Copy": "",
+    "Create": "",
+    "Delete": "",
+    "Delete %n items?": {
+        "one": "",
+        "other": ""
+    },
+    "Delete “%1”?": "",
+    "Documents": "",
+    "Downloads": "",
+    "Duplicate": "",
+    "Favorites": "",
+    "Folder name": "",
+    "Info": "",
+    "It is removed from this phone.": "",
+    "Locations": "",
+    "Move": "",
+    "Move %n items here": {
+        "one": "",
+        "other": ""
+    },
+    "Movies": "",
+    "Music": "",
+    "No recent files": "",
+    "No results": "",
+    "OK": "",
+    "On My Phone": "",
+    "Open a folder and tap “Save here”": "",
+    "Open with": "",
+    "Paste %n items here": {
+        "one": "",
+        "other": ""
+    },
+    "Pictures": "",
+    "Recents": "",
+    "Rename": "",
+    "Save": "",
+    "Save %n items here": {
+        "one": "",
+        "other": ""
+    },
+    "Search in this folder": "",
+    "Share": "",
+    "Size: %1\nModified: %2\nType: %3\nWhere: %4": "",
+    "Sorted by date": "",
+    "Sorted by name": "",
+    "Sorted by size": "",
+    "They are removed from this phone.": "",
+    "This folder is empty": "",
+    "Your files": ""
 }

@@ -30,22 +30,44 @@ QtObject {
         return accents[0]
     }
 
+    // Appearance: Settings > Display > "theme.mode" = dark | light | auto
+    // (auto: light between sunrise and sunset, from the weather forecast, or
+    // 07:00-19:00). Every app built with Astra.Controls follows it.
+    readonly property string mode: Settings.values["theme.mode"] || "dark"
+    property date clock: new Date()
+    property Timer ticker: Timer { interval: 60000; running: theme.mode === "auto"; repeat: true; onTriggered: theme.clock = new Date() }
+    readonly property bool light: {
+        if (mode === "light")
+            return true
+        if (mode !== "auto")
+            return false
+        const w = Weather.current
+        const day = w && w.daily && w.daily.length ? w.daily[0] : null
+        const hm = (s, fallback) => s ? Number(s.substring(11, 13)) * 60 + Number(s.substring(14, 16)) : fallback
+        const now = clock.getHours() * 60 + clock.getMinutes()
+        return now >= hm(day ? day.sunrise : "", 7 * 60) && now < hm(day ? day.sunset : "", 19 * 60)
+    }
+    readonly property bool dark: !light
+
     // Palette
-    readonly property color background: "#000000"
-    readonly property color surface: "#151517"
-    readonly property color surfaceRaised: "#202024"
-    readonly property color surfacePressed: "#2A2A30"
-    readonly property color separator: "#2A2A2E"
-    readonly property color text: "#FFFFFF"
-    readonly property color textSecondary: Qt.rgba(1, 1, 1, 0.68)
-    readonly property color textTertiary: Qt.rgba(1, 1, 1, 0.45)
+    readonly property color background: light ? "#F2F2F7" : "#000000"
+    readonly property color surface: light ? "#FFFFFF" : "#151517"
+    readonly property color surfaceRaised: light ? "#E6E6EB" : "#202024"
+    readonly property color surfacePressed: light ? "#D6D6DC" : "#2A2A30"
+    readonly property color separator: light ? "#DCDCE1" : "#2A2A2E"
+    readonly property color text: light ? "#0B0B0F" : "#FFFFFF"
+    readonly property color textSecondary: light ? Qt.rgba(0, 0, 0, 0.6) : Qt.rgba(1, 1, 1, 0.68)
+    readonly property color textTertiary: light ? Qt.rgba(0, 0, 0, 0.4) : Qt.rgba(1, 1, 1, 0.45)
+    readonly property color accentText: "#FFFFFF"            // text and icons on accent colours
+    readonly property color sheet: light ? "#FFFFFF" : "#1C1C20"   // dialogs, bottom sheets
+    readonly property color glassPanel: light ? Qt.rgba(0.96, 0.96, 0.98, 0.82) : Qt.rgba(0.1, 0.1, 0.12, 0.82)
     readonly property color accent: accentEntry.color      // switches, selections, primary buttons
     readonly property color accentDeep: accentEntry.deep   // second stop of accent gradients
     readonly property color highlight: "#FF0A8E"           // Control Center toggles
     readonly property color success: "#34D058"
     readonly property color warning: "#FFB020"
     readonly property color danger: "#FF453A"
-    readonly property color switchOff: "#4A4A50"
+    readonly property color switchOff: light ? "#D1D1D6" : "#4A4A50"
     readonly property color glass: Qt.rgba(0, 0, 0, 0.32)       // pills on wallpaper
     readonly property color glassStrong: Qt.rgba(0, 0, 0, 0.55)
     readonly property color glassButton: Qt.rgba(0, 0, 0, 0.82) // Control Center buttons

@@ -8,6 +8,7 @@ qt_add_qml_module(astracore
     OUTPUT_DIRECTORY ${ASTRA_QML_OUTPUT}/Astra/Core
     SOURCES
         common.cpp common.h
+        files.cpp files.h
         imagetools.cpp imagetools.h
         media.cpp media.h
         notifications.cpp notifications.h

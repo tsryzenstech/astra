@@ -20,5 +20,14 @@
     },
     "descriptions": {
         "it": "Tutte le tue foto e i tuoi video, organizzati alla perfezione."
-    }
+    },
+    "appearance": "dark",
+    "opens": [
+        "image/*",
+        "video/*"
+    ],
+    "share": [
+        "image/*",
+        "video/*"
+    ]
 }

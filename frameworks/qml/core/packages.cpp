@@ -161,6 +161,26 @@ void PackageModel::uninstall(const QString &package, const QJSValue &callback)
                              [this, callback](const QJsonValue &r, const QString &e) { invokeCallback(this, callback, r, e); });
 }
 
+QVariantList PackageModel::targets(const QString &mimeType, const QString &kind) const
+{
+    QVariantList out;
+    const QString self = qEnvironmentVariable("ASTRA_PACKAGE");
+    for (const QJsonObject &p : m_items) {
+        if (p.value(QLatin1String("package")).toString() == self)
+            continue;
+        for (const QJsonValue &v : p.value(kind == QLatin1String("open") ? QLatin1String("opens") : QLatin1String("share")).toArray()) {
+            const QString pattern = v.toString();
+            const bool match = pattern == QLatin1String("*/*") || pattern == mimeType ||
+                               (pattern.endsWith(QLatin1String("/*")) && mimeType.startsWith(pattern.chopped(1)));
+            if (match) {
+                out.append(toMap(p));
+                break;
+            }
+        }
+    }
+    return out;
+}
+
 void PackageModel::details(const QString &package, const QJSValue &callback)
 {
     Client::instance()->call(QStringLiteral("packages.get"), {{QStringLiteral("package"), package}},

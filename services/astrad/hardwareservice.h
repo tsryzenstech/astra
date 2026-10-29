@@ -13,7 +13,7 @@ class SettingsService;
 //   battery    /sys/class/power_supply/<battery>/{capacity,status}
 //   brightness /sys/class/backlight/<panel>/brightness   (ro.vendor.backlight)
 //   torch      /sys/class/leds/<torch>/brightness         (ro.vendor.torch)
-// Without hardware (development trees) the state is simulated in memory.
+// Without the hardware a feature reports itself as absent.
 class HardwareService : public Service
 {
     Q_OBJECT

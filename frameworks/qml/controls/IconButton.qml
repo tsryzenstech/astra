@@ -9,7 +9,8 @@ Item {
     property string iconName
     property real size: 44
     property color color: Theme.surfaceRaised
-    property color iconColor: "white"
+    // Light icon on dark or coloured buttons, dark icon on light ones.
+    property color iconColor: (color.a < 0.3 ? Theme.light : color.hslLightness > 0.7) ? Theme.text : "white"
     property bool enabled: true
     signal clicked()
     signal pressAndHold()

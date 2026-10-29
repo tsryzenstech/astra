@@ -20,5 +20,11 @@
     "permissions": [
         "astra.permission.MEDIA"
     ],
-    "widgets": []
+    "widgets": [],
+    "share": [
+        "*/*"
+    ],
+    "opens": [
+        "inode/directory"
+    ]
 }

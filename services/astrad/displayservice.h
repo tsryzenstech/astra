@@ -13,7 +13,7 @@ namespace astrad {
 // written to /data/system/kms.json in the eglfs_kms format; SysBoard reads
 // it when it starts, so a new mode applies after restarting the shell.
 //   display.modes  -> [{width, height, refresh, preferred, current}]
-//   display.info   -> {connector, output, width, height, refresh, physicalWidth, physicalHeight, simulated, modes}
+//   display.info   -> {connector, output, width, height, refresh, physicalWidth, physicalHeight, modes}
 class DisplayService : public Service
 {
     Q_OBJECT

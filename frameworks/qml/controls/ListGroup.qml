@@ -22,7 +22,7 @@ Rectangle {
         font.family: Theme.fontFamily
         font.pixelSize: Theme.captionSize + 1
         font.weight: Font.Medium
-        color: Qt.rgba(1, 1, 1, 0.85)
+        color: Theme.textSecondary
     }
 
     Rectangle {

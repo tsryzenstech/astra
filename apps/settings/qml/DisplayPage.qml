@@ -43,6 +43,23 @@ Page {
     }
 
     ListGroup {
+        title: qsTr("Appearance")
+        footer: qsTr("Automatic follows sunrise and sunset. Apps built for astraOS follow it too.")
+        Item {
+            width: parent.width
+            height: 64
+            SegmentedControl {
+                anchors.centerIn: parent
+                width: parent.width - 32
+                model: [qsTr("Dark"), qsTr("Light"), qsTr("Automatic")]
+                readonly property var modes: ["dark", "light", "auto"]
+                currentIndex: Math.max(0, modes.indexOf(Settings.values["theme.mode"] || "dark"))
+                onActivated: (i) => Settings.setValue("theme.mode", modes[i])
+            }
+        }
+    }
+
+    ListGroup {
         title: qsTr("Brightness")
         SliderRow {
             text: qsTr("Brightness")
@@ -69,7 +86,7 @@ Page {
 
     ListGroup {
         title: qsTr("Screen")
-        footer: page.info.simulated ? qsTr("No display panel was found: showing the modes of a simulated panel.") : ""
+        footer: page.modes.length === 0 ? qsTr("The display modes could not be read from the panel.") : ""
         ListItem {
             text: qsTr("Refresh rate")
             value: page.current.refresh ? page.current.refresh + " Hz" : "—"

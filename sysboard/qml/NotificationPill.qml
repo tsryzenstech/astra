@@ -16,6 +16,17 @@ Rectangle {
     signal openRequested()
     signal dismissRequested()
 
+    // Swipe right to dismiss: the notification follows the finger and
+    // fades out completely.
+    Spring { id: swipe; to: 0; response: 0.32; dampingFraction: 0.86 }
+    property bool dismissing: false
+    transform: Translate { x: Math.max(0, swipe.value) }
+    opacity: 1 - Math.max(0, Math.min(1, swipe.value / (width * 0.85)))
+    Connections {
+        target: swipe
+        function onSettled() { if (root.dismissing) root.dismissRequested() }
+    }
+
     height: expanded ? Math.max(89, details.y + details.height + 18) : 89
     Behavior on height { SpringNumberAnimation { preset: Motion.snappy } }
     radius: expanded ? 34 : 44.5
@@ -90,7 +101,7 @@ Rectangle {
         Row {
             spacing: 8
             Repeater {
-                model: [{ label: "Open", action: "open" }, { label: "Dismiss", action: "dismiss" }]
+                model: [{ label: qsTr("Open"), action: "open" }, { label: qsTr("Dismiss"), action: "dismiss" }]
                 delegate: Rectangle {
                     required property var modelData
                     width: label.implicitWidth + 26
@@ -118,7 +129,39 @@ Rectangle {
     MouseArea {
         anchors.fill: parent
         z: -1
-        onClicked: root.openRequested()
+        enabled: !root.dismissing
+        property real startX
+        property bool dragging: false
+        VelocityTracker { id: velocity }
+        onPressed: (m) => {
+            startX = m.x
+            dragging = false
+            velocity.reset()
+            velocity.addPoint(m.x, m.y)
+        }
+        onPositionChanged: (m) => {
+            velocity.addPoint(m.x, m.y)
+            const dx = m.x - startX
+            if (!dragging && dx > 12) {
+                dragging = true
+                preventStealing = true
+            }
+            if (dragging)
+                swipe.value = dx > 0 ? dx : Motion.rubberband(dx, root.width, 0.3)
+        }
+        onReleased: {
+            const vx = velocity.velocity().x
+            if (dragging && (swipe.value > root.width * 0.35 || vx > 700)) {
+                root.dismissing = true
+                swipe.animateTo(root.width * 1.1, vx / root.width)
+            } else if (dragging) {
+                swipe.animateTo(0, vx / root.width)
+            } else {
+                root.openRequested()
+            }
+            dragging = false
+            preventStealing = false
+        }
     }
 
     Icon {

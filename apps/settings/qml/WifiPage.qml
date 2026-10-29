@@ -36,7 +36,7 @@ Page {
     }
 
     ListGroup {
-        footer: page.wifi.kind === "simulated" ? qsTr("No Wi-Fi hardware was found: showing simulated networks.") : ""
+        footer: page.wifi.available === false ? qsTr("No Wi-Fi hardware or service (iwd) was found on this device.") : ""
         ListItem {
             text: qsTr("Wi-Fi")
             showSwitch: true

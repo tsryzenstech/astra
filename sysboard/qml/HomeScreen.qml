@@ -20,6 +20,7 @@ Item {
     property bool animateLayout: false
     // The package whose window is growing out of (or back into) its icon.
     property string hiddenPackage: ""
+    property var appLayer: null
 
     // ---- geometry (reference: 393 x 852 logical px) ----------------------
     readonly property real sidePadding: 10
@@ -398,6 +399,7 @@ Item {
                 jiggle: home.editing
                 hidden: touch.dragging && touch.dragIndex === index || focusMenu.index === index && focusMenu.visible
                         || pkg === home.hiddenPackage
+                        || (home.appLayer !== null && (home.appLayer.revision, home.appLayer.progress, home.appLayer.isMorphing(pkg)))
 
                 readonly property real targetX: home.localX(container, slot)
                 readonly property real targetY: home.localY(container, slot)

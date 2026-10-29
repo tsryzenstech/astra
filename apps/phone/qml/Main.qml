@@ -94,10 +94,10 @@ Rectangle {
                     width: parent.width / 4
                     height: 50
                     radius: 25
-                    color: app.tab === modelData.id ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+                    color: app.tab === modelData.id ? Theme.surfacePressed : "transparent"
                     Column {
                         anchors.centerIn: parent
-                        Icon { anchors.horizontalCenter: parent.horizontalCenter; name: modelData.icon; size: 20; color: app.tab === modelData.id ? Theme.accent : "white" }
+                        Icon { anchors.horizontalCenter: parent.horizontalCenter; name: modelData.icon; size: 20; color: app.tab === modelData.id ? Theme.accent : Theme.text }
                         Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.label; font.family: Theme.fontFamily
                                font.pixelSize: 10; font.weight: Font.Medium; color: app.tab === modelData.id ? Theme.accent : Theme.textSecondary }
                     }

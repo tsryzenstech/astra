@@ -48,6 +48,8 @@ public:
                             const QJSValue &callback = QJSValue());
     Q_INVOKABLE void uninstall(const QString &package, const QJSValue &callback = QJSValue());
     Q_INVOKABLE void details(const QString &package, const QJSValue &callback);
+    // Apps that declared they open ("open") or receive ("share") a MIME type.
+    Q_INVOKABLE QVariantList targets(const QString &mimeType, const QString &kind = QStringLiteral("share")) const;
 
 Q_SIGNALS:
     void countChanged();

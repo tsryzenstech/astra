@@ -65,10 +65,21 @@ Item {
             Packages.launch(pkg, args) // already in front: deliver the intent
             return
         }
+        // Another app still growing out of its icon: it shrinks back while
+        // the new one opens over it, so taps can chain quickly.
+        const previous = activeWindow
+        if (previous && previous.packageName !== pkg && !previous.settledOpen)
+            previous.close(shell.home.iconRect(previous.packageName), 0)
         const w = windowFor(pkg, fromRect)
         bringToFront(w)
         w.open()
         Packages.launch(pkg, args)
+    }
+
+    // Some window of this package is animating (its home icon stays hidden).
+    function isMorphing(pkg) {
+        const w = windows[pkg]
+        return !!w && (w.morphing || w === activeWindow)
     }
 
     // From a Recents card: the snapshot grows back into the app.
@@ -86,8 +97,9 @@ Item {
 
     function windowSettled(w) {
         // The app is full screen: whatever was below goes to the background.
+        // Windows still closing finish their animation first.
         for (const key in windows)
-            if (windows[key] !== w)
+            if (windows[key] !== w && windows[key].wantsOpen)
                 windows[key].sendToBackground()
     }
 

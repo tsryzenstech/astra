@@ -72,7 +72,8 @@ Item {
         const buttons = (d.buttons || []).map(b => ({ id: b.id, label: Catalog.tr(b.label), style: b.style || "" }))
         if (d.kind === "permission") {
             return { title: qsTr("Allow %1 to access %2?").arg(d.appName || d.package).arg(Catalog.tr(d.label).toLowerCase()),
-                     message: "", icon: d.icon || "shield", appIcon: d.appIcon, buttons: buttons }
+                     message: qsTr("You can change this later in Settings > Apps > %1.").arg(d.appName || d.package),
+                     icon: d.icon || "shield", appIcon: d.appIcon, buttons: buttons }
         }
         if (d.kind === "usb-debugging") {
             const details = d.details || {}
@@ -92,21 +93,30 @@ Item {
         MouseArea {
             anchors.fill: parent
             enabled: root.active
+            // Permission requests can only be answered with their buttons.
             onClicked: {
+                if (root.modal)
+                    return
                 const b = root.view.buttons
                 root.answer(b.length ? b[0].id : "")
             }
         }
     }
 
+    // Permission requests: a card in the middle of the screen that pops in
+    // and cannot be dismissed. Everything else: a bottom sheet.
+    readonly property bool modal: !!current && current.kind === "permission"
+
     Rectangle {
         id: sheet
-        x: 10
-        width: parent.width - 20
+        x: root.modal ? 28 : 10
+        width: parent.width - (root.modal ? 56 : 20)
         height: column.implicitHeight + 48
-        y: parent.height - 12 - height + (1 - reveal.value) * (height + 40)
+        y: root.modal ? (parent.height - height) / 2 : parent.height - 12 - height + (1 - reveal.value) * (height + 40)
+        scale: root.modal ? 0.8 + 0.2 * reveal.value : 1
+        opacity: root.modal ? Math.min(1, reveal.value * 1.5) : 1
         radius: Theme.sheetRadius
-        color: "#1C1C20"
+        color: Theme.sheet
         border.width: 1
         border.color: Qt.rgba(1, 1, 1, 0.06)
 
@@ -159,7 +169,7 @@ Item {
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.headlineSize + 2
                 font.weight: Font.DemiBold
-                color: "white"
+                color: Theme.text
             }
             Text {
                 visible: text !== ""
@@ -191,7 +201,7 @@ Item {
                         radius: 25
                         readonly property bool primary: modelData.style === "primary"
                         readonly property bool destructive: modelData.style === "destructive"
-                        color: destructive ? Theme.danger : primary ? Theme.accent : Qt.rgba(1, 1, 1, 0.1)
+                        color: destructive ? Theme.danger : primary ? Theme.accent : Theme.surfaceRaised
                         scale: area.pressed ? 0.95 : 1
                         Behavior on scale { SpringNumberAnimation { preset: Motion.snappy } }
                         Text {
@@ -203,7 +213,7 @@ Item {
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.bodySize
                             font.weight: Font.DemiBold
-                            color: "white"
+                            color: button.primary || button.destructive ? Theme.accentText : Theme.text
                         }
                         MouseArea {
                             id: area

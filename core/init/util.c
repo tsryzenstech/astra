@@ -203,7 +203,7 @@ static const struct {
 } android_ids[] = {
     {"root", 0},       {"system", 1000}, {"radio", 1001}, {"bluetooth", 1002},
     {"graphics", 1003}, {"input", 1004},  {"audio", 1005}, {"camera", 1006},
-    {"log", 1007},     {"wifi", 1010},   {"media", 1013}, {"media_rw", 1023}, {"shell", 2000},
+    {"log", 1007},     {"wifi", 1010},   {"media", 1013}, {"media_rw", 1023}, {"messagebus", 1060}, {"shell", 2000},
     {"inet", 3003},    {"net_admin", 3005}, {"video", 1040}, {"apps", 10000},
 };
 

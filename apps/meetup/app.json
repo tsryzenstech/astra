@@ -20,5 +20,6 @@
     "widgets": [],
     "names": {
         "it": "MeetUp"
-    }
+    },
+    "appearance": "dark"
 }

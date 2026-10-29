@@ -35,6 +35,8 @@ Item {
         height: 26
         radius: 13
         color: "white"
+        border.width: Theme.light ? 1 : 0
+        border.color: Qt.rgba(0, 0, 0, 0.12)
         anchors.verticalCenter: parent.verticalCenter
         x: root.position * (root.width - width)
         scale: area.pressed ? 1.15 : 1

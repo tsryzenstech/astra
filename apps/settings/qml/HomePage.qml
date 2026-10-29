@@ -73,7 +73,7 @@ Page {
         ListItem { text: qsTr("Notifications"); chevron: true; onClicked: page.open("NotificationsPage.qml") }
         ListItem {
             text: qsTr("Battery")
-            value: System.batteryLevel + "%"
+            value: System.batteryLevel >= 0 ? System.batteryLevel + "%" : ""
             chevron: true
             onClicked: page.open("BatteryPage.qml")
         }

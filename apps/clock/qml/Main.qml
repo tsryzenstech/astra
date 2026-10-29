@@ -66,11 +66,11 @@ Rectangle {
                     width: (parent.width) / 4
                     height: 50
                     radius: 25
-                    color: app.tab === modelData.id ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+                    color: app.tab === modelData.id ? Theme.surfacePressed : "transparent"
                     Column {
                         anchors.centerIn: parent
                         Icon { anchors.horizontalCenter: parent.horizontalCenter; name: modelData.icon; size: 20
-                               color: app.tab === modelData.id ? Theme.accent : "white" }
+                               color: app.tab === modelData.id ? Theme.accent : Theme.text }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: modelData.label
@@ -220,7 +220,7 @@ Rectangle {
                                 width: 38; height: 38; radius: 19
                                 color: on ? Theme.accent : Theme.surfaceRaised
                                 Text { anchors.centerIn: parent; text: app.dayNames()[modelData].charAt(0); font.family: Theme.fontFamily
-                                       font.pixelSize: Theme.captionSize + 1; font.weight: Font.DemiBold; color: "white" }
+                                       font.pixelSize: Theme.captionSize + 1; font.weight: Font.DemiBold; color: parent.on ? Theme.accentText : Theme.text }
                                 MouseArea {
                                     anchors.fill: parent
                                     onClicked: {
@@ -337,7 +337,7 @@ Rectangle {
                     width: 84; height: 84; radius: 42
                     color: Theme.surfaceRaised
                     Text { anchors.centerIn: parent; text: sw.running ? qsTr("Lap") : qsTr("Reset"); font.family: Theme.fontFamily
-                           font.pixelSize: Theme.bodySize; font.weight: Font.DemiBold; color: "white" }
+                           font.pixelSize: Theme.bodySize; font.weight: Font.DemiBold; color: Theme.text }
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
@@ -438,7 +438,7 @@ Rectangle {
                                 width: 44; height: 32; radius: 16
                                 color: Theme.surfaceRaised
                                 Text { anchors.centerIn: parent; text: modelData + "'"; font.family: Theme.fontFamily
-                                       font.pixelSize: Theme.captionSize; color: "white" }
+                                       font.pixelSize: Theme.captionSize; color: Theme.text }
                                 MouseArea { anchors.fill: parent; onClicked: { tp.minutes = modelData; tp.seconds = 0 } }
                             }
                         }

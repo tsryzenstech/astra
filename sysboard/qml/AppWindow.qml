@@ -28,8 +28,11 @@ Item {
     property double lastUsed: 0
 
     // 0 = at fromRect, 1 = fullscreen
-    Spring { id: openness; to: 0; response: 0.46; dampingFraction: 0.84 }
+    Spring { id: openness; to: 0; response: 0.4; dampingFraction: 0.86 }
     readonly property real progress: openness.value
+    readonly property bool wantsOpen: openness.to > 0.5     // opening or open (not closing)
+    // Motion blur follows the speed of the morph.
+    readonly property real motionBlur: Math.min(0.55, Math.abs(openness.velocity) * 0.13)
     readonly property bool settledOpen: progress > 0.999 && !openness.running && !gesturing
     readonly property bool morphing: !inBackground && progress > 0.002 && !settledOpen
 
@@ -153,12 +156,16 @@ Item {
         readonly property real radius: Math.min(width / 2, win.lerp(startRadius, win.openRadius, Math.min(1, p)))
         readonly property bool rounded: radius > 0.5
 
-        layer.enabled: rounded
+        layer.enabled: rounded || win.motionBlur > 0.01
         layer.effect: MultiEffect {
             maskEnabled: true
             maskSource: maskShape
             maskThresholdMin: 0.5
             maskSpreadAtMin: 1.0
+            blurEnabled: win.motionBlur > 0.01
+            blur: win.motionBlur
+            blurMax: 24
+            autoPaddingEnabled: false
         }
 
         Item {
@@ -171,7 +178,9 @@ Item {
             // Splash shown until the app draws its first frame.
             Rectangle {
                 anchors.fill: parent
-                color: win.info.background || "#000000"
+                // Light mode: apps without a fixed dark look start on the light background.
+                color: Theme.light && win.info.appearance !== "dark" && (win.info.background || "#000000") === "#000000"
+                       ? Theme.background : (win.info.background || "#000000")
                 AppIcon {
                     anchors.centerIn: parent
                     size: 96

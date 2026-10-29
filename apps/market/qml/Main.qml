@@ -73,6 +73,28 @@ Rectangle {
     Component.onCompleted: {
         load()
         scanFiles()
+        installShared(Application.args)
+    }
+    Connections {
+        target: Application
+        function onIntent(args) { app.installShared(args) }
+    }
+    // An .apkg opened from Files: confirm, then install.
+    function installShared(args) {
+        if (!args || !args.files || !args.files.length)
+            return
+        const path = args.files[0]
+        Dialogs.show({ title: qsTr("Install this app?"), message: path.split("/").pop() + "
+" + qsTr("Only install files from people you trust."),
+                       icon: "download", buttons: [ { id: "c", label: qsTr("Cancel") }, { id: "i", label: qsTr("Install"), style: "primary" } ] },
+                     function(b) {
+                         if (b !== "i")
+                             return
+                         System.call("packages.install", { path: path }, function(r, err) {
+                             Dialogs.show({ title: err ? qsTr("Couldn't install the app") : qsTr("App installed"), message: err || "",
+                                            icon: err ? "warning" : "check-circle", buttons: [ { id: "ok", label: qsTr("OK") } ] })
+                         })
+                     })
     }
 
     component AppRow: ListItem {
@@ -98,7 +120,7 @@ Rectangle {
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.captionSize + 1
                 font.weight: Font.Bold
-                color: "white"
+                color: row.have > 0 && !row.update ? Theme.text : Theme.accentText
             }
             MouseArea {
                 anchors.fill: parent
@@ -232,7 +254,7 @@ Rectangle {
         color: Theme.surfaceRaised
         Rectangle {
             y: 5; height: 44; width: 110; radius: 22
-            color: Qt.rgba(1, 1, 1, 0.12)
+            color: Theme.surfacePressed
             x: app.tab === "discover" ? 5 : parent.width - width - 5
             Behavior on x { SpringNumberAnimation { preset: Motion.bouncy } }
         }
@@ -245,7 +267,7 @@ Rectangle {
                     required property var modelData
                     width: 113; height: 44
                     Text { anchors.centerIn: parent; text: modelData.label; font.family: Theme.fontFamily; font.pixelSize: Theme.captionSize + 1
-                           font.weight: Font.DemiBold; color: app.tab === modelData.id ? Theme.accent : "white" }
+                           font.weight: Font.DemiBold; color: app.tab === modelData.id ? Theme.accent : Theme.text }
                     MouseArea { anchors.fill: parent; onClicked: app.tab = modelData.id }
                 }
             }

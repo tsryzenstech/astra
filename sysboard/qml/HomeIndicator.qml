@@ -9,6 +9,8 @@ Item {
     id: root
 
     property bool following: false
+    property color color: "white"
+    Behavior on color { ColorAnimation { duration: 200 } }
     property real followX: 0   // finger offset from where the gesture began
     property real followY: 0   // upwards, positive
 
@@ -45,6 +47,6 @@ Item {
         width: 120 + 26 * stretch.value
         height: 5
         radius: 2.5
-        color: "white"
+        color: root.color
     }
 }

@@ -17,7 +17,7 @@ Item {
     property bool chevron: false
     property bool selected: false      // trailing accent check mark (choices)
     property bool busy: false          // trailing spinner
-    property color iconColor: "white"
+    property color iconColor: Theme.text
     property real iconTile: 0          // >0: symbolic icon on a rounded colour tile of this size
     property color tileColor: Theme.accent
     property bool showSwitch: false
@@ -40,7 +40,7 @@ Item {
         anchors.fill: parent
         anchors.margins: 4
         radius: Theme.radius - 4
-        color: Qt.rgba(1, 1, 1, 0.08)
+        color: Theme.light ? Qt.rgba(0, 0, 0, 0.06) : Qt.rgba(1, 1, 1, 0.08)
         opacity: area.pressed && (root.chevron || !root.showSwitch) ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 120 } }
     }
@@ -65,7 +65,7 @@ Item {
                     height: width
                     radius: width * 0.32
                     color: root.iconTile > 0 ? root.tileColor : "transparent"
-                    Icon { anchors.centerIn: parent; name: root.iconName; size: root.iconTile > 0 ? root.iconTile * 0.62 : 22; color: root.iconColor }
+                    Icon { anchors.centerIn: parent; name: root.iconName; size: root.iconTile > 0 ? root.iconTile * 0.62 : 22; color: root.iconTile > 0 ? Theme.accentText : root.iconColor }
                 }
             }
         }
@@ -140,6 +140,7 @@ Item {
         Icon {
             visible: root.chevron
             name: "chevron-right"
+            color: Theme.textTertiary
             size: 24
             anchors.verticalCenter: parent.verticalCenter
         }

@@ -163,7 +163,7 @@ Page {
                                 font.family: modelData
                                 font.pixelSize: 30
                                 font.weight: modelData === "Poppins" ? page.clockWeight : Font.Normal
-                                color: "white"
+                                color: Theme.text
                             }
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter

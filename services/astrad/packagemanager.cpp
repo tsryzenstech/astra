@@ -264,6 +264,10 @@ QJsonObject PackageManager::info(const QString &package) const
         {K("description"), descriptions.contains(lang) ? descriptions.value(lang) : m.value(K("description"))},
         {K("category"), m.value(K("category"))},
         {K("background"), m.value(K("background")).toString(QStringLiteral("#000000"))},
+        {K("appearance"), m.value(K("appearance")).toString(QStringLiteral("auto"))}, // "dark": always dark (camera, media)
+        // File types the app opens ("Open with") and receives ("Share"), e.g. ["image/*"]
+        {K("opens"), m.value(K("opens")).toArray()},
+        {K("share"), m.value(K("share")).toArray()},
         {K("accent"), m.value(K("accent")).toString(QStringLiteral("#FF7A00"))},
         {K("icon"), code + QLatin1Char('/') + m.value(K("icon")).toString()},
         {K("main"), code + QLatin1Char('/') + m.value(K("main")).toString()},
@@ -442,14 +446,10 @@ void PackageManager::requestPermission(const QString &package, const QString &pe
             result(true, info->gid != 0);
             return;
         }
-        // The second refusal is final until the user changes it in Settings.
-        QJsonObject r = m_packages.value(package);
-        QJsonObject denials = r.value(K("denials")).toObject();
-        const int count = denials.value(permission).toInt() + 1;
-        denials.insert(permission, count);
-        r.insert(K("denials"), denials);
-        m_packages.insert(package, r);
-        setRuntimeState(package, permission, count >= 2 ? K("denied") : K("ask"));
+        // The answer is final: only Settings > Apps > <app> changes it.
+        // No answer (the app went away before the user decided) changes nothing.
+        if (button == QLatin1String("deny"))
+            setRuntimeState(package, permission, K("denied"));
         result(false, false);
     });
 }
