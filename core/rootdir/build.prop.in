@@ -10,6 +10,7 @@ ro.astra.build.id=@ASTRA_BUILD_ID@
 ro.astra.build.date=@ASTRA_BUILD_EPOCH@
 ro.astra.build.commit=@ASTRA_GIT_HASH@
 ro.astra.ota.url=@ASTRA_OTA_URL@
+ro.astra.market.url=@ASTRA_MARKET_URL@
 ro.build.display.id=astraOS @ASTRA_VERSION@ "@ASTRA_CODENAME@" (@ASTRA_BUILD_ID@)
 ro.build.type=@ASTRA_BUILD_TYPE@
 ro.system.font.family=Poppins

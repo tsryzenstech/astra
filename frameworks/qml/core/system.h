@@ -52,6 +52,8 @@ public:
     // file:// URL of a system path, e.g. System.fileUrl("/system/media/brand/astra_white.svg")
     Q_INVOKABLE QUrl fileUrl(const QString &path) const;
     // Files in a system directory, as system paths, e.g. System.files("/system/media/wallpapers", ["*.png"])
+    // Local time in another time zone: { valid, time ("HH:mm"), offset (seconds from here), city, dayShift }
+    Q_INVOKABLE QVariantMap zone(const QString &ianaId) const;
     Q_INVOKABLE QStringList files(const QString &dir, const QStringList &nameFilters = {}) const;
     // Raw access to astrad for diagnostics and tests.
     Q_INVOKABLE void call(const QString &method, const QVariantMap &params, const QJSValue &callback);

@@ -7,7 +7,9 @@
 #include <astra/paths.h>
 #include <astra/properties.h>
 
+#include <QDateTime>
 #include <QDir>
+#include <QTimeZone>
 #include <QJsonObject>
 
 namespace astra::qml {
@@ -115,6 +117,23 @@ QString SystemInfo::property(const QString &key, const QString &fallback) const
 QUrl SystemInfo::fileUrl(const QString &path) const
 {
     return QUrl::fromLocalFile(Paths::resolve(path));
+}
+
+QVariantMap SystemInfo::zone(const QString &ianaId) const
+{
+    const QTimeZone tz(ianaId.toLatin1());
+    if (!tz.isValid())
+        return {{QStringLiteral("valid"), false}};
+    const QDateTime now = QDateTime::currentDateTime();
+    const QDateTime there = now.toTimeZone(tz);
+    return {
+        {QStringLiteral("valid"), true},
+        {QStringLiteral("time"), there.toString(QStringLiteral("HH:mm"))},
+        {QStringLiteral("hour"), there.time().hour()},
+        {QStringLiteral("offset"), tz.offsetFromUtc(now) - now.offsetFromUtc()},
+        {QStringLiteral("dayShift"), int(now.date().daysTo(there.date()))},
+        {QStringLiteral("city"), ianaId.section(QLatin1Char('/'), -1).replace(QLatin1Char('_'), QLatin1Char(' '))},
+    };
 }
 
 QStringList SystemInfo::files(const QString &dir, const QStringList &nameFilters) const

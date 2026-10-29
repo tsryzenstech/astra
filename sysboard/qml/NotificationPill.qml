@@ -49,7 +49,7 @@ Rectangle {
             }
             Text {
                 anchors.baseline: app.baseline
-                text: "• " + Qt.formatTime(root.time, "HH:mm")
+                text: "• " + Qt.locale().toString(root.time, "HH:mm")
                 font.family: Theme.fontFamily
                 font.pixelSize: 14
                 color: "white"

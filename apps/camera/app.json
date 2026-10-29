@@ -11,7 +11,11 @@
     "launcher": {
         "visible": true
     },
-    "permissions": [],
+    "permissions": [
+        "astra.permission.CAMERA",
+        "astra.permission.MICROPHONE",
+        "astra.permission.MEDIA"
+    ],
     "widgets": [
         {
             "id": "shutter",
@@ -19,5 +23,8 @@
             "qml": "widgets/Shutter.qml",
             "size": "small"
         }
-    ]
+    ],
+    "names": {
+        "it": "Fotocamera"
+    }
 }

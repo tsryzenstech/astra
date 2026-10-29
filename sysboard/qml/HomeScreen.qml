@@ -239,11 +239,14 @@ Item {
         target: Packages
         function onCountChanged() { home.rebuild() }
         function onReadyChanged() { home.rebuild() }
+        // Names follow the system language.
+        function onPackageChanged(pkg) { renameTimer.restart() }
     }
     Connections {
         target: Settings
         function onValuesChanged() { if (icons.count === 0) home.rebuild() }
     }
+    Timer { id: renameTimer; interval: 100; onTriggered: home.rebuild() }
     Component.onCompleted: {
         rebuild()
         Qt.callLater(() => home.animateLayout = true)

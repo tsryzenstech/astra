@@ -11,7 +11,9 @@
     "launcher": {
         "visible": true
     },
-    "permissions": [],
+    "permissions": [
+        "astra.permission.NOTIFICATIONS"
+    ],
     "widgets": [
         {
             "id": "tip",
@@ -19,5 +21,8 @@
             "qml": "widgets/Tip.qml",
             "size": "wide"
         }
-    ]
+    ],
+    "names": {
+        "it": "Suggerimenti"
+    }
 }

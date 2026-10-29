@@ -12,7 +12,13 @@
         "visible": true
     },
     "permissions": [
-        "astra.permission.INTERNET"
+        "astra.permission.INTERNET",
+        "astra.permission.CAMERA",
+        "astra.permission.MICROPHONE",
+        "astra.permission.CONTACTS"
     ],
-    "widgets": []
+    "widgets": [],
+    "names": {
+        "it": "MeetUp"
+    }
 }

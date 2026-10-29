@@ -16,14 +16,14 @@ Page {
         Column {
             width: parent.width
             Text {
-                text: Settings.values["clock.24h"] === false ? Qt.formatTime(page.now, "h:mm AP") : Qt.formatTime(page.now, "HH:mm")
+                text: Settings.values["clock.24h"] === false ? Qt.locale().toString(page.now, "h:mm AP") : Qt.locale().toString(page.now, "HH:mm")
                 font.family: Theme.fontFamily
                 font.pixelSize: 44
                 font.weight: Font.Bold
                 color: "white"
             }
             Text {
-                text: Qt.formatDate(page.now, "dddd d MMMM yyyy")
+                text: Qt.locale().toString(page.now, "dddd d MMMM yyyy")
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.bodySize
                 color: Qt.rgba(1, 1, 1, 0.9)

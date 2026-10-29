@@ -62,7 +62,8 @@ bool SettingsService::mayWrite(const QString &key, const Caller &caller) const
         if (key.startsWith(it.key()) && caller.package == it.value())
             return true;
     if ((key.startsWith(QLatin1String("ui.")) || key.startsWith(QLatin1String("lockscreen.")) ||
-         key.startsWith(QLatin1String("wallpaper."))) && caller.can(QLatin1String(permissions::MANAGE_THEMES)))
+         key.startsWith(QLatin1String("wallpaper.")) || key.startsWith(QLatin1String("theme.")) ||
+         key == QLatin1String("display.wallpaper")) && caller.can(QLatin1String(permissions::MANAGE_THEMES)))
         return true;
     return false;
 }

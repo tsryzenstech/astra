@@ -15,14 +15,14 @@ DialogService::DialogService(Server *server, PackageManager *packages, QObject *
     , m_server(server)
     , m_packages(packages)
 {
-    // Dialogs of an app that went away are cancelled.
+    // Dialogs of an app that went away (its own, or permission requests
+    // made for it) are cancelled.
     connect(server, &Server::clientDisconnected, this, [this](const Caller &c) {
         if (c.package.isEmpty())
             return;
         const QList<int> ids = m_pending.keys();
         for (int id : ids)
-            if (m_pending.value(id).dialog.value(QLatin1String("package")).toString() == c.package &&
-                m_pending.value(id).dialog.value(QLatin1String("fromApp")).toBool())
+            if (m_pending.value(id).dialog.value(QLatin1String("package")).toString() == c.package)
                 finish(id, m_pending.value(id).cancelButton);
     });
 }

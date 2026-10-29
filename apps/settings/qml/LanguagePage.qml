@@ -30,11 +30,11 @@ Page {
         title: qsTr("Region")
         ListItem {
             text: qsTr("Temperature")
-            value: (Settings.values["weather.units"] || "metric") === "imperial" ? "°F" : "°C"
+            value: Settings.values["weather.units"] === "fahrenheit" ? "°F" : "°C"
             chevron: true
             onClicked: stack.open(Qt.resolvedUrl("ChoicePage.qml"), {
                 title: qsTr("Temperature"), key: "weather.units",
-                options: [ { value: "metric", label: qsTr("Celsius (°C)") }, { value: "imperial", label: qsTr("Fahrenheit (°F)") } ] })
+                options: [ { value: "celsius", label: qsTr("Celsius (°C)") }, { value: "fahrenheit", label: qsTr("Fahrenheit (°F)") } ] })
         }
         ListItem {
             text: qsTr("First day of the week")

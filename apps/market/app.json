@@ -12,7 +12,12 @@
         "visible": true
     },
     "permissions": [
-        "astra.permission.INTERNET"
+        "astra.permission.INTERNET",
+        "astra.permission.MANAGE_PACKAGES",
+        "astra.permission.MEDIA"
     ],
-    "widgets": []
+    "widgets": [],
+    "names": {
+        "it": "Market"
+    }
 }

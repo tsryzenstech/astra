@@ -117,7 +117,7 @@ Page {
         ListItem { text: qsTr("Build ID"); value: page.u.buildId || "—" }
         ListItem {
             text: qsTr("Last checked")
-            value: page.u.lastCheck ? Qt.formatDateTime(new Date(page.u.lastCheck), "d MMM, HH:mm") : qsTr("Never")
+            value: page.u.lastCheck ? Qt.locale().toString(new Date(page.u.lastCheck), "d MMM, HH:mm") : qsTr("Never")
             separator: false
         }
     }

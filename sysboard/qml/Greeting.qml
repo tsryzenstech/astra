@@ -15,7 +15,7 @@ Item {
     readonly property string word: {
         switch (condition) {
         case "sunny": return qsTr("Sunny")
-        case "clear": return qsTr("Clear")
+        case "clear": return qsTr("Clear", "weather")
         case "partly-cloudy": return qsTr("Cloudy")
         case "cloudy": return qsTr("Cloudy")
         case "foggy": return qsTr("Foggy")
@@ -23,7 +23,7 @@ Item {
         case "snowy": return qsTr("Snowy")
         case "stormy": return qsTr("Stormy")
         }
-        return Qt.formatDate(SystemClock.now, "dddd")
+        return Qt.locale().toString(SystemClock.now, "dddd")
     }
     readonly property string tail: condition === "" ? qsTr("today") : night ? qsTr("tonight") : qsTr("outside")
 

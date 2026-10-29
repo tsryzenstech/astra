@@ -12,7 +12,9 @@
         "visible": true
     },
     "permissions": [
-        "astra.permission.INTERNET"
+        "astra.permission.SMS",
+        "astra.permission.CONTACTS",
+        "astra.permission.NOTIFICATIONS"
     ],
     "widgets": [
         {
@@ -21,5 +23,8 @@
             "qml": "widgets/Unread.qml",
             "size": "small"
         }
-    ]
+    ],
+    "names": {
+        "it": "Messaggi"
+    }
 }

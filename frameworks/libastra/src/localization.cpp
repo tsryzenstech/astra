@@ -34,10 +34,10 @@ bool JsonTranslator::load(const QString &file, const QString &language)
 QString JsonTranslator::translate(const char *, const char *sourceText, const char *disambiguation, int n) const
 {
     const QString source = QString::fromUtf8(sourceText);
-    QJsonValue v;
+    QJsonValue v(QJsonValue::Undefined);
     if (disambiguation && *disambiguation)
         v = m_strings.value(source + QLatin1Char('|') + QString::fromUtf8(disambiguation));
-    if (v.isUndefined())
+    if (v.isUndefined() || v.isNull())
         v = m_strings.value(source);
     if (v.isString())
         return v.toString();

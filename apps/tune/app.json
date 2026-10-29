@@ -19,5 +19,8 @@
             "qml": "widgets/NowPlaying.qml",
             "size": "wide"
         }
-    ]
+    ],
+    "names": {
+        "it": "Tune"
+    }
 }

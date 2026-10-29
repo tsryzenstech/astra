@@ -21,5 +21,8 @@
             "qml": "widgets/Cosmo.qml",
             "size": "small"
         }
-    ]
+    ],
+    "names": {
+        "it": "Planet"
+    }
 }

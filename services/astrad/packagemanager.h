@@ -3,6 +3,9 @@
 
 #include "server.h"
 
+#include <QNetworkAccessManager>
+#include <QUrl>
+
 #include <QHash>
 #include <QJsonArray>
 
@@ -57,6 +60,9 @@ Q_SIGNALS:
     void dataCleared(const QString &package);
 
 private:
+    // Downloads an .apkg (Market) and installs it; result(error) on the main thread.
+    void installUrl(const QUrl &url, const QString &sha256, const QString &installer, std::function<void(QString)> result);
+    QNetworkAccessManager *m_network = nullptr;
     bool installFrom(const QString &apkgPath, bool system, bool privileged, const QString &installer, QString *error);
     void uninstall(const QString &package);
     uid_t allocateUid() const;

@@ -86,7 +86,7 @@
     "weather.city": "Milan",
     "weather.latitude": 45.4642,
     "weather.longitude": 9.19,
-    "weather.units": "metric",
+    "weather.units": "celsius",
     "system.welcome_posted": false,
     "developer.enabled": false,
     "developer.usb_debugging": false,

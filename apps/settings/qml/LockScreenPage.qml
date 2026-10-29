@@ -75,7 +75,7 @@ Page {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 46
-                text: Qt.formatTime(new Date(), "HH:mm")
+                text: Qt.locale().toString(new Date(), "HH:mm")
                 font.family: page.family
                 font.pixelSize: 54
                 font.weight: page.clockWeight
@@ -85,7 +85,7 @@ Page {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 118
-                text: Qt.formatDate(new Date(), "ddd, d MMMM")
+                text: Qt.locale().toString(new Date(), "ddd, d MMMM")
                 font.family: Theme.fontFamily
                 font.pixelSize: 10
                 color: "white"

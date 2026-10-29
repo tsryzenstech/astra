@@ -281,7 +281,7 @@ Item {
             y: Theme.statusBarHeight + 4
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: root.current ? Qt.formatDate(root.current.modified, "d MMMM yyyy") : ""
+                text: root.current ? Qt.locale().toString(root.current.modified, "d MMMM yyyy") : ""
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.bodySize
                 font.weight: Font.DemiBold
@@ -289,7 +289,7 @@ Item {
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: root.current ? Qt.formatTime(root.current.modified, "HH:mm") : ""
+                text: root.current ? Qt.locale().toString(root.current.modified, "HH:mm") : ""
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.footnoteSize + 1
                 color: Theme.textSecondary
@@ -381,7 +381,7 @@ Item {
                 color: "white"
             }
             Text {
-                text: root.current ? Qt.formatDateTime(root.current.modified, "dddd d MMMM yyyy • HH:mm") : ""
+                text: root.current ? Qt.locale().toString(root.current.modified, "dddd d MMMM yyyy • HH:mm") : ""
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.captionSize
                 color: Theme.textSecondary

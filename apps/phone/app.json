@@ -11,7 +11,10 @@
     "launcher": {
         "visible": true
     },
-    "permissions": [],
+    "permissions": [
+        "astra.permission.PHONE",
+        "astra.permission.CONTACTS"
+    ],
     "widgets": [
         {
             "id": "missed",
@@ -19,5 +22,8 @@
             "qml": "widgets/Missed.qml",
             "size": "small"
         }
-    ]
+    ],
+    "names": {
+        "it": "Telefono"
+    }
 }

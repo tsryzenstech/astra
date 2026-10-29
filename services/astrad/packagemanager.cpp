@@ -9,11 +9,13 @@
 #include <astra/paths.h>
 #include <astra/protocol.h>
 
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
 #include <QLoggingCategory>
+#include <QNetworkReply>
 
 #include <unistd.h>
 
@@ -281,6 +283,42 @@ QJsonObject PackageManager::info(const QString &package) const
     };
 }
 
+void PackageManager::installUrl(const QUrl &url, const QString &sha256, const QString &installer,
+                                std::function<void(QString)> result)
+{
+    if (!m_network)
+        m_network = new QNetworkAccessManager(this);
+    QNetworkRequest request(url);
+    request.setTransferTimeout(60000);
+    QNetworkReply *r = m_network->get(request);
+    connect(r, &QNetworkReply::finished, this, [this, r, sha256, installer, result] {
+        r->deleteLater();
+        if (r->error() != QNetworkReply::NoError) {
+            result(r->errorString());
+            return;
+        }
+        const QByteArray data = r->readAll();
+        if (!sha256.isEmpty() &&
+            QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex()) != sha256.toLower()) {
+            result(K("The download is corrupted"));
+            return;
+        }
+        const QString path = Paths::resolve(QStringLiteral("/data/local/tmp/market-%1.apkg").arg(QDateTime::currentMSecsSinceEpoch()));
+        QFile f(path);
+        if (!f.open(QIODevice::WriteOnly) || f.write(data) != data.size()) {
+            result(f.errorString());
+            return;
+        }
+        f.close();
+        QString error;
+        const bool ok = installFrom(path, false, false, installer, &error);
+        QFile::remove(path);
+        if (ok)
+            save();
+        result(ok ? QString() : error);
+    });
+}
+
 QString PackageManager::packageForUid(uid_t uid) const
 {
     if (uid < AID_APP_START)
@@ -474,6 +512,21 @@ QJsonValue PackageManager::handle(const QString &call, const QJsonObject &params
             throw RpcError{protocol::Failed, error};
         save();
         return true;
+    }
+    if (call == QLatin1String("installUrl")) {
+        caller.require(QLatin1String(permissions::MANAGE_PACKAGES));
+        const QUrl url(params.value(K("url")).toString());
+        if (!url.isValid() || url.scheme() != QLatin1String("https"))
+            throw RpcError{protocol::InvalidParams, K("an https URL is required")};
+        const PendingReply reply = caller.defer();
+        installUrl(url, params.value(K("sha256")).toString(), caller.isSystem() ? K("system") : caller.package,
+                   [reply](const QString &error) {
+                       if (error.isEmpty())
+                           reply.resolve(true);
+                       else
+                           reply.reject(protocol::Failed, error);
+                   });
+        return Deferred;
     }
     if (call == QLatin1String("uninstall")) {
         caller.require(QLatin1String(permissions::MANAGE_PACKAGES));

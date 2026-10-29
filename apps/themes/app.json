@@ -12,7 +12,10 @@
         "visible": true
     },
     "permissions": [
-        "astra.permission.INTERNET"
+        "astra.permission.MANAGE_THEMES"
     ],
-    "widgets": []
+    "widgets": [],
+    "names": {
+        "it": "Temi"
+    }
 }

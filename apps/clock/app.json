@@ -11,7 +11,10 @@
     "launcher": {
         "visible": true
     },
-    "permissions": [],
+    "permissions": [
+        "astra.permission.ALARMS",
+        "astra.permission.NOTIFICATIONS"
+    ],
     "widgets": [
         {
             "id": "analog",
@@ -19,5 +22,8 @@
             "qml": "widgets/Analog.qml",
             "size": "small"
         }
-    ]
+    ],
+    "names": {
+        "it": "Orologio"
+    }
 }
