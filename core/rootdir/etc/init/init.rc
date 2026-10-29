@@ -41,8 +41,18 @@ on post-fs-data
     mkdir /data/data 0771 system system
     mkdir /data/user 0711 system system
     symlink /data/data /data/user/0
-    mkdir /data/media 0775 system system
-    mkdir /data/media/0 0775 system system
+    # Shared storage: group media_rw (apps holding the MEDIA permission),
+    # setgid so everything created inside stays in the group.
+    mkdir /data/media 2775 system media_rw
+    mkdir /data/media/0 2775 system media_rw
+    mkdir /data/media/0/DCIM 2775 system media_rw
+    mkdir /data/media/0/DCIM/Camera 2775 system media_rw
+    mkdir /data/media/0/Pictures 2775 system media_rw
+    mkdir /data/media/0/Pictures/Screenshots 2775 system media_rw
+    mkdir /data/media/0/Download 2775 system media_rw
+    mkdir /data/media/0/Music 2775 system media_rw
+    mkdir /data/media/0/Movies 2775 system media_rw
+    mkdir /data/media/0/Documents 2775 system media_rw
     mkdir /data/misc 0771 system system
     mkdir /data/local 0751 root root
     mkdir /data/local/tmp 0771 root root

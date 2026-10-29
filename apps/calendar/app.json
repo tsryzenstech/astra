@@ -1,0 +1,24 @@
+{
+    "package": "com.astra.calendar",
+    "name": "Calendar",
+    "names": {
+        "it": "Calendario"
+    },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Your events, reminders and birthdays.",
+    "descriptions": {
+        "it": "I tuoi eventi, promemoria e compleanni."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.CALENDAR"
+    ],
+    "widgets": []
+}

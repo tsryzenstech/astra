@@ -9,6 +9,7 @@ camera:x:1006:system
 log:x:1007:system
 wifi:x:1010:system
 media:x:1013:system
+media_rw:x:1023:system
 shell:x:2000:
 inet:x:3003:system
 net_admin:x:3005:system

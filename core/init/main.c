@@ -15,6 +15,7 @@
 #include "fstab.h"
 #include "lp.h"
 #include "rc.h"
+#include "rescue.h"
 #include "util.h"
 
 #include <errno.h>
@@ -49,14 +50,12 @@ static void mount_pseudo(void)
     mount("sysfs", "/sys", "sysfs", MS_NOSUID | MS_NODEV | MS_NOEXEC, NULL);
 }
 
+/* Never bounce to the bootloader: that looks like "it does not boot" and
+ * hides the reason. Show it on screen and offer a USB rescue shell. */
 static void fatal_reboot(const char *why)
 {
-    ERR("fatal: %s - rebooting to bootloader in 10s", why);
     sync();
-    sleep(10);
-    syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, "bootloader");
-    for (;;)
-        pause();
+    rescue(why);
 }
 
 /* ---- first stage ------------------------------------------------------ */
@@ -66,16 +65,21 @@ static int first_stage_main(void)
     mount_pseudo();
     klog_init();
     INFO("astraOS init: first stage");
+    /* Make our progress visible on the boot console. */
+    write_file("/proc/sys/kernel/printk", "7 4 1 7");
 
     struct fstab *fs = fstab_read(FIRST_STAGE_FSTAB);
     if (!fs)
         fatal_reboot("no first stage fstab");
 
     char super_dev[64];
-    if (find_block_by_partname("super", super_dev, sizeof(super_dev), 15000) < 0)
-        fatal_reboot("super partition not found");
-    if (lp_map_super(super_dev) <= 0)
-        fatal_reboot("no logical partitions mapped");
+    if (find_block_by_partname("super", super_dev, sizeof(super_dev), 20000) < 0)
+        fatal_reboot("the \"super\" partition was not found (is the UFS driver built in?)");
+    INFO("super is %s", super_dev);
+    int mapped = lp_map_super(super_dev);
+    if (mapped <= 0)
+        fatal_reboot("no logical partition could be mapped from super (flash super.img again)");
+    INFO("%d logical partitions mapped", mapped);
 
     mkdir(NEW_ROOT, 0755);
     /* "/" must be mounted first, every other mount point lives inside it. */
@@ -86,10 +90,12 @@ static int first_stage_main(void)
             if (!e->first_stage || is_root != (pass == 0))
                 continue;
             if (fstab_mount(e, NEW_ROOT) < 0 && is_root)
-                fatal_reboot("cannot mount system");
+                fatal_reboot("the system partition cannot be mounted");
         }
     }
     fstab_free(fs);
+    /* Quiet again for the rest of the boot. */
+    write_file("/proc/sys/kernel/printk", "4 4 1 7");
 
     struct stat st;
     stat("/", &st);

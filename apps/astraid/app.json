@@ -1,0 +1,24 @@
+{
+    "package": "com.astra.astraid",
+    "name": "AstraID Services",
+    "names": {
+        "it": "Servizi AstraID"
+    },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Your AstraID: sign in, backups and Find My Device.",
+    "descriptions": {
+        "it": "Il tuo AstraID: accesso, backup e Trova il mio dispositivo."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.INTERNET"
+    ],
+    "widgets": []
+}

@@ -23,6 +23,7 @@ Item {
     property var xdgSurface: null
     readonly property bool hasSurface: surfaceItem.surface !== null && surfaceItem.surface.hasContent
     property bool inBackground: false
+    property bool closePending: false   // the process ended; the app layer decides soon
     property url snapshot: ""       // last frame, for Recents
     property double lastUsed: 0
 
@@ -85,7 +86,14 @@ Item {
     function attach(toplevel, xdgSurface) {
         win.toplevel = toplevel
         win.xdgSurface = xdgSurface
-        toplevel.sendFullscreen(Qt.size(win.width, win.height))
+        resize()
+    }
+    // The app gets the space above the on-screen keyboard.
+    readonly property real keyboardInset: !inBackground ? host.keyboardInset : 0
+    onKeyboardInsetChanged: resize()
+    function resize() {
+        if (toplevel)
+            toplevel.sendFullscreen(Qt.size(win.width, win.height - keyboardInset))
     }
     // Remembers the current frame for Recents.
     function capture() {

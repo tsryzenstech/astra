@@ -1,0 +1,22 @@
+{
+    "package": "com.astra.calculator",
+    "name": "Calculator",
+    "names": {
+        "it": "Calcolatrice"
+    },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Everyday and scientific calculations.",
+    "descriptions": {
+        "it": "Calcoli di tutti i giorni e scientifici."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "widgets": []
+}

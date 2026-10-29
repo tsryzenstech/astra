@@ -1,0 +1,24 @@
+{
+    "package": "com.astra.email",
+    "name": "Email",
+    "names": {
+        "it": "Email"
+    },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "All your mail accounts together.",
+    "descriptions": {
+        "it": "Tutti i tuoi account di posta insieme."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.INTERNET"
+    ],
+    "widgets": []
+}

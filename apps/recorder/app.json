@@ -1,0 +1,24 @@
+{
+    "package": "com.astra.recorder",
+    "name": "Recorder",
+    "names": {
+        "it": "Registratore"
+    },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Record voice memos and meetings.",
+    "descriptions": {
+        "it": "Registra memo vocali e riunioni."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.MICROPHONE"
+    ],
+    "widgets": []
+}

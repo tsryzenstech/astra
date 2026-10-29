@@ -1,0 +1,24 @@
+{
+    "package": "com.astra.files",
+    "name": "Files",
+    "names": {
+        "it": "File"
+    },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Browse and manage the files on your phone.",
+    "descriptions": {
+        "it": "Sfoglia e gestisci i file del telefono."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.MEDIA"
+    ],
+    "widgets": []
+}

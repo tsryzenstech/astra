@@ -1,0 +1,25 @@
+{
+    "package": "com.astra.aispace",
+    "name": "AI Space",
+    "names": {
+        "it": "AI Space"
+    },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Cloudy, your AI assistant: ask, write, summarise and create.",
+    "descriptions": {
+        "it": "Cloudy, il tuo assistente IA: chiedi, scrivi, riassumi e crea."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.INTERNET",
+        "astra.permission.MICROPHONE"
+    ],
+    "widgets": []
+}

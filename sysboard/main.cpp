@@ -67,7 +67,6 @@ int main(int argc, char **argv)
         setDefaultEnv("QT_QPA_EGLFS_INTEGRATION", "eglfs_kms");
         setDefaultEnv("QT_QPA_EGLFS_KMS_ATOMIC", "1");
         setDefaultEnv("QT_QPA_EGLFS_HIDECURSOR", "1");
-        setDefaultEnv("QT_IM_MODULE", "qtvirtualkeyboard");
         setDefaultEnv("XDG_RUNTIME_DIR", QFile::encodeName(Paths::displayDir()));
         // Display size (Settings > Display): the device density times the
         // user's UI size; resolution and refresh rate from astrad's kms.json.
@@ -75,11 +74,26 @@ int main(int argc, char **argv)
         const double uiScale = qBound(0.8, userSetting(QStringLiteral("display.ui_scale")).toDouble(1.0), 1.3);
         if (density > 0)
             setDefaultEnv("QT_SCALE_FACTOR", QByteArray::number(density * uiScale, 'f', 3));
+        // No GPU yet (firmware missing, driver not probed) or the last start
+        // never drew a frame: render in software rather than crash-loop on
+        // a black screen. Host removes the marker after the first frame.
+        const QString marker = Paths::runtimeDir() + QStringLiteral("/sysboard.starting");
+        if (!QFileInfo::exists(QStringLiteral("/dev/dri/renderD128")) || QFileInfo::exists(marker)) {
+            qWarning("sysboard: using software rendering");
+            setDefaultEnv("MESA_LOADER_DRIVER_OVERRIDE", "kms_swrast");
+            setDefaultEnv("GALLIUM_DRIVER", "llvmpipe");
+        }
+        QDir().mkpath(Paths::runtimeDir());
+        QFile(marker).open(QIODevice::WriteOnly);
         const QString kms = Paths::dataSystem() + QStringLiteral("/kms.json");
         if (QFileInfo::exists(kms))
             setDefaultEnv("QT_QPA_EGLFS_KMS_CONFIG", QFile::encodeName(kms));
     }
     setDefaultEnv("QT_WAYLAND_COMPOSITOR_NO_THROTTLE", "0");
+    // The astraOS keyboard (sysboard/inputcontext + Keyboard.qml).
+    setDefaultEnv("QT_IM_MODULE", "astra");
+    const QByteArray plugins = QFile::encodeName(Paths::resolve(QStringLiteral("/system/lib/qt6/plugins")));
+    qputenv("QT_PLUGIN_PATH", qEnvironmentVariableIsEmpty("QT_PLUGIN_PATH") ? plugins : plugins + ':' + qgetenv("QT_PLUGIN_PATH"));
     setDefaultEnv("QT_QUICK_CONTROLS_STYLE", "Basic");
 
     // The boot animation owns the display until we are about to show.

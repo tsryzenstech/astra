@@ -1,0 +1,191 @@
+/*
+ * astraOS init - rescue mode
+ *
+ * When the first stage cannot boot the system it must not bounce the phone
+ * back to the bootloader (that hides the reason). Instead it:
+ *   - prints the error and the end of the kernel log on the screen (tty0),
+ *   - stores the error in pstore (/sys/fs/pstore after the next boot),
+ *   - exposes a serial console over USB (CDC ACM gadget) with a busybox
+ *     shell when the ramdisk carries one: on a computer open the new serial
+ *     port (/dev/ttyACM0, COMx on Windows) at any speed.
+ * Holding power for ~10 s still turns the phone off; "reboot" in the shell
+ * restarts it.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#define _GNU_SOURCE
+#include "rescue.h"
+#include "util.h"
+
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/klog.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <termios.h>
+#include <unistd.h>
+
+#define GADGET "/sys/kernel/config/usb_gadget/rescue"
+#define BUSYBOX "/bin/busybox"
+
+static void tty_print(const char *text)
+{
+    int fd = open("/dev/tty0", O_WRONLY | O_NOCTTY | O_CLOEXEC);
+    if (fd < 0)
+        fd = open("/dev/console", O_WRONLY | O_NOCTTY | O_CLOEXEC);
+    if (fd < 0)
+        return;
+    (void)!write(fd, text, strlen(text));
+    close(fd);
+}
+
+/* Last lines of the kernel log, so a photo of the screen tells the story. */
+static void print_kernel_tail(int lines)
+{
+    int size = klogctl(10 /* SYSLOG_ACTION_SIZE_BUFFER */, NULL, 0);
+    if (size <= 0)
+        return;
+    char *buf = malloc((size_t)size + 1);
+    if (!buf)
+        return;
+    int n = klogctl(3 /* SYSLOG_ACTION_READ_ALL */, buf, size);
+    if (n > 0) {
+        buf[n] = '\0';
+        char *start = buf + n;
+        for (int seen = 0; start > buf && seen <= lines; start--)
+            if (start[-1] == '\n')
+                seen++;
+        tty_print("\n---- kernel log (end) ----\n");
+        tty_print(start);
+    }
+    free(buf);
+}
+
+static int usb_serial_gadget(void)
+{
+    mkdir("/sys/kernel/config", 0755);
+    if (access("/sys/kernel/config/usb_gadget", F_OK) < 0 &&
+        mount("configfs", "/sys/kernel/config", "configfs", 0, NULL) < 0 && errno != EBUSY)
+        return -1;
+    if (mkdir_p(GADGET "/strings/0x409", 0755) < 0 || mkdir_p(GADGET "/configs/c.1/strings/0x409", 0755) < 0 ||
+        mkdir_p(GADGET "/functions/acm.GS0", 0755) < 0)
+        return -1;
+    write_file(GADGET "/idVendor", "0x1d6b");
+    write_file(GADGET "/idProduct", "0x0104");
+    write_file(GADGET "/strings/0x409/manufacturer", "astraOS");
+    write_file(GADGET "/strings/0x409/product", "astraOS rescue");
+    write_file(GADGET "/strings/0x409/serialnumber", "rescue");
+    write_file(GADGET "/configs/c.1/strings/0x409/configuration", "rescue serial");
+    write_file(GADGET "/configs/c.1/MaxPower", "500");
+    symlink(GADGET "/functions/acm.GS0", GADGET "/configs/c.1/acm.GS0");
+
+    /* The USB controller can take a moment to probe. */
+    for (int i = 0; i < 100; i++) {
+        DIR *d = opendir("/sys/class/udc");
+        if (d) {
+            struct dirent *de;
+            while ((de = readdir(d)))
+                if (de->d_name[0] != '.') {
+                    int ok = write_file(GADGET "/UDC", de->d_name);
+                    closedir(d);
+                    return ok;
+                }
+            closedir(d);
+        }
+        usleep(100 * 1000);
+    }
+    return -1;
+}
+
+static void shell_on(const char *tty)
+{
+    pid_t pid = fork();
+    if (pid != 0)
+        return;
+    setsid();
+    int fd = open(tty, O_RDWR | O_NOCTTY);
+    if (fd < 0)
+        _exit(1);
+    ioctl(fd, TIOCSCTTY, 1);
+    struct termios t;
+    if (tcgetattr(fd, &t) == 0) {
+        cfmakeraw(&t);
+        t.c_lflag |= ICANON | ECHO | ECHOE | ISIG;
+        t.c_iflag |= ICRNL;
+        t.c_oflag |= OPOST | ONLCR;
+        tcsetattr(fd, TCSANOW, &t);
+    }
+    dup2(fd, 0);
+    dup2(fd, 1);
+    dup2(fd, 2);
+    if (fd > 2)
+        close(fd);
+    setenv("PATH", "/bin:/sbin:/system/bin", 1);
+    setenv("PS1", "astra-rescue# ", 1);
+    printf("\r\nastraOS rescue shell. The boot stopped because of:\r\n  %s\r\n"
+           "Useful: dmesg | tail -50, ls /dev/block, cat /proc/partitions, reboot\r\n\r\n",
+           getenv("ASTRA_RESCUE_REASON") ? getenv("ASTRA_RESCUE_REASON") : "?");
+    fflush(stdout);
+    execl(BUSYBOX, "sh", "-i", (char *)NULL);
+    _exit(127);
+}
+
+void rescue(const char *why)
+{
+    ERR("RESCUE: %s", why);
+    setenv("ASTRA_RESCUE_REASON", why, 1);
+
+    /* Keep the reason across a reboot (pstore pmsg, when the kernel has it). */
+    char line[512];
+    snprintf(line, sizeof(line), "astraOS first stage failed: %s\n", why);
+    write_file("/dev/pmsg0", line);
+
+    int have_shell = access(BUSYBOX, X_OK) == 0;
+    if (have_shell) {
+        mkdir("/bin", 0755);
+        /* Let busybox install its applets (sh, ls, dmesg, mount, reboot...). */
+        pid_t pid = fork();
+        if (pid == 0) {
+            execl(BUSYBOX, "busybox", "--install", "-s", "/bin", (char *)NULL);
+            _exit(1);
+        }
+        if (pid > 0)
+            waitpid(pid, NULL, 0);
+    }
+    int usb = usb_serial_gadget();
+
+    char banner[1024];
+    snprintf(banner, sizeof(banner),
+             "\033[2J\033[H\n"
+             "  astraOS could not start\n"
+             "  ------------------------\n"
+             "  %s\n\n"
+             "  %s\n"
+             "  Hold the power button for 10 seconds to turn the phone off,\n"
+             "  or connect it to a computer and run: fastboot reboot bootloader\n",
+             why,
+             usb == 0 && have_shell ? "A rescue shell is available over USB serial (ttyACM / COM port)."
+                                    : "No USB rescue shell is available on this build.");
+    tty_print(banner);
+    print_kernel_tail(40);
+
+    /* Serve the shell for as long as the phone stays on. */
+    signal(SIGCHLD, SIG_DFL);
+    for (;;) {
+        if (usb == 0 && have_shell && access("/dev/ttyGS0", F_OK) == 0)
+            shell_on("/dev/ttyGS0");
+        else
+            sleep(5);
+        int status;
+        while (waitpid(-1, &status, 0) > 0)
+            ;
+        sleep(1);
+    }
+}

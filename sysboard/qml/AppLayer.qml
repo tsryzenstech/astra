@@ -20,6 +20,7 @@ Item {
     readonly property string morphingPackage: focusWindow && (focusWindow.morphing || focusWindow === activeWindow)
                                               ? focusWindow.packageName : ""
     property int revision: 0                 // bumps when the set of windows changes
+    property real keyboardInset: 0           // apps are resized above the on-screen keyboard
 
     readonly property rect centerRect: Qt.rect(width / 2 - 31, height / 2 - 31, 62, 62)
 
@@ -147,6 +148,7 @@ Item {
                 bringToFront(w)
                 w.open()
             }
+            w.closePending = false
             w.attach(toplevel, xdgSurface)
         }
         attach()
@@ -155,13 +157,29 @@ Item {
     }
 
     function windowClosed(w) {
-        // The app process went away (quit, crashed or was stopped).
-        if (activeWindow === w)
-            closeActive(0)
-        Qt.callLater(function() {
-            if (layer.windows[w.packageName] === w && !w.toplevel && w.progress < 0.01)
-                layer.forget(w)
-        })
+        // The app process went away (quit, crashed, was stopped, or is
+        // restarting, e.g. to pick up a permission). Wait a moment before
+        // closing: a restarted app comes back into the same window.
+        w.closePending = true
+        Qt.callLater(function() { graceTimer.restart() })
+    }
+    Timer {
+        id: graceTimer
+        interval: 1500
+        onTriggered: {
+            for (const key in layer.windows) {
+                const w = layer.windows[key]
+                if (!w.closePending || w.toplevel)
+                    continue
+                w.closePending = false
+                if (layer.activeWindow === w)
+                    layer.closeActive(0)
+                if (w.progress < 0.01)
+                    layer.forget(w)
+                else
+                    Qt.callLater(function() { if (!w.toplevel && w.progress < 0.01) layer.forget(w) })
+            }
+        }
     }
 
     // Close gesture (swipe up from the bottom edge).

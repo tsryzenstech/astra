@@ -307,7 +307,7 @@ Item {
     }
 
     Loader {
-        // On-screen keyboard (Qt Virtual Keyboard), shared with apps through
+        // On-screen keyboard (Keyboard.qml + the astra input method), shared with apps through
         // the Wayland text-input protocol. Optional at runtime.
         z: 30
         anchors.left: parent.left
@@ -315,6 +315,7 @@ Item {
         anchors.bottom: parent.bottom
         active: Host.virtualKeyboard
         source: Qt.resolvedUrl("Keyboard.qml")
+        onLoaded: apps.keyboardInset = Qt.binding(() => item.shown ? item.panelHeight : 0)
     }
 
     Rectangle {
@@ -326,15 +327,62 @@ Item {
         MouseArea { anchors.fill: parent }
     }
 
+    // ---- hardware buttons --------------------------------------------------
+    VolumeHud {
+        id: volumeHud
+        z: 25
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: -80
+    }
+
+    PowerMenu {
+        id: powerMenu
+        anchors.fill: parent
+        z: 40
+        blurSource: screenContent
+    }
+
+    ScreenshotPreview {
+        id: screenshot
+        anchors.fill: parent
+        z: 41
+        onEditRequested: (path) => editor.edit(path)
+    }
+
+    ScreenshotEditor {
+        id: editor
+        anchors.fill: parent
+        z: 42
+    }
+
     Connections {
         target: Host
         function onPowerKeyPressed() {
-            if (Host.screenOn) {
+            if (powerMenu.active) {
+                powerMenu.close()
+            } else if (Host.screenOn) {
                 shell.lock()
                 Host.setScreenOn(false)
             } else {
                 Host.setScreenOn(true)
             }
+        }
+        function onPowerKeyLongPressed() {
+            Host.setScreenOn(true)
+            powerMenu.open()
+        }
+        function onVolumeStep(delta) {
+            // A ringing alarm or call is silenced by either volume button.
+            if (alarm.active)
+                return
+            if (!Host.screenOn && !MediaController.active)
+                return
+            volumeHud.press(delta)
+        }
+        function onScreenshotRequested() {
+            if (!Host.screenOn)
+                return
+            screenshot.capture()
         }
     }
 

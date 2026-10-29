@@ -1,4 +1,6 @@
 # SysBoard - compositor and system shell
+add_subdirectory(inputcontext)
+
 qt_add_executable(sysboard main.cpp)
 
 file(GLOB SYSBOARD_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS qml/*.qml)
@@ -29,7 +31,10 @@ target_link_libraries(sysboard PRIVATE
     Qt6::Quick
     Qt6::WaylandCompositor
 )
-set_target_properties(sysboard PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
+set_target_properties(sysboard PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
+    INSTALL_RPATH "$ORIGIN/../lib"
+)
 
 install(TARGETS sysboard RUNTIME DESTINATION ${ASTRA_BIN_DIR})
 install(FILES sysboard.rc DESTINATION ${ASTRA_ETC_DIR}/init)

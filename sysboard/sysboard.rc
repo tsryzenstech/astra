@@ -3,12 +3,12 @@
 service sysboard /system/bin/sysboard
     class main
     user system
-    group system graphics input video audio
+    group system graphics input video audio media_rw
     critical
     setenv XDG_RUNTIME_DIR /run/astra/display
     setenv QT_QPA_PLATFORM eglfs
     setenv QT_QPA_EGLFS_INTEGRATION eglfs_kms
     setenv QT_QPA_EGLFS_KMS_ATOMIC 1
     setenv QT_QPA_EGLFS_HIDECURSOR 1
-    setenv QT_IM_MODULE qtvirtualkeyboard
+    setenv QT_IM_MODULE astra
     setenv HOME /data/system

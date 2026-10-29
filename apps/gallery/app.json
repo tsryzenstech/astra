@@ -11,6 +11,14 @@
     "launcher": {
         "visible": true
     },
-    "permissions": [],
-    "widgets": []
+    "permissions": [
+        "astra.permission.MEDIA"
+    ],
+    "widgets": [],
+    "names": {
+        "it": "Galleria"
+    },
+    "descriptions": {
+        "it": "Tutte le tue foto e i tuoi video, organizzati alla perfezione."
+    }
 }

@@ -7,6 +7,11 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QDirIterator>
+#include <QFileInfo>
+#include <QFileSystemWatcher>
+#include <QImageReader>
+#include <QUrl>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -112,6 +117,75 @@ QString ApplicationInfo::mediaDir() const
 void ApplicationInfo::quit()
 {
     QCoreApplication::quit();
+}
+
+static bool insideMedia(const QString &path)
+{
+    const QString root = QFileInfo(Paths::userMedia()).canonicalFilePath();
+    const QString p = QFileInfo(path).canonicalFilePath();
+    return !root.isEmpty() && p.startsWith(root + QLatin1Char('/'));
+}
+
+QVariantList ApplicationInfo::media(const QStringList &nameFilters) const
+{
+    const_cast<ApplicationInfo *>(this)->watchMedia();
+    QList<QFileInfo> files;
+    QDirIterator it(Paths::userMedia(), nameFilters, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        if (!it.filePath().contains(QLatin1String("/.")))  // skip hidden folders (.thumbnails, .trash)
+            files.append(it.fileInfo());
+    }
+    std::sort(files.begin(), files.end(), [](const QFileInfo &a, const QFileInfo &b) { return a.lastModified() > b.lastModified(); });
+    QVariantList out;
+    const QString root = Paths::userMedia();
+    for (const QFileInfo &f : std::as_const(files)) {
+        const QString suffix = f.suffix().toLower();
+        QString folder = f.absolutePath().mid(root.size() + 1);
+        out.append(QVariantMap{
+            {QStringLiteral("path"), f.absoluteFilePath()},
+            {QStringLiteral("url"), QUrl::fromLocalFile(f.absoluteFilePath())},
+            {QStringLiteral("name"), f.fileName()},
+            {QStringLiteral("folder"), folder},
+            {QStringLiteral("modified"), f.lastModified()},
+            {QStringLiteral("size"), double(f.size())},
+            {QStringLiteral("video"), suffix == QLatin1String("mp4") || suffix == QLatin1String("webm") || suffix == QLatin1String("mkv")},
+        });
+    }
+    return out;
+}
+
+bool ApplicationInfo::removeMedia(const QString &path)
+{
+    if (!insideMedia(path))
+        return false;
+    const bool ok = QFile::remove(path);
+    if (ok)
+        Q_EMIT mediaChanged();
+    return ok;
+}
+
+QVariantMap ApplicationInfo::imageInfo(const QString &path) const
+{
+    if (!insideMedia(path))
+        return {};
+    const QFileInfo f(path);
+    const QSize size = QImageReader(path).size();
+    return {{QStringLiteral("width"), size.width()}, {QStringLiteral("height"), size.height()},
+            {QStringLiteral("size"), double(f.size())}, {QStringLiteral("modified"), f.lastModified()}};
+}
+
+// New screenshots, photos and downloads show up without a refresh.
+void ApplicationInfo::watchMedia()
+{
+    if (m_watcher)
+        return;
+    m_watcher = new QFileSystemWatcher(this);
+    const QString root = Paths::userMedia();
+    for (const char *dir : {"", "/DCIM", "/DCIM/Camera", "/Pictures", "/Pictures/Screenshots", "/Download", "/Movies"})
+        if (QFileInfo::exists(root + QLatin1String(dir)))
+            m_watcher->addPath(root + QLatin1String(dir));
+    connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, &ApplicationInfo::mediaChanged);
 }
 
 } // namespace astra::qml

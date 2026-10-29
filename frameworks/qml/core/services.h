@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include <QFileSystemWatcher>
 #include <QJSValue>
 #include <QObject>
 #include <QVariantMap>
@@ -81,12 +82,22 @@ public:
 
     Q_INVOKABLE void quit();
 
+    // Shared storage (needs the MEDIA permission). Paths are absolute.
+    // media(["*.png", "*.jpg"]) -> [{ path, url, name, folder, modified, size, video }], newest first
+    Q_INVOKABLE QVariantList media(const QStringList &nameFilters) const;
+    Q_INVOKABLE bool removeMedia(const QString &path);
+    Q_INVOKABLE QVariantMap imageInfo(const QString &path) const; // width, height, size, modified
+
 Q_SIGNALS:
     void argsChanged();
     void intent(const QVariantMap &args);
+    void mediaChanged();   // something was added to or removed from shared storage
 
 private:
+    void watchMedia();
+
     QVariantMap m_args;
+    QFileSystemWatcher *m_watcher = nullptr;
 };
 
 } // namespace astra::qml

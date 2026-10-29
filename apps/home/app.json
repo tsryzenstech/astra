@@ -1,0 +1,25 @@
+{
+    "package": "com.astra.home",
+    "name": "Home",
+    "names": {
+        "it": "Casa"
+    },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Control the smart devices in your home.",
+    "descriptions": {
+        "it": "Controlla i dispositivi smart della tua casa."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.INTERNET",
+        "astra.permission.NEARBY_DEVICES"
+    ],
+    "widgets": []
+}

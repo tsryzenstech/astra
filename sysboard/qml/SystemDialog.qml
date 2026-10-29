@@ -129,7 +129,8 @@ Item {
                     visible: !!root.view.appIcon
                     anchors.fill: parent
                     size: 64
-                    source: root.view.appIcon || ""
+                    // astrad sends a file path
+                    source: root.view.appIcon ? (String(root.view.appIcon).startsWith("/") ? "file://" + root.view.appIcon : root.view.appIcon) : ""
                 }
                 Rectangle {
                     visible: !!root.view.icon

@@ -1,0 +1,22 @@
+{
+    "package": "com.astra.notes",
+    "name": "Notes",
+    "names": {
+        "it": "Note"
+    },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Capture ideas, lists and sketches.",
+    "descriptions": {
+        "it": "Annota idee, liste e schizzi."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "widgets": []
+}

@@ -6,6 +6,7 @@
 #include <astra/paths.h>
 #include <astra/properties.h>
 
+#include <QDateTime>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
@@ -43,6 +44,31 @@ SysBoardHost::SysBoardHost(QObject *parent)
     : QObject(parent)
 {
     qApp->installEventFilter(this);
+
+    m_powerLong = new QTimer(this);
+    m_powerLong->setSingleShot(true);
+    m_powerLong->setInterval(600);
+    connect(m_powerLong, &QTimer::timeout, this, [this] {
+        m_powerLongFired = true;
+        Q_EMIT powerKeyLongPressed();
+    });
+    // A volume press waits a moment: power may follow (screenshot combo).
+    m_volumeDelay = new QTimer(this);
+    m_volumeDelay->setSingleShot(true);
+    m_volumeDelay->setInterval(90);
+    connect(m_volumeDelay, &QTimer::timeout, this, [this] {
+        Q_EMIT volumeStep(m_pendingVolume);
+        m_volumeRepeat->start(380);
+    });
+    m_volumeRepeat = new QTimer(this);
+    connect(m_volumeRepeat, &QTimer::timeout, this, [this] {
+        m_volumeRepeat->setInterval(110);
+        if ((m_pendingVolume > 0 && m_volUpDown) || (m_pendingVolume < 0 && m_volDownDown))
+            Q_EMIT volumeStep(m_pendingVolume);
+        else
+            m_volumeRepeat->stop();
+    });
+
     astra::Client *c = astra::Client::instance();
     c->subscribe({QStringLiteral("system")});
     connect(c, &astra::Client::event, this, &SysBoardHost::onSystemEvent);
@@ -70,6 +96,19 @@ bool SysBoardHost::saveScreenshot(const QString &path)
         return false;
     QDir().mkpath(QFileInfo(path).absolutePath());
     return m_window->grabWindow().save(path, "PNG");
+}
+
+QString SysBoardHost::newScreenshotPath() const
+{
+    return Paths::userMedia() + QStringLiteral("/Pictures/Screenshots/Screenshot_%1.png")
+                                    .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss")));
+}
+
+bool SysBoardHost::removeScreenshot(const QString &path)
+{
+    const QString dir = QFileInfo(Paths::userMedia() + QStringLiteral("/Pictures/Screenshots")).canonicalFilePath();
+    const QFileInfo f(path);
+    return !dir.isEmpty() && f.canonicalPath() == dir && QFile::remove(f.canonicalFilePath());
 }
 
 // Development trees have no init to restart SysBoard ("Restart SysBoard" in
@@ -116,12 +155,14 @@ QUrl SysBoardHost::wallpaper() const
 
 bool SysBoardHost::virtualKeyboard() const
 {
-    QStringList roots{Paths::frameworkQml(), QLibraryInfo::path(QLibraryInfo::QmlImportsPath)};
-    roots += qEnvironmentVariable("QML_IMPORT_PATH").split(QLatin1Char(':'), Qt::SkipEmptyParts);
-    for (const QString &root : std::as_const(roots))
-        if (QFileInfo::exists(root + QStringLiteral("/QtQuick/VirtualKeyboard/qmldir")))
-            return true;
-    return false;
+    return keyboard() != nullptr;
+}
+
+QObject *SysBoardHost::keyboard() const
+{
+    // Set by the input method plugin when Qt loads it (QT_IM_MODULE=astra).
+    QGuiApplication::inputMethod(); // makes sure the input context exists
+    return qApp->property("astraKeyboard").value<QObject *>();
 }
 
 void SysBoardHost::stopBootAnimation()
@@ -142,6 +183,13 @@ void SysBoardHost::stopBootAnimation()
 void SysBoardHost::compositorReady(QQuickWindow *window)
 {
     m_window = window;
+    // First frame on screen: the GPU path works (see main.cpp).
+    connect(window, &QQuickWindow::frameSwapped, this, [] {
+        QFile::remove(Paths::runtimeDir() + QStringLiteral("/sysboard.starting"));
+    }, Qt::ConnectionType(Qt::QueuedConnection | Qt::SingleShotConnection));
+    // The input method follows the focus window (nested development
+    // displays may not activate it by themselves).
+    window->requestActivate();
     const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
     const QString socket = runtime + QLatin1Char('/') + socketName();
 
@@ -167,26 +215,87 @@ void SysBoardHost::setScreenOn(bool on)
     Q_EMIT screenOnChanged();
 }
 
-bool SysBoardHost::eventFilter(QObject *watched, QEvent *event)
+void SysBoardHost::buttonChanged(Button b, bool down)
 {
-    if (event->type() == QEvent::KeyPress) {
-        const int key = static_cast<QKeyEvent *>(event)->key();
-        const bool power = key == Qt::Key_PowerOff || key == Qt::Key_PowerDown || key == Qt::Key_Sleep ||
-                           key == Qt::Key_Suspend || (development() && key == Qt::Key_F12);
-        if (power) {
-            if (!static_cast<QKeyEvent *>(event)->isAutoRepeat())
-                Q_EMIT powerKeyPressed();
-            return true;
+    switch (b) {
+    case Button::Power:
+        m_powerDown = down;
+        break;
+    case Button::VolumeUp:
+        m_volUpDown = down;
+        break;
+    case Button::VolumeDown:
+        m_volDownDown = down;
+        break;
+    }
+
+    // Power + volume down: screenshot (in either order).
+    if (down && m_powerDown && m_volDownDown && !m_comboFired) {
+        m_comboFired = true;
+        m_powerLong->stop();
+        m_volumeDelay->stop();
+        m_volumeRepeat->stop();
+        Q_EMIT screenshotRequested();
+        return;
+    }
+    if (!m_powerDown && !m_volDownDown && !m_volUpDown && m_comboFired) {
+        m_comboFired = false;
+        return;
+    }
+    if (m_comboFired)
+        return;
+
+    if (b == Button::Power) {
+        if (down) {
+            m_powerLongFired = false;
+            m_powerLong->start();
+        } else if (m_powerLong->isActive()) {
+            m_powerLong->stop();
+            Q_EMIT powerKeyPressed();
+        }
+        return;
+    }
+    if (down) {
+        m_pendingVolume = b == Button::VolumeUp ? 1 : -1;
+        m_volumeDelay->start();
+    } else {
+        m_volumeRepeat->stop();
+        // Released before the combo window closed: still one step.
+        if (m_volumeDelay->isActive()) {
+            m_volumeDelay->stop();
+            Q_EMIT volumeStep(m_pendingVolume);
         }
     }
-    return QObject::eventFilter(watched, event);
+}
+
+bool SysBoardHost::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() != QEvent::KeyPress && event->type() != QEvent::KeyRelease)
+        return QObject::eventFilter(watched, event);
+    auto *ke = static_cast<QKeyEvent *>(event);
+    const int key = ke->key();
+    Button b;
+    if (key == Qt::Key_PowerOff || key == Qt::Key_PowerDown || key == Qt::Key_Sleep || key == Qt::Key_Suspend ||
+        (development() && key == Qt::Key_F12))
+        b = Button::Power;
+    else if (key == Qt::Key_VolumeUp || (development() && key == Qt::Key_F11))
+        b = Button::VolumeUp;
+    else if (key == Qt::Key_VolumeDown || (development() && key == Qt::Key_F10))
+        b = Button::VolumeDown;
+    else
+        return QObject::eventFilter(watched, event);
+    // Buttons belong to the system: apps never see them.
+    if (!ke->isAutoRepeat())
+        buttonChanged(b, event->type() == QEvent::KeyPress);
+    return true;
 }
 
 // ---------------------------------------------------------------------------
 // Development automation: lets scripts drive a nested SysBoard.
 //   echo "tap 200 400" | socat - UNIX-CONNECT:$ASTRA_ROOT/run/astra/sysboard-dev.sock
 // Commands: screenshot <png>, tap x y, press x y ms, swipe x1 y1 x2 y2 ms,
-// swipehold x1 y1 x2 y2 ms hold_ms (stays down at the end), key power
+// swipehold x1 y1 x2 y2 ms hold_ms (stays down at the end),
+// key power|volup|voldown|screenshot [hold_ms]
 
 namespace {
 void sendMouse(QQuickWindow *w, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
@@ -257,9 +366,30 @@ void SysBoardHost::startDevAutomation()
                 } else if (a[0] == QLatin1String("swipehold") && a.size() == 7) {
                     gesture(m_window, QPointF(a[1].toDouble(), a[2].toDouble()), QPointF(a[3].toDouble(), a[4].toDouble()),
                             a[5].toInt(), [reply] { reply("ok"); }, a[6].toInt());
-                } else if (a[0] == QLatin1String("key") && a.value(1) == QLatin1String("power")) {
-                    Q_EMIT powerKeyPressed();
-                    reply("ok");
+                } else if (a[0] == QLatin1String("key") && a.size() >= 2) {
+                    // Simulates the hardware buttons through the same state machine.
+                    const QString k = a[1];
+                    const int hold = a.value(2, QStringLiteral("80")).toInt();
+                    QList<Button> buttons;
+                    if (k == QLatin1String("power"))
+                        buttons = {Button::Power};
+                    else if (k == QLatin1String("volup"))
+                        buttons = {Button::VolumeUp};
+                    else if (k == QLatin1String("voldown"))
+                        buttons = {Button::VolumeDown};
+                    else if (k == QLatin1String("screenshot"))
+                        buttons = {Button::VolumeDown, Button::Power};
+                    if (buttons.isEmpty()) {
+                        reply("error");
+                    } else {
+                        for (Button b : buttons)
+                            buttonChanged(b, true);
+                        QTimer::singleShot(hold, this, [this, buttons, reply] {
+                            for (Button b : buttons)
+                                buttonChanged(b, false);
+                            reply("ok");
+                        });
+                    }
                 } else {
                     reply("error");
                 }

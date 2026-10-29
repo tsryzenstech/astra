@@ -37,7 +37,18 @@
                 "com.astra.settings"
             ],
             [
-                "com.astra.tips"
+                "com.astra.tips",
+                "com.astra.aispace",
+                "com.astra.calculator",
+                "com.astra.calendar",
+                "com.astra.contacts",
+                "com.astra.email",
+                "com.astra.files",
+                "com.astra.home",
+                "com.astra.maps",
+                "com.astra.notes",
+                "com.astra.recorder",
+                "com.astra.astraid"
             ]
         ],
         "dock": [

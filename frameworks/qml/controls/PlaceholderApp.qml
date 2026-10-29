@@ -72,7 +72,7 @@ Rectangle {
             Text {
                 id: soon
                 anchors.centerIn: parent
-                text: "Coming soon to astraOS"
+                text: qsTr("Coming soon to astraOS")
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.captionSize
                 font.weight: Font.Medium

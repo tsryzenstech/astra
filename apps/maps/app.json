@@ -1,0 +1,25 @@
+{
+    "package": "com.astra.maps",
+    "name": "Maps",
+    "names": {
+        "it": "Mappe"
+    },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Maps, directions and places nearby.",
+    "descriptions": {
+        "it": "Mappe, indicazioni e luoghi vicini."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.INTERNET",
+        "astra.permission.LOCATION"
+    ],
+    "widgets": []
+}

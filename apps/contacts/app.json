@@ -1,0 +1,24 @@
+{
+    "package": "com.astra.contacts",
+    "name": "Contacts",
+    "names": {
+        "it": "Contatti"
+    },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Everyone you know, in one place.",
+    "descriptions": {
+        "it": "Tutte le persone che conosci, in un unico posto."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.CONTACTS"
+    ],
+    "widgets": []
+}
