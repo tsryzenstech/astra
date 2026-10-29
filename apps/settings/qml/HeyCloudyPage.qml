@@ -3,37 +3,34 @@ import QtQuick
 import Astra.Core
 import Astra.Controls
 
-// Settings > Hey Cloudy: the voice assistant of AI Space.
+// Settings > Cloudy: the assistant of AI Space (Claude by Anthropic).
 Page {
     id: page
-    title: qsTr("Hey Cloudy")
-
+    title: qsTr("Cloudy")
     readonly property var aiSpace: Packages.count >= 0 ? Packages.get("com.astra.aispace") : ({})
 
     EmptyState {
         iconName: "sparkles"
-        title: qsTr("Hey Cloudy")
-        message: qsTr("Ask questions, set timers and control your phone with your voice. Cloudy lives in AI Space.")
+        title: qsTr("Cloudy")
+        message: qsTr("Ask questions, plan your day, set timers and alarms, add events and open apps. Cloudy runs on Claude by Anthropic with your own API key.")
     }
-
     ListGroup {
+        footer: qsTr("Your chats are sent to Anthropic to be answered and are kept only on this phone. The API key stays in AI Space's private storage.")
         SwitchRow {
-            text: qsTr("Listen for “Hey Cloudy”")
-            subtitle: qsTr("Needs the microphone permission of AI Space.")
-            key: "cloudy.wake_word"
+            text: qsTr("Search the web from Cloudy")
+            subtitle: qsTr("Cloudy can open web searches in Planet.")
+            key: "cloudy.web"
+            fallback: true
         }
-        SwitchRow { text: qsTr("Allow on the lock screen"); key: "cloudy.lockscreen"; separator: false }
+        SwitchRow {
+            text: qsTr("Control the phone")
+            subtitle: qsTr("Timers, alarms, calendar events and apps.")
+            key: "cloudy.actions"
+            fallback: true
+            separator: false
+        }
     }
-
     ListGroup {
-        ListItem {
-            text: qsTr("Voice language")
-            value: Language.nameOf(Settings.values["cloudy.language"] || Language.current)
-            chevron: true
-            onClicked: stack.open(Qt.resolvedUrl("ChoicePage.qml"), {
-                title: qsTr("Voice language"), key: "cloudy.language",
-                options: Language.available.map(l => ({ value: l.code, label: l.name })) })
-        }
         ListItem {
             text: qsTr("Open AI Space")
             iconSource: page.aiSpace.iconUrl || ""

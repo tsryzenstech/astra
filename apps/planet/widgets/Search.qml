@@ -2,7 +2,7 @@
 import QtQuick
 import Astra.Controls
 
-// Lock screen widget (small): Planet / Cosmo shortcut glyph.
+// Lock screen widget (small): opens Planet.
 Item {
     AppIcon {
         anchors.centerIn: parent

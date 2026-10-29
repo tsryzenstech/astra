@@ -1,4 +1,34 @@
 {
+    "%1 minutes before": "%1 minuti prima",
+    "%n days before": {
+        "one": "%n giorno prima",
+        "other": "%n giorni prima"
+    },
+    "%n hours before": {
+        "one": "%n ora prima",
+        "other": "%n ore prima"
+    },
+    "Alert": "Avviso",
+    "All day": "Tutto il giorno",
+    "All-day": "Tutto il giorno",
+    "Allow Calendar in Settings › Apps › Calendar to see your events.": "Consenti l'accesso al calendario in Impostazioni › App › Calendario per vedere i tuoi eventi.",
+    "At time of event": "All'ora dell'evento",
     "Calendar": "Calendario",
-    "Your events, reminders and birthdays.": "I tuoi eventi, promemoria e compleanni."
+    "Delete Event": "Elimina evento",
+    "Edit Event": "Modifica evento",
+    "Ends": "Fine",
+    "Every Day": "Ogni giorno",
+    "Every Month": "Ogni mese",
+    "Every Week": "Ogni settimana",
+    "Every Year": "Ogni anno",
+    "Location": "Luogo",
+    "Never": "Mai",
+    "New Event": "Nuovo evento",
+    "No Events": "Nessun evento",
+    "None": "Nessuno",
+    "Notes": "Note",
+    "Repeat": "Ripeti",
+    "Save": "Salva",
+    "Starts": "Inizio",
+    "Title": "Titolo"
 }

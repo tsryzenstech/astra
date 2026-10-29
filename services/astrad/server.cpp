@@ -86,6 +86,13 @@ bool Server::listen(const QString &path)
     return true;
 }
 
+void Server::updatePermissions(const QString &package, const QStringList &permissions)
+{
+    for (Connection *c : std::as_const(m_connections))
+        if (c->caller.package == package)
+            c->caller.permissions = permissions;
+}
+
 void Server::registerService(const QString &prefix, Service *service)
 {
     m_services.insert(prefix, service);

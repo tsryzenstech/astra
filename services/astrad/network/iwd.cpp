@@ -221,4 +221,67 @@ void IwdWifi::forget(const QString &ssid)
     }
 }
 
+// Every BSS of the networks in range, with the network's signal.
+QJsonArray IwdWifi::accessPoints() const
+{
+    QJsonArray out;
+    for (const auto &[path, percent] : m_ordered) {
+        const QVariant ess = props(path, QStringLiteral("net.connman.iwd.Network")).value(QStringLiteral("ExtendedServiceSet"));
+        const QList<QDBusObjectPath> bsses = qdbus_cast<QList<QDBusObjectPath>>(ess);
+        for (const QDBusObjectPath &bss : bsses) {
+            const QString mac = props(bss.path(), QStringLiteral("net.connman.iwd.BasicServiceSet")).value(QStringLiteral("Address")).toString();
+            if (!mac.isEmpty())
+                out.append(QJsonObject{{QStringLiteral("macAddress"), mac.toLower()},
+                                       {QStringLiteral("signalStrength"), int(percent / 2.0 - 100)}});
+        }
+    }
+    return out;
+}
+
+bool IwdWifi::hotspotSupported() const
+{
+    return available();
+}
+
+bool IwdWifi::hotspotActive() const
+{
+    return props(m_device, kDevice).value(QStringLiteral("Mode")).toString() == QLatin1String("ap")
+        && props(m_device, QStringLiteral("net.connman.iwd.AccessPoint")).value(QStringLiteral("Started")).toBool();
+}
+
+// iwd runs the access point and its DHCP server itself
+// ([General] EnableNetworkConfiguration=true in /etc/iwd/main.conf).
+void IwdWifi::setHotspot(bool on, const QString &ssid, const QString &passphrase, Done done)
+{
+    if (m_device.isEmpty()) {
+        done(QStringLiteral("no Wi-Fi"));
+        return;
+    }
+    const QString device = m_device;
+    const QString ap = QStringLiteral("net.connman.iwd.AccessPoint");
+    if (!on) {
+        dbusCall(kService, device, ap, QStringLiteral("Stop"), {}, this,
+                 [this, device, done](const QString &, const QDBusMessage &) {
+                     dbusSetProperty(kService, device, kDevice, QStringLiteral("Mode"), QStringLiteral("station"), this,
+                                     [this, done](const QString &error) {
+                                         refresh();
+                                         done(error);
+                                     });
+                 });
+        return;
+    }
+    dbusSetProperty(kService, device, kDevice, QStringLiteral("Mode"), QStringLiteral("ap"), this,
+                    [this, device, ap, ssid, passphrase, done](const QString &error) {
+                        if (!error.isEmpty()) {
+                            done(error);
+                            return;
+                        }
+                        dbusCall(kService, device, ap, QStringLiteral("Start"), {ssid, passphrase}, this,
+                                 [this, done](const QString &startError, const QDBusMessage &) {
+                                     refresh();
+                                     done(startError);
+                                 });
+                    });
+}
+
 } // namespace astrad::network

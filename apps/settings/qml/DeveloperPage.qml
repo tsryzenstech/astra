@@ -72,6 +72,18 @@ Page {
     }
 
     ListGroup {
+        title: qsTr("Apps")
+        footer: qsTr("When this is off, apps can be installed only from Market. Apps from files can harm your phone: install only apps you trust.")
+        SwitchRow {
+            text: qsTr("Sideload Apps")
+            subtitle: qsTr("Install .apkg files from Files, the web or other apps.")
+            iconName: "download"
+            key: "developer.sideload"
+            separator: false
+        }
+    }
+
+    ListGroup {
         title: qsTr("Interface")
         ListItem {
             text: qsTr("Animation speed")
@@ -80,7 +92,7 @@ Page {
             chevron: true
             onClicked: stack.open(Qt.resolvedUrl("ChoicePage.qml"), {
                 title: qsTr("Animation speed"), key: "developer.animation_scale",
-                footer: qsTr("Applies to apps opened from now on."),
+                footer: qsTr("The system changes right away, apps the next time they open."),
                 options: [ { value: 0, label: qsTr("Off") }, { value: 0.5, label: "0.5×" }, { value: 1, label: "1× " + qsTr("(default)") },
                            { value: 1.5, label: "1.5×" }, { value: 2, label: "2×" }, { value: 5, label: "5×" } ] })
         }
@@ -88,6 +100,16 @@ Page {
             text: qsTr("Stay awake")
             subtitle: qsTr("The screen never turns off while charging.")
             key: "developer.stay_awake"
+        }
+        SwitchRow {
+            text: qsTr("Show taps")
+            subtitle: qsTr("A dot follows every touch on the screen.")
+            key: "developer.show_taps"
+        }
+        SwitchRow {
+            text: qsTr("Frame rate")
+            subtitle: qsTr("Shows how many frames per second the screen draws.")
+            key: "developer.show_fps"
             separator: false
         }
     }

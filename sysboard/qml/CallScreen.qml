@@ -46,7 +46,7 @@ Item {
         reveal.animateTo(ringingFull ? 1 : 0, 0)
         if (ringingFull)
             Host.setScreenOn(true)
-        if (incoming !== null && Settings.values["controls.sound"] !== false)
+        if (incoming !== null && !FocusModes.silent && FocusModes.callsAllowed)
             ringtone.play()
         else
             ringtone.stop()

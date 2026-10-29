@@ -335,4 +335,70 @@ void MMCellular::onSmsAdded(const QDBusObjectPath &path, bool received)
              });
 }
 
+// ModemManager location: the serving cell always, the GNSS when it has a
+// fix. Sources: 1 = 3GPP LAC/CI, 2 = GPS raw.
+void MMCellular::locate(std::function<void(const QJsonObject &)> done)
+{
+    if (m_modem.isEmpty()) {
+        done({});
+        return;
+    }
+    const QString loc = QStringLiteral("org.freedesktop.ModemManager1.Modem.Location");
+    auto read = [this, loc, done] {
+        dbusCall(kService, m_modem, loc, QStringLiteral("GetLocation"), {}, this,
+                 [this, done](const QString &error, const QDBusMessage &reply) {
+                     QJsonObject out;
+                     if (!error.isEmpty() || reply.arguments().isEmpty()) {
+                         done(out);
+                         return;
+                     }
+                     QMap<uint, QDBusVariant> sources;
+                     reply.arguments().at(0).value<QDBusArgument>() >> sources;
+                     if (sources.contains(1)) {
+                         // "MCC,MNC,LAC,CI,TAC" with hexadecimal LAC, CI and TAC
+                         const QStringList p = sources.value(1).variant().toString().split(QLatin1Char(','));
+                         if (p.size() >= 4) {
+                             const QString tech = state().value(QLatin1String("technology")).toString();
+                             const bool lte = tech == QLatin1String("LTE") || tech == QLatin1String("5G");
+                             bool ok = false;
+                             out.insert(QStringLiteral("cell"), QJsonObject{
+                                 {QStringLiteral("radioType"), lte ? QStringLiteral("lte") : tech == QLatin1String("3G") ? QStringLiteral("wcdma") : QStringLiteral("gsm")},
+                                 {QStringLiteral("mobileCountryCode"), p.at(0).toInt()},
+                                 {QStringLiteral("mobileNetworkCode"), p.at(1).toInt()},
+                                 {QStringLiteral("locationAreaCode"), int(p.value(lte && p.size() > 4 ? 4 : 2).toUInt(&ok, 16))},
+                                 {QStringLiteral("cellId"), double(p.at(3).toUInt(&ok, 16))}});
+                         }
+                     }
+                     if (sources.contains(2)) {
+                         QVariantMap gps;
+                         sources.value(2).variant().value<QDBusArgument>() >> gps;
+                         if (gps.contains(QStringLiteral("latitude")))
+                             out.insert(QStringLiteral("gnss"), QJsonObject{
+                                 {QStringLiteral("lat"), gps.value(QStringLiteral("latitude")).toDouble()},
+                                 {QStringLiteral("lon"), gps.value(QStringLiteral("longitude")).toDouble()},
+                                 {QStringLiteral("accuracy"), 15}});
+                     }
+                     done(out);
+                 });
+    };
+    if (m_locationSetUp) {
+        read();
+        return;
+    }
+    dbusCall(kService, m_modem, loc, QStringLiteral("Setup"), {uint(1 | 2), false}, this,
+             [this, read](const QString &error, const QDBusMessage &) {
+                 if (!error.isEmpty())
+                     qCWarning(lcMm) << "location setup:" << error;
+                 m_locationSetUp = true;
+                 read();
+             });
+}
+
+QString MMCellular::dataInterface() const
+{
+    if (m_bearer.isEmpty())
+        return {};
+    return props(m_bearer, QStringLiteral("org.freedesktop.ModemManager1.Bearer")).value(QStringLiteral("Interface")).toString();
+}
+
 } // namespace astrad::network

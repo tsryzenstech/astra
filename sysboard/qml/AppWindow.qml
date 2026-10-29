@@ -24,6 +24,7 @@ Item {
     readonly property bool hasSurface: surfaceItem.surface !== null && surfaceItem.surface.hasContent
     property bool inBackground: false
     property bool closePending: false   // the process ended; the app layer decides soon
+    property bool doomed: false         // the app is gone: forget the window once hidden
     property url snapshot: ""       // last frame, for Recents
     property double lastUsed: 0
 

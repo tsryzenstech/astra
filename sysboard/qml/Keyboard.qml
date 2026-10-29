@@ -9,8 +9,8 @@ import Astra.Animation
 // fields and into apps (Wayland text-input) through the input method bridge.
 //  - springs up from the bottom with a little bounce, on frosted glass with
 //    rounded corners; light or dark with the system appearance
-//  - layouts: letters, numbers, symbols, emoji, email (@), web (/ .com) and a
-//    number pad for digits-only fields
+//  - layouts: letters, numbers, symbols, email (@), web (/ .com), a number
+//    pad for digits-only fields, and every emoji (EmojiPanel)
 //  - shift (double tap: caps lock), capitals at the start of a sentence
 //  - a bubble pops above the key under the finger; slide across keys and
 //    the key under the finger types on release
@@ -21,7 +21,8 @@ Item {
     readonly property var bridge: Host.keyboard
     property Item blurSource: null      // what shows through the frosted panel
     readonly property bool shown: !!bridge && bridge.visible
-    readonly property real panelHeight: keys.height + 18 + Theme.homeIndicatorHeight
+    readonly property bool emojiPage: page === "emoji" && !digitsOnly
+    readonly property real panelHeight: (emojiPage ? 4 * 46 + 3 * 10 : keys.height) + 18 + Theme.homeIndicatorHeight
     readonly property real visibleHeight: Math.max(0, panelHeight * reveal.value)
 
     // Qt::InputMethodHints
@@ -87,15 +88,9 @@ Item {
         ["123", ".", ",", "?", "!", "'", "⌫"],
         ["ABC", ",", " ", ".", "⏎"]
     ]
-    readonly property var emojiRows: [
-        ["\u{1F600}", "\u{1F602}", "\u{1F979}", "\u{1F60D}", "\u{1F60E}", "\u{1F929}", "\u{1F634}", "\u{1F914}"],
-        ["\u{1F44D}", "\u{1F44F}", "\u{1F64F}", "\u{1F4AA}", "\u{1F44B}", "\u{1F91D}", "\u{1F91E}", "\u{1F64C}"],
-        ["\u{2764}\u{FE0F}", "\u{1F525}", "\u{2728}", "\u{1F389}", "\u{2B50}", "\u{1F319}", "\u{2600}\u{FE0F}", "\u{1F308}"],
-        ["ABC", " ", "⌫"]
-    ]
     readonly property var padRows: [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], [dialable ? "+*#" : ".", "0", "⌫"]]
     readonly property var rows: digitsOnly ? padRows : page === "numbers" ? numberRows : page === "symbols" ? symbolRows
-                              : page === "emoji" ? emojiRows : letterRows
+                              : page === "emoji" ? [] : letterRows
     readonly property var accents: ({
         a: "àáâäãå", e: "èéêëē", i: "ìíîï", o: "òóôöõø", u: "ùúûü", c: "çć", n: "ñń", s: "ßś", y: "ÿ", z: "žź"
     })
@@ -311,11 +306,22 @@ Item {
             }
         }
 
+        EmojiPanel {
+            x: keys.x
+            y: keys.y - 6
+            width: keys.width
+            height: 4 * 46 + 3 * 10 + 6
+            visible: root.emojiPage
+            keyboard: root
+            onTyped: (text) => root.bridge.commit(text)
+        }
+
         // ---- touch: one area for the whole keyboard --------------------------
         MouseArea {
             id: touch
             anchors.fill: keys
             anchors.margins: -5
+            enabled: !root.emojiPage
             preventStealing: true
             property Item current: null
             property string accentBase: ""

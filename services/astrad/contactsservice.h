@@ -17,6 +17,10 @@ public:
     ContactsService(Server *server, QObject *parent = nullptr);
     QJsonValue handle(const QString &call, const QJsonObject &params, const Caller &caller) override;
     QString nameForNumber(const QString &number) const;
+    QJsonArray all() const { return m_contacts; }
+    // Adds the contacts that are not on the phone yet (same name and number); returns how many.
+    int merge(const QJsonArray &contacts);
+    void setChangedHook(std::function<void()> hook) { m_changed = std::move(hook); }
 
 private:
     void save();
@@ -26,6 +30,7 @@ private:
     QString m_path;
     QJsonArray m_contacts;
     int m_nextId = 1;
+    std::function<void()> m_changed;
 };
 
 } // namespace astrad

@@ -1,4 +1,23 @@
 {
-    "Capture ideas, lists and sketches.": "Annota idee, liste e schizzi.",
-    "Notes": "Note"
+    "All Notes": "Tutte le note",
+    "Cancel": "Annulla",
+    "Delete": "Elimina",
+    "Folders": "Cartelle",
+    "Move to Folder": "Sposta nella cartella",
+    "Name": "Nome",
+    "New Folder": "Nuova cartella",
+    "New Note": "Nuova nota",
+    "No additional text": "Nessun testo aggiuntivo",
+    "No Notes": "Nessuna nota",
+    "No Results": "Nessun risultato",
+    "Notes": "Note",
+    "Notes are deleted for good after 30 days.": "Le note vengono eliminate definitivamente dopo 30 giorni.",
+    "Pin Note": "Fissa nota",
+    "Recently Deleted": "Eliminate di recente",
+    "Recover": "Recupera",
+    "Recover this note or delete it for good?": "Recuperare questa nota o eliminarla definitivamente?",
+    "Save": "Salva",
+    "Search": "Cerca",
+    "Start typing…": "Inizia a scrivere…",
+    "Unpin Note": "Non fissare più"
 }

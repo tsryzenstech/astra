@@ -7,7 +7,10 @@
 
 #include "activitymanager.h"
 #include "alarmservice.h"
+#include "accountservice.h"
+#include "calendarservice.h"
 #include "contactsservice.h"
+#include "locationservice.h"
 #include "developerservice.h"
 #include "dialogservice.h"
 #include "displayservice.h"
@@ -82,6 +85,21 @@ void applyVolume(SettingsService &settings)
 }
 } // namespace
 
+// Game Mode (a Focus): every CPU cluster on the performance governor;
+// otherwise back to schedutil.
+static void applyGameMode(SettingsService &settings)
+{
+    if (Paths::isDevelopmentRoot())
+        return;
+    const bool game = settings.value(QStringLiteral("focus.mode")).toString() == QLatin1String("game");
+    const QDir cpufreq(QStringLiteral("/sys/devices/system/cpu/cpufreq"));
+    for (const QString &policy : cpufreq.entryList({QStringLiteral("policy*")}, QDir::Dirs)) {
+        QFile f(cpufreq.filePath(policy + QStringLiteral("/scaling_governor")));
+        if (f.open(QIODevice::WriteOnly))
+            f.write(game ? "performance" : "schedutil");
+    }
+}
+
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
@@ -107,6 +125,10 @@ int main(int argc, char **argv)
     SettingsService settings(&server);
     PackageManager packages(&server);
     packages.setLanguageProvider([&settings] { return settings.value(QStringLiteral("system.language")).toString(); });
+    packages.setSideloadProvider([&settings] {
+        return settings.value(QStringLiteral("developer.enabled")).toBool()
+            && settings.value(QStringLiteral("developer.sideload")).toBool();
+    });
     packages.scan();
     DialogService dialogs(&server, &packages);
     packages.setDialogs(&dialogs);
@@ -125,10 +147,18 @@ int main(int argc, char **argv)
     NetworkService network(&server, &settings, &notifications, &packages);
     TelephonyFacade telephony(&network, nullptr);
     ContactsService contacts(&server);
+    LocationService location(&server, &settings, network.wifi(), network.cellular());
     AlarmService alarms(&server, &notifications);
     DisplayService display(&settings);
     UpdateService update(&server, &settings);
     DeveloperService developer(&server, &settings, &lock);
+    CalendarService calendar(&server, &notifications);
+    AccountService account(&server, &settings, &notifications, &contacts, &location, &hardware, &network, &alarms);
+    contacts.setChangedHook([&account] { account.contactsChanged(); });
+    // Find My Device > Lock: SysBoard locks the phone.
+    QObject::connect(&account, &AccountService::lockRequested, &server, [&server](const QString &message) {
+        server.broadcast(QStringLiteral("system.lock"), QJsonObject{{QStringLiteral("message"), message}});
+    });
 
     // App names follow the system language; the media volume and silent
     // mode go to the audio server.
@@ -138,9 +168,15 @@ int main(int argc, char **argv)
                 server.broadcast(QStringLiteral("packages.changed"), packages.info(pkg));
         if (key == QLatin1String("audio.volume") || key == QLatin1String("controls.sound"))
             applyVolume(settings);
+        if (key == QLatin1String("focus.mode"))
+            applyGameMode(settings);
     });
     applyVolume(settings);
+    applyGameMode(settings);
 
+    QObject::connect(&packages, &PackageManager::permissionsChanged, &server, [&](const QString &pkg, bool) {
+        server.updatePermissions(pkg, packages.permissionsOf(pkg));
+    });
     server.setIdentify([&](Caller &caller) {
         QString package = activity.packageForPid(caller.pid);
         if (package.isEmpty())
@@ -167,6 +203,9 @@ int main(int argc, char **argv)
     server.registerService(QStringLiteral("network"), &network);
     server.registerService(QStringLiteral("telephony"), &telephony);
     server.registerService(QStringLiteral("contacts"), &contacts);
+    server.registerService(QStringLiteral("location"), &location);
+    server.registerService(QStringLiteral("calendar"), &calendar);
+    server.registerService(QStringLiteral("account"), &account);
     server.registerService(QStringLiteral("alarms"), &alarms);
     server.registerService(QStringLiteral("display"), &display);
     server.registerService(QStringLiteral("update"), &update);

@@ -91,6 +91,8 @@ public:
     bool listen(const QString &path);
 
     void registerService(const QString &prefix, Service *service);
+    // A package's permissions changed: its open connections see them at once.
+    void updatePermissions(const QString &package, const QStringList &permissions);
     void setIdentify(Identify identify) { m_identify = std::move(identify); }
 
     // Sends an event to every connection subscribed to its topic

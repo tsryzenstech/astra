@@ -161,6 +161,7 @@ Item {
                 w.open()
             }
             w.closePending = false
+            w.doomed = false
             w.attach(toplevel, xdgSurface)
         }
         attach()
@@ -184,13 +185,31 @@ Item {
                 if (!w.closePending || w.toplevel)
                     continue
                 w.closePending = false
+                w.doomed = true
                 if (layer.activeWindow === w)
                     layer.closeActive(0)
+            }
+            sweepTimer.start()
+        }
+    }
+    // Windows of apps that went away leave once their closing animation ends.
+    Timer {
+        id: sweepTimer
+        interval: 250
+        repeat: true
+        onTriggered: {
+            let pending = false
+            for (const key in layer.windows) {
+                const w = layer.windows[key]
+                if (!w.doomed || w.toplevel)
+                    continue
                 if (w.progress < 0.01)
                     layer.forget(w)
                 else
-                    Qt.callLater(function() { if (!w.toplevel && w.progress < 0.01) layer.forget(w) })
+                    pending = true
             }
+            if (!pending)
+                stop()
         }
     }
 

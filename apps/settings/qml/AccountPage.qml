@@ -3,24 +3,44 @@ import QtQuick
 import Astra.Core
 import Astra.Controls
 
-// AstraID. Online sign-in is provided by the AstraID Services app; until
-// then the phone keeps a local owner name.
+// Settings > AstraID: who owns the phone and the AstraID status. Sign-in,
+// Find My Device and the contacts backup live in AstraID Services.
 Page {
     id: page
     title: qsTr("AstraID")
-
-    readonly property bool signedIn: (Settings.values["account.name"] || "") !== ""
+    readonly property var acc: Account.state
 
     EmptyState {
         iconName: "person"
-        title: page.signedIn ? Settings.values["account.name"] : qsTr("Not Logged In")
-        message: page.signedIn ? qsTr("This name is shown on your phone and to nearby devices.")
-                               : qsTr("Sign in with AstraID to sync your settings, purchases and backups across devices.")
+        title: page.acc.signedIn ? (page.acc.name || page.acc.email) : qsTr("Not Logged In")
+        message: page.acc.signedIn ? page.acc.email
+                                   : qsTr("Sign in with AstraID to find this phone if you lose it and to back up your contacts.")
     }
-
+    ListGroup {
+        ListItem {
+            text: page.acc.signedIn ? qsTr("AstraID Services") : qsTr("Sign In")
+            subtitle: qsTr("Find My Device and contacts backup")
+            iconName: "cloud"
+            chevron: true
+            onClicked: Packages.launch("com.astra.astraid")
+        }
+        ListItem {
+            visible: !!page.acc.signedIn
+            text: qsTr("Find My Device")
+            value: page.acc.findMy ? qsTr("On") : qsTr("Off")
+            enabled: false
+        }
+        ListItem {
+            visible: !!page.acc.signedIn
+            text: qsTr("Contacts Backup")
+            value: page.acc.contactsBackup ? qsTr("On") : qsTr("Off")
+            enabled: false
+            separator: false
+        }
+    }
     ListGroup {
         title: qsTr("Owner")
-        footer: qsTr("Leave it empty to sign out of this phone.")
+        footer: qsTr("Shown on this phone, to nearby devices and as the name of your Personal Hotspot.")
         Item {
             width: parent.width
             height: 72
@@ -39,17 +59,6 @@ Page {
             textColor: Theme.accent
             separator: false
             onClicked: Settings.setValue("account.name", nameField.text.trim())
-        }
-    }
-
-    ListGroup {
-        ListItem {
-            text: qsTr("AstraID Services")
-            subtitle: qsTr("Sign in, backups and Find My Device")
-            iconName: "cloud"
-            chevron: true
-            separator: false
-            onClicked: Packages.launch("com.astra.astraid")
         }
     }
 }

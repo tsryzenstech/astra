@@ -1,0 +1,10 @@
+{
+    "%n contacts": {
+        "one": "%n contacts",
+        "other": "%n contacts"
+    },
+    "%n contacts imported": {
+        "one": "%n contacts imported",
+        "other": "%n contacts imported"
+    }
+}

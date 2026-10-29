@@ -25,6 +25,8 @@ public:
     void accept(const QString &id) override;
     void hangup(const QString &id) override;
     void sendSms(const QString &number, const QString &text, Done done) override;
+    void locate(std::function<void(const QJsonObject &)> done) override;
+    QString dataInterface() const override;
 
 private Q_SLOTS:
     void onSmsAdded(const QDBusObjectPath &path, bool received);
@@ -40,6 +42,7 @@ private:
     ManagedObjects m_calls;
     QString m_modem;
     QString m_bearer;
+    bool m_locationSetUp = false;
     QString m_apn = QStringLiteral("internet");
     bool m_allowRoaming = false;
     bool m_dataWanted = false;

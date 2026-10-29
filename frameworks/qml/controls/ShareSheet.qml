@@ -77,25 +77,30 @@ Item {
                 spacing: 14
                 Repeater {
                     model: root.targets
-                    delegate: Column {
+                    delegate: Item {
+                        id: target
                         required property var modelData
                         width: (column.width - 3 * 14) / 4
-                        spacing: 6
-                        AppIcon { anchors.horizontalCenter: parent.horizontalCenter; size: 56; source: modelData.iconUrl }
-                        Text {
+                        height: targetColumn.implicitHeight
+                        Column {
+                            id: targetColumn
                             width: parent.width
-                            horizontalAlignment: Text.AlignHCenter
-                            elide: Text.ElideRight
-                            text: modelData.name
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.footnoteSize + 1
-                            color: Theme.text
+                            spacing: 6
+                            AppIcon { anchors.horizontalCenter: parent.horizontalCenter; size: 56; source: target.modelData.iconUrl }
+                            Text {
+                                width: parent.width
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
+                                text: target.modelData.name
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.footnoteSize + 1
+                                color: Theme.text
+                            }
                         }
                         MouseArea {
-                            width: parent.width
-                            height: parent.height
+                            anchors.fill: parent
                             onClicked: {
-                                Packages.launch(modelData.package, { action: root.kind, files: root.files, text: root.text })
+                                Packages.launch(target.modelData.package, { action: root.kind, files: root.files, text: root.text })
                                 root.close()
                                 root.done()
                             }

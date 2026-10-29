@@ -5,8 +5,10 @@ if(PkgConfig_FOUND)
 endif()
 
 qt_add_executable(astrad
+    accountservice.cpp accountservice.h
     activitymanager.cpp activitymanager.h
     alarmservice.cpp alarmservice.h
+    calendarservice.cpp calendarservice.h
     contactsservice.cpp contactsservice.h
     developerservice.cpp developerservice.h
     dialogservice.cpp dialogservice.h
@@ -14,6 +16,7 @@ qt_add_executable(astrad
     hardwareservice.cpp hardwareservice.h
     initcontrol.h
     jsonstore.h
+    locationservice.cpp locationservice.h
     locksettingsservice.cpp locksettingsservice.h
     main.cpp
     mediasessionservice.cpp mediasessionservice.h

@@ -1,0 +1,14 @@
+{
+    "%n contacts restored": {
+        "one": "%n contacts restored",
+        "other": "%n contacts restored"
+    },
+    "%n hours ago": {
+        "one": "%n hours ago",
+        "other": "%n hours ago"
+    },
+    "%n minutes ago": {
+        "one": "%n minutes ago",
+        "other": "%n minutes ago"
+    }
+}

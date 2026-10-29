@@ -87,6 +87,8 @@ void SysBoardHost::onSystemEvent(const QString &name, const QJsonValue &data)
                                          {QStringLiteral("ok"), ok}});
     } else if (name == QLatin1String("system.restartShell")) {
         restartSelf();
+    } else if (name == QLatin1String("system.lock")) {
+        Q_EMIT lockRequested(data.toObject().value(QLatin1String("message")).toString());
     }
 }
 

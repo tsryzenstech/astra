@@ -44,12 +44,13 @@ Page {
 
     ListGroup {
         title: qsTr("Location")
-        SwitchRow {
-            text: qsTr("Use location")
-            subtitle: qsTr("Apps with the location permission can find where the phone is.")
+        ListItem {
+            text: qsTr("Location Services")
             iconName: "location"
-            key: "controls.location"
+            value: Settings.values["controls.location"] === false ? qsTr("Off") : qsTr("On")
+            chevron: true
             separator: false
+            onClicked: stack.open(Qt.resolvedUrl("LocationPage.qml"))
         }
     }
 }

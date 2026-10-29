@@ -47,6 +47,10 @@ public:
     void disconnectCurrent() override;
     void forget(const QString &ssid) override;
     QJsonArray knownNetworks() const override;
+    QJsonArray accessPoints() const override;
+    bool hotspotSupported() const override;
+    bool hotspotActive() const override;
+    void setHotspot(bool on, const QString &ssid, const QString &passphrase, Done done) override;
 
     QString takePassphrase(const QString &networkPath);
 

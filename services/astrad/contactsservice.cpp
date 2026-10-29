@@ -37,6 +37,34 @@ void ContactsService::save()
     saveJson(m_path, {{QStringLiteral("contacts"), m_contacts}, {QStringLiteral("nextId"), m_nextId}});
     m_server->broadcast(QStringLiteral("contacts.changed"), QJsonValue(),
                         [](const Caller &c) { return c.can(QLatin1String(permissions::CONTACTS)); });
+    if (m_changed)
+        m_changed();
+}
+
+int ContactsService::merge(const QJsonArray &contacts)
+{
+    int added = 0;
+    for (const QJsonValue &v : contacts) {
+        QJsonObject c = sanitize(v.toObject());
+        const QString name = c.value(QLatin1String("name")).toString();
+        const QString phone = digits(c.value(QLatin1String("phone")).toString());
+        if (name.isEmpty() && phone.isEmpty())
+            continue;
+        bool known = false;
+        for (const QJsonValue &e : std::as_const(m_contacts)) {
+            const QJsonObject o = e.toObject();
+            if (o.value(QLatin1String("name")).toString() == name && digits(o.value(QLatin1String("phone")).toString()) == phone)
+                known = true;
+        }
+        if (known)
+            continue;
+        c.insert(QStringLiteral("id"), m_nextId++);
+        m_contacts.append(c);
+        ++added;
+    }
+    if (added)
+        save();
+    return added;
 }
 
 QJsonObject ContactsService::sanitize(const QJsonObject &in)

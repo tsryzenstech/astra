@@ -35,6 +35,8 @@ public:
     void setDialogs(DialogService *dialogs) { m_dialogs = dialogs; }
     // Current system language, used to localize app names.
     void setLanguageProvider(std::function<QString()> language) { m_language = std::move(language); }
+    // Developer Options > Sideload Apps: when off, apps come only from Market.
+    void setSideloadProvider(std::function<bool()> allowed) { m_sideload = std::move(allowed); }
 
     QJsonValue handle(const QString &call, const QJsonObject &params, const Caller &caller) override;
 
@@ -74,6 +76,7 @@ private:
     Server *m_server;
     DialogService *m_dialogs = nullptr;
     std::function<QString()> m_language;
+    std::function<bool()> m_sideload;
     QString m_dbPath;
     QHash<QString, QJsonObject> m_packages; // package -> record
 };

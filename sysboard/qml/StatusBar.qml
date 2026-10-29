@@ -56,6 +56,21 @@ Item {
         anchors.verticalCenterOffset: 2
         spacing: 7
 
+        // Focus (moon, bed, briefcase...) and Personal Hotspot
+        Icon {
+            visible: FocusModes.currentMode !== null
+            anchors.verticalCenter: parent.verticalCenter
+            name: FocusModes.currentMode ? FocusModes.currentMode.icon : ""
+            size: 14
+            color: FocusModes.currentMode ? FocusModes.currentMode.color : root.tint
+        }
+        Icon {
+            visible: !!(Network.state.hotspot || {}).active
+            anchors.verticalCenter: parent.verticalCenter
+            name: "hotspot"
+            size: 14
+            color: "#34D058"
+        }
         Icon {
             visible: root.airplane
             anchors.verticalCenter: parent.verticalCenter

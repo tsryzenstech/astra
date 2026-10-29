@@ -62,21 +62,16 @@
     "lockscreen.widgets": [
         "com.astra.weather/current",
         "com.astra.settings/battery",
-        "com.astra.planet/cosmo"
+        "com.astra.planet/search"
     ],
-    "controls.location": false,
+    "controls.location": true,
     "controls.sound": true,
-    "controls.game": false,
-    "controls.cast": false,
-    "controls.focus": false,
     "controls.scanner": false,
-    "controls.work": true,
-    "controls.dnd": false,
     "controls.tiles": [
         "location",
         "sound",
         "game",
-        "cast",
+        "hotspot",
         "focus",
         "scanner",
         "work",
@@ -93,7 +88,33 @@
     "developer.wireless_debugging": false,
     "developer.animation_scale": 1.0,
     "developer.stay_awake": false,
+    "developer.sideload": false,
+    "developer.show_taps": false,
+    "developer.show_fps": false,
     "accessibility.reduce_motion": false,
     "cloudy.wake_word": false,
-    "cloudy.lockscreen": false
+    "cloudy.lockscreen": false,
+    "focus.mode": "",
+    "focus.dnd.apps": [],
+    "focus.sleep.apps": [
+        "com.astra.clock"
+    ],
+    "focus.work.apps": [
+        "com.astra.email",
+        "com.astra.calendar",
+        "com.astra.messages",
+        "com.astra.phone"
+    ],
+    "focus.personal.apps": [
+        "com.astra.messages",
+        "com.astra.phone",
+        "com.astra.meetup"
+    ],
+    "focus.driving.apps": [
+        "com.astra.maps",
+        "com.astra.phone"
+    ],
+    "focus.game.apps": [],
+    "hotspot.name": "",
+    "keyboard.recent_emoji": []
 }

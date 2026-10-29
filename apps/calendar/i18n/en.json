@@ -1,0 +1,10 @@
+{
+    "%n days before": {
+        "one": "%n days before",
+        "other": "%n days before"
+    },
+    "%n hours before": {
+        "one": "%n hours before",
+        "other": "%n hours before"
+    }
+}

@@ -17,11 +17,12 @@ Page {
     }
 
     ListGroup {
-        SwitchRow {
-            text: qsTr("Do Not Disturb")
-            subtitle: qsTr("Notifications arrive silently, without banners.")
+        ListItem {
+            text: qsTr("Focus")
+            subtitle: qsTr("Silence notifications and calls, except for the apps you choose.")
             iconName: "moon"
-            key: "controls.dnd"
+            chevron: true
+            onClicked: page.stack.open(Qt.resolvedUrl("FocusPage.qml"))
         }
         SwitchRow {
             text: qsTr("Show on lock screen")

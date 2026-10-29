@@ -23,6 +23,8 @@ class AlarmService : public Service
 public:
     AlarmService(Server *server, NotificationService *notifications, QObject *parent = nullptr);
     QJsonValue handle(const QString &call, const QJsonObject &params, const Caller &caller) override;
+    // Rings right away on the full screen alarm (Find My Device).
+    void ringNow(const QString &kind, const QString &label);
 
 private:
     void schedule();

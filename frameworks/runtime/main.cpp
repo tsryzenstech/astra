@@ -8,6 +8,7 @@
 // SysBoard matches windows to launcher icons.
 
 #include <astra/client.h>
+#include <astra/global.h>
 #include <astra/localization.h>
 #include <astra/paths.h>
 
@@ -17,19 +18,65 @@
 #include <QGuiApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
 #include <QQmlEngine>
+#include <QQmlNetworkAccessManagerFactory>
 #include <QQuickView>
+
+#ifdef ASTRA_HAVE_WEBENGINE
+#include <QtWebEngineQuick/qtwebenginequickglobal.h>
+#endif
 
 using astra::Paths;
 
 static void loadSystemFonts()
 {
     const QDir fonts(Paths::fonts());
-    for (const QString &f : fonts.entryList({QStringLiteral("*.ttf"), QStringLiteral("*.otf")}, QDir::Files))
-        QFontDatabase::addApplicationFont(fonts.filePath(f));
+    for (const QString &f : fonts.entryList({QStringLiteral("*.ttf"), QStringLiteral("*.otf")}, QDir::Files)) {
+        // Emoji come from the colour emoji font wherever a font lacks them.
+        const int id = QFontDatabase::addApplicationFont(fonts.filePath(f));
+        for (const QString &family : QFontDatabase::applicationFontFamilies(id))
+            if (family.contains(QLatin1String("emoji"), Qt::CaseInsensitive))
+                QFontDatabase::addApplicationFallbackFontFamily(QChar::Script_Common, family);
+    }
     QFont font(QStringLiteral("Poppins"));
     font.setStyleStrategy(QFont::PreferAntialias);
     QGuiApplication::setFont(font);
+}
+
+// Network requests from QML (images, XMLHttpRequest) say who they are:
+// open services such as OpenStreetMap ask for an identifying User-Agent.
+class AppNetworkAccessManager : public QNetworkAccessManager
+{
+public:
+    using QNetworkAccessManager::QNetworkAccessManager;
+protected:
+    QNetworkReply *createRequest(Operation op, const QNetworkRequest &original, QIODevice *data) override
+    {
+        QNetworkRequest req(original);
+        // Many parallel image loads over one HTTP/2 connection get reset by
+        // some CDNs (OpenStreetMap tiles): use HTTP/1.1 connections.
+        req.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+        if (!req.hasRawHeader("User-Agent"))
+            req.setHeader(QNetworkRequest::UserAgentHeader,
+                          QStringLiteral("astraOS/%1 (%2; +https://github.com/tsryzenstech/astra)")
+                              .arg(QString::fromLatin1(astra::version()), QGuiApplication::desktopFileName()));
+        return QNetworkAccessManager::createRequest(op, req, data);
+    }
+};
+
+class AppNetworkFactory : public QQmlNetworkAccessManagerFactory
+{
+public:
+    QNetworkAccessManager *create(QObject *parent) override { return new AppNetworkAccessManager(parent); }
+};
+
+// The manifest on disk, readable before the application object exists.
+static QJsonObject manifestOnDisk(const QString &package)
+{
+    QFile f(Paths::dataApp() + QLatin1Char('/') + package + QStringLiteral("/code/app.json"));
+    return f.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(f.readAll()).object() : QJsonObject();
 }
 
 static QJsonObject packageInfo(const QString &package)
@@ -66,6 +113,20 @@ int main(int argc, char **argv)
     }
     qputenv("ASTRA_PACKAGE", package.toUtf8());
 
+    // Web content runs in Chromium's renderer processes, which must be set
+    // up before the application. The app sandbox (own uid, no privileges)
+    // stands in for Chromium's own sandbox, which needs user namespaces.
+    if (manifestOnDisk(package).value(QLatin1String("webengine")).toBool()) {
+#ifdef ASTRA_HAVE_WEBENGINE
+        if (!qEnvironmentVariableIsSet("QTWEBENGINE_DISABLE_SANDBOX"))
+            qputenv("QTWEBENGINE_DISABLE_SANDBOX", "1");
+        QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+        QtWebEngineQuick::initialize();
+#else
+        qWarning("astra-app: %s needs Qt WebEngine, which this build lacks", qPrintable(package));
+#endif
+    }
+
     QGuiApplication app(argc, argv);
     // app_id on Wayland: SysBoard uses it to find the window of a package.
     QGuiApplication::setDesktopFileName(package);
@@ -85,7 +146,9 @@ int main(int argc, char **argv)
     l10n->addDirectory(info.value(QLatin1String("codePath")).toString() + QStringLiteral("/i18n"));
     l10n->addDirectory(Paths::resolve(QStringLiteral("/system/framework/i18n")));
 
+    AppNetworkFactory networkFactory; // outlives the engine
     QQuickView view;
+    view.engine()->setNetworkAccessManagerFactory(&networkFactory);
     QObject::connect(l10n, &astra::Localization::languageChanged, view.engine(), [&view] { view.engine()->retranslate(); });
     view.engine()->addImportPath(Paths::frameworkQml());
     view.engine()->addImportPath(info.value(QLatin1String("codePath")).toString() + QStringLiteral("/qml"));

@@ -102,6 +102,13 @@ void AlarmService::schedule()
     m_timer.start(int(qBound(qint64(10), next - now, qint64(60000))));
 }
 
+void AlarmService::ringNow(const QString &kind, const QString &label)
+{
+    m_ringing = {{K("kind"), kind}, {K("id"), 0}, {K("label"), label},
+                 {K("time"), double(QDateTime::currentMSecsSinceEpoch())}};
+    m_server->broadcast(K("alarms.fired"), m_ringing);
+}
+
 void AlarmService::fireDue()
 {
     const qint64 now = QDateTime::currentMSecsSinceEpoch();

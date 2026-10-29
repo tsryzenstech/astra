@@ -90,6 +90,30 @@ NetworkState::NetworkState(QObject *parent)
 {
 }
 
+LocationState::LocationState(QObject *parent)
+    : ServiceState(QStringLiteral("location"), QStringLiteral("state"), QStringLiteral("location.changed"), parent)
+{
+}
+
+void LocationState::onEvent(const QString &name, const QJsonValue &data)
+{
+    Q_UNUSED(name)
+    QVariantMap s = state();
+    s.insert(QStringLiteral("fix"), data.toObject().toVariantMap());
+    s.insert(QStringLiteral("enabled"), true);
+    setState(s);
+}
+
+CalendarState::CalendarState(QObject *parent)
+    : ServiceState(QStringLiteral("calendar"), {}, {}, parent)
+{
+}
+
+AccountState::AccountState(QObject *parent)
+    : ServiceState(QStringLiteral("account"), QStringLiteral("state"), QStringLiteral("account.changed"), parent)
+{
+}
+
 TelephonyState::TelephonyState(QObject *parent)
     : ServiceState(QStringLiteral("telephony"), {}, {}, parent)
 {

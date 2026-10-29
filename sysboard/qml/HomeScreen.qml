@@ -268,7 +268,7 @@ Item {
             asynchronous: true
         }
 
-        // First page header: weather greeting, Cosmo search, Planet label.
+        // First page header: weather greeting, web search, Planet label.
         Item {
             x: home.pageOffset
             width: home.width
@@ -280,7 +280,7 @@ Item {
             }
 
             Rectangle {
-                id: cosmoBar
+                id: searchBar
                 x: 26
                 y: 355
                 width: parent.width - 52
@@ -290,7 +290,7 @@ Item {
                 Text {
                     x: 14
                     anchors.verticalCenter: parent.verticalCenter
-                    text: qsTr("Search with Cosmo..")
+                    text: qsTr("Search the web")
                     font.family: Theme.fontFamily
                     font.pixelSize: 14
                     color: Qt.rgba(1, 1, 1, 0.7)
@@ -301,7 +301,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     width: 30
                     height: 30
-                    source: "icons/system/cosmo-glyph.svg"
+                    source: "icons/system/search-glyph.svg"
                     sourceSize: Qt.size(60, 60)
                 }
             }
@@ -310,7 +310,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 404
                 textFormat: Text.StyledText
-                text: "<b>Planet</b> • " + qsTr("AI Search")
+                text: "<b>Planet</b> • " + qsTr("Web Browser")
                 font.family: Theme.fontFamily
                 font.pixelSize: 14
                 font.weight: Font.Normal
@@ -521,7 +521,7 @@ Item {
                     home.launch(pressedIndex)
                 else if (pressedIndex < 0 && home.editing)
                     home.editing = false
-                else if (pressedIndex < 0 && inside(cosmoBar, m))
+                else if (pressedIndex < 0 && inside(searchBar, m))
                     home.shell.launch("com.astra.planet", { mode: "search" }, null)
                 else if (pressedIndex < 0 && inside(searchPill, m))
                     search.open()

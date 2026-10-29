@@ -43,11 +43,19 @@ Page {
             subtitle: page.cell.simPresent ? (page.cell.operator || "") : (page.cell.available ? qsTr("No SIM card") : "")
             showSwitch: true
             chevron: true
-            separator: false
+            separator: !!(Network.state.hotspot || {}).supported
             enabled: !!page.cell.available
             checked: !!page.cell.dataEnabled
             onToggled: (on) => Network.call("cellSetData", { on: on }, null)
             onClicked: page.open("MobilePage.qml")
+        }
+        ListItem {
+            visible: !!(Network.state.hotspot || {}).supported
+            text: qsTr("Personal Hotspot")
+            value: (Network.state.hotspot || {}).active ? qsTr("On") : qsTr("Off")
+            chevron: true
+            separator: false
+            onClicked: page.open("HotspotPage.qml")
         }
     }
 
@@ -62,7 +70,7 @@ Page {
 
     ListGroup {
         title: qsTr("PRISM exclusives")
-        ListItem { text: qsTr("Hey Cloudy"); chevron: true; onClicked: page.open("HeyCloudyPage.qml") }
+        ListItem { text: qsTr("Cloudy"); chevron: true; onClicked: page.open("HeyCloudyPage.qml") }
         ListItem { text: qsTr("Store Purchases"); chevron: true; separator: false; onClicked: page.open("PurchasesPage.qml") }
     }
 
@@ -71,6 +79,7 @@ Page {
         ListItem { text: qsTr("Display"); chevron: true; onClicked: page.open("DisplayPage.qml") }
         ListItem { text: qsTr("Sound"); chevron: true; onClicked: page.open("SoundPage.qml") }
         ListItem { text: qsTr("Notifications"); chevron: true; onClicked: page.open("NotificationsPage.qml") }
+        ListItem { text: qsTr("Focus"); chevron: true; value: Settings.values["focus.mode"] ? qsTr("On") : ""; onClicked: page.open("FocusPage.qml") }
         ListItem {
             text: qsTr("Battery")
             value: System.batteryLevel >= 0 ? System.batteryLevel + "%" : ""

@@ -9,19 +9,46 @@
 
 namespace astra::animation {
 
-Motion::Motion(QObject *parent)
-    : QObject(parent)
+static qreal &scaleStorage()
 {
-}
-
-qreal Motion::globalDurationScale()
-{
-    static const qreal scale = [] {
+    static qreal scale = [] {
         bool ok = false;
         const qreal v = qEnvironmentVariable("ASTRA_ANIMATION_SCALE").toDouble(&ok);
         return ok && v >= 0 ? v : 1.0;
     }();
     return scale;
+}
+
+static QList<Motion *> &instances()
+{
+    static QList<Motion *> list;
+    return list;
+}
+
+Motion::Motion(QObject *parent)
+    : QObject(parent)
+{
+    instances().append(this);
+}
+
+Motion::~Motion()
+{
+    instances().removeAll(this);
+}
+
+qreal Motion::globalDurationScale()
+{
+    return scaleStorage();
+}
+
+void Motion::setGlobalDurationScale(qreal scale)
+{
+    scale = qMax<qreal>(0, scale);
+    if (qFuzzyCompare(scaleStorage() + 1, scale + 1))
+        return;
+    scaleStorage() = scale;
+    for (Motion *m : instances())
+        Q_EMIT m->durationScaleChanged();
 }
 
 QVariantMap Motion::preset(qreal response, qreal damping)

@@ -99,7 +99,7 @@ Item {
                 width: column.width
                 height: 89
 
-                CosmoBar {
+                SearchBar {
                     anchors.fill: parent
                     onActivated: (mode) => {
                         root.panel.close()

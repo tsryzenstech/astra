@@ -66,6 +66,42 @@ public:
     explicit NetworkState(QObject *parent = nullptr);
 };
 
+// Where the phone is (singleton "Location"). state: { enabled, fix: { lat, lon,
+// accuracy, source, time } }. Location.call("get", { maxAge: 30, watch: true }, cb)
+// asks for a fresh fix; "watch" keeps it updating for a minute (needs LOCATION).
+class LocationState : public ServiceState
+{
+    Q_OBJECT
+    QML_NAMED_ELEMENT(Location)
+    QML_SINGLETON
+public:
+    explicit LocationState(QObject *parent = nullptr);
+protected:
+    void onEvent(const QString &name, const QJsonValue &data) override;
+};
+
+// Events of the shared calendar (singleton "Calendar"). Calendar.call("list",
+// { from, to }, cb); revision changes whenever an event changes (CALENDAR).
+class CalendarState : public ServiceState
+{
+    Q_OBJECT
+    QML_NAMED_ELEMENT(Calendar)
+    QML_SINGLETON
+public:
+    explicit CalendarState(QObject *parent = nullptr);
+};
+
+// AstraID on this phone (singleton "Account", system apps). state: { signedIn,
+// email, name, server, findMy, contactsBackup, lastBackup, lastReport }
+class AccountState : public ServiceState
+{
+    Q_OBJECT
+    QML_NAMED_ELEMENT(Account)
+    QML_SINGLETON
+public:
+    explicit AccountState(QObject *parent = nullptr);
+};
+
 // Calls and SMS (singleton "Telephony"). state: { calls: [...] }
 class TelephonyState : public ServiceState
 {

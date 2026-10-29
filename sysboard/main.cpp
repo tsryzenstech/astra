@@ -104,8 +104,13 @@ int main(int argc, char **argv)
     QGuiApplication::setDesktopFileName(QStringLiteral("sysboard"));
 
     const QDir fonts(Paths::fonts());
-    for (const QString &f : fonts.entryList({QStringLiteral("*.ttf")}, QDir::Files))
-        QFontDatabase::addApplicationFont(fonts.filePath(f));
+    for (const QString &f : fonts.entryList({QStringLiteral("*.ttf")}, QDir::Files)) {
+        // Emoji come from the colour emoji font wherever a font lacks them.
+        const int id = QFontDatabase::addApplicationFont(fonts.filePath(f));
+        for (const QString &family : QFontDatabase::applicationFontFamilies(id))
+            if (family.contains(QLatin1String("emoji"), Qt::CaseInsensitive))
+                QFontDatabase::addApplicationFallbackFontFamily(QChar::Script_Common, family);
+    }
     QGuiApplication::setFont(QFont(QStringLiteral("Poppins")));
 
     SysBoardHost::instance();

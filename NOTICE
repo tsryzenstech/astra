@@ -3,4 +3,8 @@ Copyright 2026 The astraOS authors
 
 Third-party components:
 - Poppins typeface (prebuilt/fonts): SIL Open Font License 1.1, see prebuilt/fonts/OFL.txt
+- Twemoji emoji (prebuilt/fonts/TwemojiMozilla.ttf): graphics by Twitter, Inc. and contributors,
+  CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/); font built by Mozilla (github.com/mozilla/twemoji-colr)
+- Emoji names and groups (sysboard/qml/EmojiData.qml): Unicode emoji-test.txt, Unicode License v3
+- Maps: map data © OpenStreetMap contributors (ODbL), search by Photon (komoot), routes by OSRM (FOSSGIS)
 - Qt 6 (linked dynamically): LGPL-3.0, https://www.qt.io/licensing

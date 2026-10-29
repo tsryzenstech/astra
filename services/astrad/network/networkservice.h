@@ -31,8 +31,11 @@ public:
 
     QJsonValue handle(const QString &call, const QJsonObject &params, const Caller &caller) override;
     QJsonObject state() const;
+    network::WifiBackend *wifi() const { return m_wifi; }
+    network::CellularBackend *cellular() const { return m_cell; }
 
 private:
+    void setHotspot(bool on, network::Done done);
     QJsonValue handleTelephony(const QString &call, const QJsonObject &params, const Caller &caller);
     void announce();
     void setWifiPowered(bool on);

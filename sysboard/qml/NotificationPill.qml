@@ -16,12 +16,12 @@ Rectangle {
     signal openRequested()
     signal dismissRequested()
 
-    // Swipe right to dismiss: the notification follows the finger and
-    // fades out completely.
+    // Swipe left or right to dismiss: the notification follows the finger
+    // and fades out completely.
     Spring { id: swipe; to: 0; response: 0.32; dampingFraction: 0.86 }
     property bool dismissing: false
-    transform: Translate { x: Math.max(0, swipe.value) }
-    opacity: 1 - Math.max(0, Math.min(1, swipe.value / (width * 0.85)))
+    transform: Translate { x: swipe.value }
+    opacity: 1 - Math.min(1, Math.abs(swipe.value) / (width * 0.85))
     Connections {
         target: swipe
         function onSettled() { if (root.dismissing) root.dismissRequested() }
@@ -142,18 +142,20 @@ Rectangle {
         onPositionChanged: (m) => {
             velocity.addPoint(m.x, m.y)
             const dx = m.x - startX
-            if (!dragging && dx > 12) {
+            if (!dragging && Math.abs(dx) > 12) {
                 dragging = true
                 preventStealing = true
             }
             if (dragging)
-                swipe.value = dx > 0 ? dx : Motion.rubberband(dx, root.width, 0.3)
+                swipe.value = dx
         }
         onReleased: {
             const vx = velocity.velocity().x
-            if (dragging && (swipe.value > root.width * 0.35 || vx > 700)) {
+            const away = Math.abs(swipe.value) > root.width * 0.35 || Math.abs(vx) > 700
+            if (dragging && away) {
+                const side = (Math.abs(vx) > 700 ? vx : swipe.value) > 0 ? 1 : -1
                 root.dismissing = true
-                swipe.animateTo(root.width * 1.1, vx / root.width)
+                swipe.animateTo(side * root.width * 1.1, vx / root.width)
             } else if (dragging) {
                 swipe.animateTo(0, vx / root.width)
             } else {

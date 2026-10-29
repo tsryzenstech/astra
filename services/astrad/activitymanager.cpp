@@ -123,7 +123,8 @@ void ActivityManager::start(const QString &package, const QJsonObject &args)
     env.insert(QStringLiteral("ASTRA_ANIMATION_SCALE"), QString::number(reduceMotion ? 0.0 : animationScale));
     // Development trees keep their own library and QML locations.
     for (const char *passthrough : {"ASTRA_ROOT", "LD_LIBRARY_PATH", "QT_PLUGIN_PATH", "QML_IMPORT_PATH",
-                                    "QT_LOGGING_RULES", "PULSE_SERVER", "QT_QUICK_BACKEND", "LIBGL_ALWAYS_SOFTWARE"}) {
+                                    "QT_LOGGING_RULES", "PULSE_SERVER", "QT_QUICK_BACKEND", "LIBGL_ALWAYS_SOFTWARE",
+                                    "QTWEBENGINEPROCESS_PATH", "QTWEBENGINE_RESOURCES_PATH", "QTWEBENGINE_LOCALES_PATH"}) {
         const QString key = QString::fromLatin1(passthrough);
         if (qEnvironmentVariableIsSet(passthrough))
             env.insert(key, qEnvironmentVariable(passthrough));

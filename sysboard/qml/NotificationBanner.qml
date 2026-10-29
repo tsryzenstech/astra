@@ -62,10 +62,10 @@ Item {
     Connections {
         target: Notifications
         function onPosted(id) {
-            if (root.suppressed || Settings.values["controls.dnd"])
+            if (root.suppressed)
                 return
             const n = Notifications.get(id)
-            if (!n || !n.notificationId)
+            if (!n || !n.notificationId || !FocusModes.allows(n.packageName))
                 return
             if (root.current)
                 root.pending = root.pending.concat([n]).slice(-3)

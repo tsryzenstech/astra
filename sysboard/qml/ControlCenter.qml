@@ -23,18 +23,19 @@ Item {
     }
 
     // Must match the catalog in Settings > Cards.
-    readonly property var defaultTiles: ["location", "sound", "game", "cast", "focus", "scanner", "work", "dnd"]
+    readonly property var defaultTiles: ["location", "sound", "game", "hotspot", "focus", "scanner", "work", "dnd"]
     readonly property var cell: Network.state.cellular || {}
     readonly property var tileCatalog: ({
         location: { icon: "location", checked: () => !!Settings.values["controls.location"], run: () => root.toggleSetting("controls.location") },
         sound: { icon: "sound", checked: () => Settings.values["controls.sound"] !== false,
                  run: () => Settings.setValue("controls.sound", Settings.values["controls.sound"] === false) },
-        game: { icon: "gamepad", checked: () => !!Settings.values["controls.game"], run: () => root.toggleSetting("controls.game") },
-        cast: { icon: "cast", checked: () => !!Settings.values["controls.cast"], run: () => root.toggleSetting("controls.cast") },
-        focus: { icon: "focus", checked: () => !!Settings.values["controls.focus"], run: () => root.toggleSetting("controls.focus") },
+        game: { icon: "gamepad", checked: () => FocusModes.current === "game", run: () => FocusModes.toggle("game") },
+        hotspot: { icon: "hotspot", checked: () => !!(Network.state.hotspot || {}).active,
+                   run: () => Network.call("setHotspot", { on: !(Network.state.hotspot || {}).active }, null) },
+        focus: { icon: "focus", checked: () => FocusModes.current !== "", expand: "focus" },
         scanner: { icon: "qr", checked: () => false, run: () => root.openApp("com.astra.camera", { mode: "scan" }) },
-        work: { icon: "briefcase", checked: () => !!Settings.values["controls.work"], run: () => root.toggleSetting("controls.work") },
-        dnd: { icon: "moon", checked: () => !!Settings.values["controls.dnd"], run: () => root.toggleSetting("controls.dnd") },
+        work: { icon: "briefcase", checked: () => FocusModes.current === "work", run: () => FocusModes.toggle("work") },
+        dnd: { icon: "moon", checked: () => FocusModes.current === "dnd", run: () => FocusModes.toggle("dnd") },
         airplane: { icon: "airplane", checked: () => !!Network.state.airplane,
                     run: () => Network.call("setAirplane", { on: !Network.state.airplane }, null) },
         torch: { icon: "flashlight", checked: () => System.torch, run: () => System.setTorch(!System.torch) },
@@ -50,7 +51,7 @@ Item {
     }
 
     // ---- expansion -----------------------------------------------------
-    property string expanded: ""        // "", "media", "wifi", "bluetooth"
+    property string expanded: ""        // "", "media", "wifi", "bluetooth", "focus"
     property rect expandFrom: Qt.rect(0, 0, 0, 0)
     property real expandFromRadius: 30
     readonly property real expansion: expandSpring.value
@@ -207,10 +208,11 @@ Item {
                 width: 63
                 height: 63
                 ControlToggle {
+                    id: toggle
                     anchors.fill: parent
                     iconName: modelData.icon
                     checked: modelData.checked()
-                    onClicked: modelData.run()
+                    onClicked: modelData.expand ? root.expand(modelData.expand, toggle, 31.5) : modelData.run()
                 }
             }
         }
@@ -256,7 +258,8 @@ Item {
             transformOrigin: Item.TopLeft
             opacity: Math.max(0, (root.expansion - 0.45) / 0.55)
             active: root.expanded !== ""
-            sourceComponent: root.expanded === "wifi" ? wifiMenu : root.expanded === "bluetooth" ? btMenu : mediaMenu
+            sourceComponent: root.expanded === "wifi" ? wifiMenu : root.expanded === "bluetooth" ? btMenu
+                           : root.expanded === "focus" ? focusMenu : mediaMenu
         }
     }
 
@@ -267,6 +270,10 @@ Item {
     Component {
         id: btMenu
         BluetoothMenu { onSettingsRequested: root.openApp("com.astra.settings", { page: "bluetooth" }) }
+    }
+    Component {
+        id: focusMenu
+        FocusModeMenu { onSettingsRequested: root.openApp("com.astra.settings", { page: "focus" }) }
     }
     Component {
         id: mediaMenu

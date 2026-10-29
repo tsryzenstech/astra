@@ -21,12 +21,12 @@ public:
     HardwareService(Server *server, SettingsService *settings, QObject *parent = nullptr);
 
     QJsonValue handle(const QString &call, const QJsonObject &params, const Caller &caller) override;
+    QJsonObject battery() const;   // {present, level, charging, ...}
 
 Q_SIGNALS:
     void batteryChanged(int level, bool charging);
 
 private:
-    QJsonObject battery() const;
     QJsonObject state() const;
     void pollBattery();
     void setBrightness(double value);

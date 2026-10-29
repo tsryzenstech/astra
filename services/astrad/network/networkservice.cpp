@@ -10,7 +10,10 @@
 #include <astra/protocol.h>
 
 #include <QDateTime>
+#include <QFile>
 #include <QLoggingCategory>
+#include <QProcess>
+#include <QRandomGenerator>
 
 Q_LOGGING_CATEGORY(lcNet, "astrad.network")
 
@@ -80,6 +83,52 @@ void NetworkService::announce()
     m_announce.start();
 }
 
+namespace {
+QString hotspotName(SettingsService *settings)
+{
+    const QString name = settings->value(QStringLiteral("hotspot.name")).toString();
+    if (!name.isEmpty())
+        return name;
+    const QString owner = settings->value(QStringLiteral("account.name")).toString();
+    return owner.isEmpty() ? QStringLiteral("astraOS") : QStringLiteral("%1's astraOS").arg(owner);
+}
+
+// The interface of the default route that is not Wi-Fi (mobile data).
+QString uplink()
+{
+    QFile f(QStringLiteral("/proc/net/route"));
+    if (!f.open(QIODevice::ReadOnly))
+        return {};
+    const QList<QByteArray> lines = f.readAll().split('\n');
+    for (const QByteArray &line : lines) {
+        const QList<QByteArray> c = line.simplified().split(' ');
+        if (c.size() > 2 && c.at(1) == "00000000" && !c.at(0).startsWith("wl"))
+            return QString::fromLatin1(c.at(0));
+    }
+    return {};
+}
+
+// IPv4 forwarding and masquerading for the hotspot clients (nftables).
+void routeHotspot(bool on)
+{
+    QFile forward(QStringLiteral("/proc/sys/net/ipv4/ip_forward"));
+    if (forward.open(QIODevice::WriteOnly))
+        forward.write(on ? "1" : "0");
+    QProcess::execute(QStringLiteral("nft"), {QStringLiteral("delete"), QStringLiteral("table"), QStringLiteral("ip"), QStringLiteral("astra_hotspot")});
+    const QString out = uplink();
+    if (!on || out.isEmpty())
+        return;
+    QProcess nft;
+    nft.start(QStringLiteral("nft"), {QStringLiteral("-f"), QStringLiteral("-")});
+    nft.write(QStringLiteral("table ip astra_hotspot {\n"
+                             "  chain post { type nat hook postrouting priority srcnat; oifname \"%1\" masquerade; }\n"
+                             "}\n").arg(out).toUtf8());
+    nft.closeWriteChannel();
+    if (!nft.waitForFinished(3000) || nft.exitCode() != 0)
+        qWarning("astrad: hotspot: cannot set up forwarding through %s", qPrintable(out));
+}
+} // namespace
+
 QJsonObject NetworkService::state() const
 {
     const QJsonArray networks = m_wifi->networks();
@@ -108,6 +157,11 @@ QJsonObject NetworkService::state() const
              {K("name"), m_bt->name()},
              {K("discovering"), m_bt->discovering()},
              {K("devices"), m_bt->devices()},
+         }},
+        {K("hotspot"), QJsonObject{
+             {K("supported"), m_wifi->hotspotSupported()},
+             {K("active"), m_wifi->hotspotActive()},
+             {K("name"), hotspotName(m_settings)},
          }},
         {K("cellular"), [this] {
              QJsonObject c = m_cell->state();
@@ -421,7 +475,40 @@ QJsonValue NetworkService::handle(const QString &call, const QJsonObject &params
         setAirplane(on);
         return true;
     }
+    if (call == QLatin1String("setHotspot")) {
+        const PendingReply reply = caller.defer();
+        setHotspot(on, [reply](const QString &error) {
+            if (error.isEmpty())
+                reply.resolve(true);
+            else
+                reply.reject(protocol::Failed, error);
+        });
+        return Deferred;
+    }
     throw RpcError{protocol::MethodNotFound, call};
+}
+
+// Personal Hotspot: iwd runs the access point (and its DHCP server); the
+// phone routes the clients through the mobile data connection.
+void NetworkService::setHotspot(bool on, network::Done done)
+{
+    if (on && m_wifi->state() == QLatin1String("connected"))
+        m_wifi->disconnectCurrent();
+    QString password = m_settings->value(K("hotspot.password")).toString();
+    if (password.size() < 8) {
+        // A random WPA2 password the first time; Settings shows it.
+        static const char chars[] = "abcdefghijkmnpqrstuvwxyz23456789";
+        password.clear();
+        for (int i = 0; i < 10; ++i)
+            password.append(QLatin1Char(chars[QRandomGenerator::system()->bounded(int(sizeof(chars) - 1))]));
+        m_settings->setValue(K("hotspot.password"), password);
+    }
+    m_wifi->setHotspot(on, hotspotName(m_settings), password, [this, on, done](const QString &error) {
+        if (error.isEmpty())
+            routeHotspot(on);
+        announce();
+        done(error);
+    });
 }
 
 } // namespace astrad

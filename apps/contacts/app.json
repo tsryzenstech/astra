@@ -4,8 +4,8 @@
     "names": {
         "it": "Contatti"
     },
-    "version": "0.1.0",
-    "versionCode": 1,
+    "version": "1.0.0",
+    "versionCode": 2,
     "description": "Everyone you know, in one place.",
     "descriptions": {
         "it": "Tutte le persone che conosci, in un unico posto."
@@ -18,7 +18,12 @@
         "visible": true
     },
     "permissions": [
-        "astra.permission.CONTACTS"
+        "astra.permission.CONTACTS",
+        "astra.permission.MEDIA"
     ],
-    "widgets": []
+    "widgets": [],
+    "opens": [
+        "text/vcard",
+        "text/x-vcard"
+    ]
 }

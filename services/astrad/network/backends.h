@@ -36,6 +36,16 @@ public:
     virtual void disconnectCurrent() = 0;
     virtual void forget(const QString &ssid) = 0;
     virtual QJsonArray knownNetworks() const = 0; // [{ssid, security}]
+    // Nearby access points for network location: [{macAddress, signalStrength (dBm)}]
+    virtual QJsonArray accessPoints() const { return {}; }
+    // Personal Hotspot (access point mode).
+    virtual bool hotspotSupported() const { return false; }
+    virtual bool hotspotActive() const { return false; }
+    virtual void setHotspot(bool on, const QString &ssid, const QString &passphrase, Done done)
+    {
+        Q_UNUSED(on) Q_UNUSED(ssid) Q_UNUSED(passphrase)
+        done(QStringLiteral("not supported"));
+    }
 Q_SIGNALS:
     void changed();
 };
@@ -83,6 +93,11 @@ public:
     virtual void accept(const QString &id) = 0;
     virtual void hangup(const QString &id) = 0;
     virtual void sendSms(const QString &number, const QString &text, Done done) = 0;
+    // Location from the modem: "gnss" {lat, lon, accuracy} when the GNSS has
+    // a fix, and the serving "cell" {radioType, mobileCountryCode, ...}.
+    virtual void locate(std::function<void(const QJsonObject &)> done) { done({}); }
+    // Network interface of the mobile data connection (for the hotspot).
+    virtual QString dataInterface() const { return {}; }
 Q_SIGNALS:
     void changed();
     void callsChanged();

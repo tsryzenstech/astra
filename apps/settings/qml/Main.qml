@@ -29,7 +29,11 @@ Rectangle {
         language: "LanguagePage.qml",
         notifications: "NotificationsPage.qml",
         battery: "BatteryPage.qml",
-        sound: "SoundPage.qml"
+        sound: "SoundPage.qml",
+        focus: "FocusPage.qml",
+        hotspot: "HotspotPage.qml",
+        location: "LocationPage.qml",
+        account: "AccountPage.qml"
     })
 
     PageStack {

@@ -1,4 +1,12 @@
 qt_add_executable(astra-app main.cpp)
-target_link_libraries(astra-app PRIVATE astra Qt6::Gui Qt6::Qml Qt6::Quick)
+target_link_libraries(astra-app PRIVATE astra Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick)
+# Web apps (Planet, WhatsAstra, ...) set "webengine": true in app.json.
+find_package(Qt6 QUIET COMPONENTS WebEngineQuick)
+if(TARGET Qt6::WebEngineQuick)
+    target_link_libraries(astra-app PRIVATE Qt6::WebEngineQuick)
+    target_compile_definitions(astra-app PRIVATE ASTRA_HAVE_WEBENGINE)
+else()
+    message(STATUS "Qt WebEngine not found: web apps will not run")
+endif()
 set_target_properties(astra-app PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
 install(TARGETS astra-app RUNTIME DESTINATION ${ASTRA_BIN_DIR})

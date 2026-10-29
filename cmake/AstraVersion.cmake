@@ -47,6 +47,8 @@ string(TIMESTAMP ASTRA_BUILD_DATE "%Y%m%d" UTC)
 string(TIMESTAMP ASTRA_BUILD_EPOCH "%s" UTC)
 set(ASTRA_BUILD_ID "ASTRA.${ASTRA_VERSION}.${ASTRA_BUILD_DATE}.${ASTRA_BUILD_NUMBER}")
 set(ASTRA_OTA_URL "https://raw.githubusercontent.com/tsryzenstech/astra-ota/main" CACHE STRING "Base URL of the OTA update manifests")
-set(ASTRA_MARKET_URL "https://raw.githubusercontent.com/tsryzenstech/astra-market/main/index.json" CACHE STRING "Market catalog (JSON list of apps)")
+# astra cloud (github.com/tsryzenstech/astra-cloud): Market catalog and AstraID.
+set(ASTRA_CLOUD_URL "http://34.155.86.153" CACHE STRING "astra cloud server (Market and AstraID)")
+set(ASTRA_MARKET_URL "${ASTRA_CLOUD_URL}/api/store/index.json" CACHE STRING "Market catalog (JSON list of apps)")
 
 message(STATUS "astraOS ${ASTRA_VERSION} \"${ASTRA_CODENAME}\" (${ASTRA_CHANNEL}) build ${ASTRA_BUILD_NUMBER} ${ASTRA_GIT_HASH}")

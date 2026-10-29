@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "settings.h"
 
+#include <QJSValue>
+
 #include <astra/client.h>
 
 #include <QJsonObject>
@@ -46,8 +48,11 @@ QVariant SettingsStore::value(const QString &key, const QVariant &fallback) cons
     return m_values.value(key, fallback);
 }
 
-void SettingsStore::setValue(const QString &key, const QVariant &value)
+void SettingsStore::setValue(const QString &key, const QVariant &raw)
 {
+    // JS arrays and objects arrive as QJSValue: turn them into plain lists
+    // and maps, or they would reach astrad as null.
+    const QVariant value = raw.metaType() == QMetaType::fromType<QJSValue>() ? raw.value<QJSValue>().toVariant() : raw;
     m_values.insert(key, value);
     Q_EMIT valuesChanged();
     Q_EMIT changed(key, value);

@@ -235,7 +235,13 @@ Item {
             // app almost gone) opens Recents. A resting finger still
             // jitters a little: speed, not position, tells it apart.
             const v = bottomVelocity.velocity()
-            if (dy > 40 && Math.hypot(v.x, v.y) < 160) {
+            // A long, slowing swipe goes straight to Recents.
+            if (dy > shell.height * 0.32 && Math.hypot(v.x, v.y) < 420) {
+                holdTimer.stop()
+                holdTimer.triggered()
+                return
+            }
+            if (dy > 30 && Math.hypot(v.x, v.y) < 220) {
                 if (!holdTimer.running)
                     holdTimer.start()
             } else {
@@ -259,7 +265,7 @@ Item {
         }
         Timer {
             id: holdTimer
-            interval: 550
+            interval: 180
             onTriggered: {
                 bottomEdge.toRecents = true
                 indicator.release(0, 0)
@@ -417,6 +423,12 @@ Item {
                 return
             volumeHud.press(delta)
         }
+        // Find My Device > Lock from the AstraID website.
+        function onLockRequested(message) {
+            shell.hideKeyboard()
+            panels.close()
+            shell.lock()
+        }
         function onScreenshotRequested() {
             if (!Host.screenOn)
                 return
@@ -431,9 +443,11 @@ Item {
         readonly property bool saving: !!Settings.values["battery.saver"] && System.batteryLevel <= 20 && !System.charging
         interval: Math.max(15, saving ? Math.min(30, Number(Settings.values["display.screen_timeout"] ?? 60)) || 30
                                       : Number(Settings.values["display.screen_timeout"] ?? 60)) * 1000
-        running: Host.screenOn && !alarm.active && !call.ringingFull && call.ongoing === null
-                 && !(Settings.values["developer.stay_awake"] && System.charging)
+        // "Never" (0), a ringing alarm or call, or Stay awake keep it on.
+        readonly property bool allowed: Host.screenOn && !alarm.active && !call.ringingFull && call.ongoing === null
+                 && !(Settings.values["developer.enabled"] && Settings.values["developer.stay_awake"] && System.charging)
                  && Number(Settings.values["display.screen_timeout"] ?? 60) > 0 && !Host.development
+        running: allowed
         onTriggered: {
             shell.lock()
             Host.setScreenOn(false)
@@ -445,9 +459,24 @@ Item {
         z: 99
         propagateComposedEvents: true
         onPressed: (m) => {
-            idle.restart()
+            if (idle.allowed)
+                idle.restart()
             m.accepted = false
         }
+    }
+
+    DeveloperOverlay {
+        anchors.fill: parent
+        z: 98
+    }
+    // Developer Options > Animation speed applies to the shell right away;
+    // Reduce Motion and battery saver turn motion off.
+    Binding {
+        target: Motion
+        property: "durationScale"
+        value: !!Settings.values["accessibility.reduce_motion"] ? 0
+             : !Settings.values["developer.enabled"] ? 1
+             : Number(Settings.values["developer.animation_scale"] ?? 1)
     }
 
     Component.onCompleted: bootTimer.start()

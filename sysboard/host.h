@@ -62,6 +62,8 @@ Q_SIGNALS:
     void powerKeyLongPressed();    // held for 600 ms: power menu
     void volumeStep(int delta);    // +1 / -1, repeats while held
     void screenshotRequested();    // power + volume down together
+    // Find My Device > Lock, from the AstraID website.
+    void lockRequested(const QString &message);
     void screenOnChanged();
 
 protected:

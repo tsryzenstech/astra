@@ -1,4 +1,38 @@
 {
+    "%n contacts": {
+        "one": "%n contatto",
+        "other": "%n contatti"
+    },
+    "%n contacts imported": {
+        "one": "%n contatto importato",
+        "other": "%n contatti importati"
+    },
+    "Add to Favorites": "Aggiungi ai preferiti",
+    "Allow Contacts in Settings › Apps › Contacts to see the people you know.": "Consenti l'accesso ai contatti in Impostazioni › App › Contatti per vedere le persone che conosci.",
+    "call": "chiama",
+    "Cancel": "Annulla",
+    "Company": "Azienda",
     "Contacts": "Contatti",
-    "Everyone you know, in one place.": "Tutte le persone che conosci, in un unico posto."
+    "Delete": "Elimina",
+    "Delete Contact": "Elimina contatto",
+    "Done": "Fine",
+    "Edit": "Modifica",
+    "Edit Contact": "Modifica contatto",
+    "email": "email",
+    "Email": "Email",
+    "mail": "email",
+    "message": "messaggio",
+    "mobile": "cellulare",
+    "My Card": "La mia scheda",
+    "Name": "Nome",
+    "New Contact": "Nuovo contatto",
+    "notes": "note",
+    "Notes": "Note",
+    "Phone": "Telefono",
+    "Remove from Favorites": "Rimuovi dai preferiti",
+    "Search": "Cerca",
+    "Share Contact": "Condividi contatto",
+    "video": "video",
+    "Your Name": "Il tuo nome",
+    "“%1” is removed from all your apps.": "“%1” verrà rimosso da tutte le tue app."
 }

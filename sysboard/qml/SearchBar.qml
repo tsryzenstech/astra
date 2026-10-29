@@ -2,7 +2,7 @@
 import QtQuick
 import Astra.Controls
 
-// "Ask Cosmo" entry point in Notification Center (opens Planet).
+// Web search entry point in Notification Center (opens Planet).
 Rectangle {
     id: root
 
@@ -23,7 +23,7 @@ Rectangle {
             anchors.centerIn: parent
             width: 40
             height: 40
-            source: "icons/system/cosmo-glyph.svg"
+            source: "icons/system/search-glyph.svg"
             sourceSize: Qt.size(80, 80)
         }
     }
@@ -42,7 +42,7 @@ Rectangle {
             anchors.leftMargin: 12
             anchors.rightMargin: 10
             verticalAlignment: Text.AlignVCenter
-            text: qsTr("Ask about Weather, Music, Calendar...")
+            text: qsTr("Search the web")
             elide: Text.ElideRight
             font.family: Theme.fontFamily
             font.pixelSize: 14

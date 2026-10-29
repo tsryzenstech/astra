@@ -1,4 +1,48 @@
 {
-    "AstraID Services": "Servizi AstraID",
-    "Your AstraID: sign in, backups and Find My Device.": "Il tuo AstraID: accesso, backup e Trova il mio dispositivo."
+    "%n contacts restored": {
+        "one": "%n contatto ripristinato",
+        "other": "%n contatti ripristinati"
+    },
+    "%n hours ago": {
+        "one": "%n ora fa",
+        "other": "%n ore fa"
+    },
+    "%n minutes ago": {
+        "one": "%n minuto fa",
+        "other": "%n minuti fa"
+    },
+    "AstraID": "AstraID",
+    "Back Up Contacts": "Backup dei contatti",
+    "Back Up Now": "Esegui backup ora",
+    "Backing Up…": "Backup in corso…",
+    "Cancel": "Annulla",
+    "Contacts backed up": "Backup dei contatti completato",
+    "Contacts Backup": "Backup dei contatti",
+    "Create an AstraID": "Crea un AstraID",
+    "Create AstraID": "Crea AstraID",
+    "Create your AstraID": "Crea il tuo AstraID",
+    "Email": "Email",
+    "Find My Device": "Trova il mio dispositivo",
+    "Find My Device and the contacts backup stop on this phone. Your contacts stay on the phone.": "Trova il mio dispositivo e il backup dei contatti si fermano su questo telefono. I contatti restano sul telefono.",
+    "Find Your Other Devices": "Trova gli altri tuoi dispositivi",
+    "Find your phone if you lose it and keep your contacts backed up, encrypted. Nothing else leaves your phone: no photos, videos, audio or files.": "Ritrova il telefono se lo perdi e tieni un backup cifrato dei contatti. Nient'altro lascia il telefono: niente foto, video, audio o file.",
+    "I already have an AstraID": "Ho già un AstraID",
+    "Just now": "Proprio ora",
+    "Last backup": "Ultimo backup",
+    "Last report": "Ultimo aggiornamento",
+    "Manage AstraID on the Web": "Gestisci AstraID sul web",
+    "Name": "Nome",
+    "Never": "Mai",
+    "Only your contacts are backed up, encrypted on the server with a key of your account.": "Viene salvata solo la rubrica, cifrata sul server con una chiave del tuo account.",
+    "Password": "Password",
+    "Password (8 characters or more)": "Password (almeno 8 caratteri)",
+    "Restore Contacts": "Ripristina contatti",
+    "See where this phone is, make it ring, lock it or send it a message from %1/id. Uses Location Services.": "Vedi dov'è questo telefono, fallo suonare, bloccalo o inviagli un messaggio da %1/id. Usa i Servizi di localizzazione.",
+    "Server": "Server",
+    "Sign In": "Accedi",
+    "Sign in with your AstraID": "Accedi con il tuo AstraID",
+    "Sign Out": "Esci",
+    "Sign out of AstraID?": "Uscire da AstraID?",
+    "Signing In…": "Accesso in corso…",
+    "The astra cloud server of AstraID. Leave it as it is unless you host your own.": "Il server astra cloud di AstraID. Lascialo così a meno che tu non ne gestisca uno tuo."
 }

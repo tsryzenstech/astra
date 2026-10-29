@@ -7,6 +7,7 @@
 #include <astra/apkg.h>
 #include <astra/global.h>
 #include <astra/paths.h>
+#include <astra/properties.h>
 #include <astra/protocol.h>
 
 #include <QCryptographicHash>
@@ -307,7 +308,9 @@ void PackageManager::installUrl(const QUrl &url, const QString &sha256, const QS
             result(K("The download is corrupted"));
             return;
         }
-        const QString path = Paths::resolve(QStringLiteral("/data/local/tmp/market-%1.apkg").arg(QDateTime::currentMSecsSinceEpoch()));
+        const QString dir = Paths::resolve(QStringLiteral("/data/local/tmp"));
+        QDir().mkpath(dir);
+        const QString path = dir + QStringLiteral("/market-%1.apkg").arg(QDateTime::currentMSecsSinceEpoch());
         QFile f(path);
         if (!f.open(QIODevice::WriteOnly) || f.write(data) != data.size()) {
             result(f.errorString());
@@ -504,10 +507,17 @@ QJsonValue PackageManager::handle(const QString &call, const QJsonObject &params
     }
     if (call == QLatin1String("widgets"))
         return widgets();
+    if (call == QLatin1String("canSideload"))
+        return bool(m_sideload && m_sideload());
     if (call == QLatin1String("install")) {
         caller.require(QLatin1String(permissions::MANAGE_PACKAGES));
         QString error;
         const QString installer = caller.isSystem() ? K("system") : caller.package;
+        // Files picked by the user are sideloaded apps; the system itself
+        // (ADU over USB debugging, first boot) is not limited.
+        if (!caller.isSystem() && !(m_sideload && m_sideload()))
+            throw RpcError{protocol::PermissionDenied,
+                           K("Turn on Sideload Apps in Developer Options to install apps from files")};
         if (!installFrom(params.value(K("path")).toString(), false, false, installer, &error))
             throw RpcError{protocol::Failed, error};
         save();
@@ -516,8 +526,17 @@ QJsonValue PackageManager::handle(const QString &call, const QJsonObject &params
     if (call == QLatin1String("installUrl")) {
         caller.require(QLatin1String(permissions::MANAGE_PACKAGES));
         const QUrl url(params.value(K("url")).toString());
-        if (!url.isValid() || url.scheme() != QLatin1String("https"))
+        // HTTPS, or plain HTTP from this build's own astra cloud server when
+        // the package's SHA-256 is known (a server without a domain yet).
+        const QUrl cloud(Properties::get(K("ro.astra.cloud.url")));
+        const bool trustedHttp = url.scheme() == QLatin1String("http") && !cloud.host().isEmpty()
+                              && url.host() == cloud.host() && params.value(K("sha256")).toString().size() == 64;
+        if (!url.isValid() || (url.scheme() != QLatin1String("https") && !trustedHttp))
             throw RpcError{protocol::InvalidParams, K("an https URL is required")};
+        // Market installs from its catalog; anything else is a sideload.
+        if (!caller.isSystem() && caller.package != QLatin1String("com.astra.market") && !(m_sideload && m_sideload()))
+            throw RpcError{protocol::PermissionDenied,
+                           K("Turn on Sideload Apps in Developer Options to install apps from outside Market")};
         const PendingReply reply = caller.defer();
         installUrl(url, params.value(K("sha256")).toString(), caller.isSystem() ? K("system") : caller.package,
                    [reply](const QString &error) {
