@@ -350,7 +350,14 @@ int main(int argc, char **argv)
     signal(SIGINT, on_signal);
 
     struct surface s = {.drm_fd = -1, .fb_fd = -1};
-    int use_drm = drm_open(&s) == 0;
+    /* Started as soon as /dev exists: the display driver (and its panel)
+     * may still be probing, so give it a few seconds. */
+    int use_drm = 0;
+    for (int tries = 0; tries < 80 && !stop_requested; tries++) {
+        if ((use_drm = drm_open(&s) == 0))
+            break;
+        usleep(100000);
+    }
     if (!use_drm && fb_open(&s) < 0) {
         fprintf(stderr, "bootanim: no display available\n");
         return 1;

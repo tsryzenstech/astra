@@ -43,6 +43,7 @@ void DisplayService::writeKmsConfig()
         return;
     }
     const QJsonObject config{
+        {QStringLiteral("device"), m_info.value(QLatin1String("device"))},
         {QStringLiteral("hwcursor"), false},
         {QStringLiteral("outputs"), QJsonArray{QJsonObject{{QStringLiteral("name"), output}, {QStringLiteral("mode"), mode}}}},
     };
@@ -88,7 +89,8 @@ void DisplayService::probe()
                 }
                 // Qt names outputs <type><type id>, e.g. "DSI1".
                 const QString type = QString::fromLatin1(drmModeGetConnectorTypeName(conn->connector_type));
-                m_info = {{QStringLiteral("connector"), type},
+                m_info = {{QStringLiteral("device"), QString::fromLatin1(path)},
+                          {QStringLiteral("connector"), type},
                           {QStringLiteral("output"), type + QString::number(conn->connector_type_id)},
                           {QStringLiteral("physicalWidth"), int(conn->mmWidth)},
                           {QStringLiteral("physicalHeight"), int(conn->mmHeight)},
