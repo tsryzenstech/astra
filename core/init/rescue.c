@@ -160,6 +160,9 @@ void rescue(const char *why)
             waitpid(pid, NULL, 0);
     }
     int usb = usb_serial_gadget();
+    /* The previous boot's kernel log (ramoops), read with cat in /sys/fs/pstore. */
+    mkdir("/sys/fs/pstore", 0755);
+    mount("pstore", "/sys/fs/pstore", "pstore", 0, NULL);
 
     char banner[1024];
     snprintf(banner, sizeof(banner),

@@ -58,6 +58,24 @@ static void fatal_reboot(const char *why)
     rescue(why);
 }
 
+/* True when the kernel command line has `word` (alone or as word=...). */
+static int cmdline_has(const char *word)
+{
+    char *line = read_file("/proc/cmdline", NULL);
+    int found = 0;
+    size_t n = strlen(word);
+    for (char *p = line; p && *p; ) {
+        while (*p == ' ' || *p == '\n')
+            p++;
+        if (!strncmp(p, word, n) && (p[n] == '\0' || p[n] == ' ' || p[n] == '\n' || p[n] == '='))
+            found = 1;
+        while (*p && *p != ' ' && *p != '\n')
+            p++;
+    }
+    free(line);
+    return found;
+}
+
 /* ---- first stage ------------------------------------------------------ */
 
 static int first_stage_main(void)
@@ -67,6 +85,10 @@ static int first_stage_main(void)
     INFO("astraOS init: first stage");
     /* Make our progress visible on the boot console. */
     write_file("/proc/sys/kernel/printk", "7 4 1 7");
+    /* boot-rescue.img: stop here with the USB shell, to read the kernel
+     * log and the previous boot's log in /sys/fs/pstore. */
+    if (cmdline_has("astra.rescue"))
+        rescue("rescue mode was requested (astra.rescue on the kernel command line)");
 
     struct fstab *fs = fstab_read(FIRST_STAGE_FSTAB);
     if (!fs)
