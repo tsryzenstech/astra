@@ -21,5 +21,15 @@
         "astra.permission.INTERNET",
         "astra.permission.LOCATION"
     ],
-    "widgets": []
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Maps",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small",
+                "medium"
+            ]
+        }
+    ]
 }

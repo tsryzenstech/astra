@@ -43,6 +43,7 @@ private:
     QString m_modem;
     QString m_bearer;
     bool m_locationSetUp = false;
+    QVariantMap m_sim;            // properties of the SIM (ICCID, IMSI, operator)
     QString m_apn = QStringLiteral("internet");
     bool m_allowRoaming = false;
     bool m_dataWanted = false;

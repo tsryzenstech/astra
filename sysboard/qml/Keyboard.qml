@@ -120,7 +120,12 @@ Item {
             return
         switch (k) {
         case "⌫": bridge.backspace(); return
-        case "⏎": bridge.enter(); return
+        case "⏎":
+            bridge.enter()
+            // Return finishes a one-line field: the keyboard goes away.
+            if (!(hints & 0x400 /* ImhMultiLine */))
+                bridge.hide()
+            return
         case "123": page = "numbers"; return
         case "#+=": page = "symbols"; return
         case "ABC": page = "letters"; return
@@ -275,7 +280,7 @@ Item {
                             }
                             Text {
                                 anchors.centerIn: parent
-                                visible: key.modelData !== "⇧" && key.modelData !== "⌫"
+                                visible: key.modelData !== "⇧" && key.modelData !== "⌫" && key.modelData !== root.emojiKey
                                 text: root.label(key.modelData)
                                 font.family: Theme.fontFamily
                                 font.pixelSize: key.special && key.modelData !== root.emojiKey ? 15 : (root.digitsOnly ? 26 : 22)
@@ -284,8 +289,8 @@ Item {
                             }
                             Icon {
                                 anchors.centerIn: parent
-                                visible: key.modelData === "⇧" || key.modelData === "⌫"
-                                name: key.modelData === "⌫" ? "backspace" : "arrow-up"
+                                visible: key.modelData === "⇧" || key.modelData === "⌫" || key.modelData === root.emojiKey
+                                name: key.modelData === "⌫" ? "backspace" : key.modelData === root.emojiKey ? "emoji" : "arrow-up"
                                 size: 22
                                 color: key.modelData === "⇧" && root.shift > 0 ? "#0B0B0F" : root.labelColor
                             }

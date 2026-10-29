@@ -38,6 +38,7 @@ public:
     virtual QJsonArray knownNetworks() const = 0; // [{ssid, security}]
     // Nearby access points for network location: [{macAddress, signalStrength (dBm)}]
     virtual QJsonArray accessPoints() const { return {}; }
+    virtual QString address() const { return {}; }   // MAC address
     // Personal Hotspot (access point mode).
     virtual bool hotspotSupported() const { return false; }
     virtual bool hotspotActive() const { return false; }
@@ -69,6 +70,7 @@ public:
     virtual void connectDevice(const QString &address, Done done) = 0;
     virtual void disconnectDevice(const QString &address) = 0;
     virtual void forget(const QString &address) = 0;
+    virtual QString address() const { return {}; }   // adapter address
 Q_SIGNALS:
     void changed();
 };

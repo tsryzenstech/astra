@@ -22,7 +22,10 @@
 #include <QNetworkRequest>
 #include <QQmlEngine>
 #include <QQmlNetworkAccessManagerFactory>
+#include <QQuickItem>
 #include <QQuickView>
+#include <QMouseEvent>
+#include <QTouchEvent>
 
 #ifdef ASTRA_HAVE_WEBENGINE
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
@@ -70,6 +73,39 @@ class AppNetworkFactory : public QQmlNetworkAccessManagerFactory
 {
 public:
     QNetworkAccessManager *create(QObject *parent) override { return new AppNetworkAccessManager(parent); }
+};
+
+// Tapping outside the text field being edited ends the editing: the field
+// loses focus and the keyboard closes, like on iOS.
+class FocusDismisser : public QObject
+{
+public:
+    explicit FocusDismisser(QQuickView *view) : QObject(view), m_view(view) {}
+protected:
+    bool eventFilter(QObject *, QEvent *event) override
+    {
+        QPointF pos;
+        if (event->type() == QEvent::MouseButtonRelease)
+            pos = static_cast<QMouseEvent *>(event)->scenePosition();
+        else if (event->type() == QEvent::TouchEnd && !static_cast<QTouchEvent *>(event)->points().isEmpty())
+            pos = static_cast<QTouchEvent *>(event)->points().first().scenePosition();
+        else
+            return false;
+        QQuickItem *focus = m_view->activeFocusItem();
+        if (!focus || !(focus->flags() & QQuickItem::ItemAcceptsInputMethod))
+            return false;
+        // Runs after the item under the finger had its chance to take focus.
+        QMetaObject::invokeMethod(this, [this, pos] {
+            QQuickItem *f = m_view->activeFocusItem();
+            if (f && (f->flags() & QQuickItem::ItemAcceptsInputMethod) && !f->contains(f->mapFromScene(pos))) {
+                m_view->contentItem()->forceActiveFocus();
+                QGuiApplication::inputMethod()->hide();
+            }
+        }, Qt::QueuedConnection);
+        return false;
+    }
+private:
+    QQuickView *m_view;
 };
 
 // The manifest on disk, readable before the application object exists.
@@ -154,6 +190,7 @@ int main(int argc, char **argv)
     view.engine()->addImportPath(info.value(QLatin1String("codePath")).toString() + QStringLiteral("/qml"));
     view.setColor(QColor(info.value(QLatin1String("background")).toString(QStringLiteral("#000000"))));
     view.setResizeMode(QQuickView::SizeRootObjectToView);
+    view.installEventFilter(new FocusDismisser(&view));
     view.setTitle(QGuiApplication::applicationDisplayName());
     QObject::connect(view.engine(), &QQmlEngine::quit, &app, &QGuiApplication::quit);
 

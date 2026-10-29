@@ -19,12 +19,21 @@ static QJsonObject toJson(const QVariantMap &m)
     return QJsonObject::fromVariantMap(m);
 }
 
+namespace {
+QList<ServiceState *> &allStates()
+{
+    static QList<ServiceState *> list;
+    return list;
+}
+}
+
 ServiceState::ServiceState(const QString &service, const QString &stateMethod, const QString &stateEvent, QObject *parent)
     : QObject(parent)
     , m_service(service)
     , m_stateMethod(stateMethod)
     , m_stateEvent(stateEvent)
 {
+    allStates().append(this);
     Client *c = Client::instance();
     c->subscribe({service});
     connect(c, &Client::connectedChanged, this, [this](bool up) {
@@ -44,6 +53,17 @@ ServiceState::ServiceState(const QString &service, const QString &stateMethod, c
         if (Client::instance()->isConnected())
             reload();
     });
+}
+
+ServiceState::~ServiceState()
+{
+    allStates().removeOne(this);
+}
+
+void ServiceState::reloadAll()
+{
+    for (ServiceState *state : std::as_const(allStates()))
+        state->reload();
 }
 
 void ServiceState::call(const QString &method, const QVariantMap &params, const QJSValue &callback)
@@ -111,6 +131,11 @@ CalendarState::CalendarState(QObject *parent)
 
 AccountState::AccountState(QObject *parent)
     : ServiceState(QStringLiteral("account"), QStringLiteral("state"), QStringLiteral("account.changed"), parent)
+{
+}
+
+CloudyState::CloudyState(QObject *parent)
+    : ServiceState(QStringLiteral("cloudy"), QStringLiteral("state"), QStringLiteral("cloudy.changed"), parent)
 {
 }
 
@@ -229,14 +254,12 @@ void PermissionsState::request(const QString &permission, const QJSValue &callba
                              [this, callback](const QJsonValue &r, const QString &e) {
         const QJsonObject o = r.toObject();
         const bool granted = r.isBool() ? r.toBool() : o.value(QLatin1String("granted")).toBool();
+        // astrad gives a running app the access of a new permission group
+        // (ACLs), so the app keeps running; what the app couldn't read
+        // before is fetched again.
+        if (granted)
+            ServiceState::reloadAll();
         invokeCallback(this, callback, granted, e);
-        // A new permission group only applies to a new process.
-        if (granted && o.value(QLatin1String("restartRequired")).toBool()) {
-            const QString self = qEnvironmentVariable("ASTRA_PACKAGE");
-            QTimer::singleShot(250, this, [self] {
-                Client::instance()->call(QStringLiteral("activity.restart"), {{QStringLiteral("package"), self}});
-            });
-        }
     });
 }
 
@@ -343,7 +366,8 @@ FontsState::FontsState(QObject *parent)
     for (const QString &f : dir.entryList({QStringLiteral("*.ttf"), QStringLiteral("*.otf")}, QDir::Files)) {
         const int id = QFontDatabase::addApplicationFont(dir.filePath(f)); // already loaded: returns the same id
         for (const QString &family : QFontDatabase::applicationFontFamilies(id))
-            if (!family.startsWith(QLatin1String("Poppins")) && !m_families.contains(family))
+            if (!family.startsWith(QLatin1String("Poppins")) && !family.contains(QLatin1String("emoji"), Qt::CaseInsensitive)
+                && !m_families.contains(family))
                 m_families.append(family);
     }
     m_families.sort(Qt::CaseInsensitive);

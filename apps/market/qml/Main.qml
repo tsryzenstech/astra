@@ -52,8 +52,17 @@ Rectangle {
         })
         get("/api/store/today", function(t) { if (t) app.today = t })
     }
+    // Market downloads need an AstraID (set up in the first start or later).
+    readonly property bool signedIn: Settings.values["account.signed_in"] === true
     function install(entry) {
         if (installing[entry.package]) return
+        if (!signedIn) {
+            Dialogs.show({ title: qsTr("Sign in with AstraID"),
+                           message: qsTr("You need an AstraID to download apps from Market. It's free."),
+                           icon: "person", buttons: [{ id: "later", label: qsTr("Not Now") }, { id: "signin", label: qsTr("Sign In") }] },
+                         function(b) { if (b === "signin") Packages.launch("com.astra.astraid") })
+            return
+        }
         const busy = Object.assign({}, installing)
         busy[entry.package] = true
         installing = busy

@@ -62,6 +62,7 @@ AccountService::AccountService(Server *server, SettingsService *settings, Notifi
     m_retry.setSingleShot(true);
     m_retry.setInterval(30 * 1000);
     connect(&m_retry, &QTimer::timeout, this, &AccountService::poll);
+    m_settings->setValue(K("account.signed_in"), !m_account.value(K("token")).toString().isEmpty());
     if (!m_account.value(K("token")).toString().isEmpty()) {
         m_reportTimer.start();
         QTimer::singleShot(5000, this, [this] { report(true); startPolling(); });
@@ -97,6 +98,8 @@ void AccountService::save()
 
 void AccountService::announce()
 {
+    // Apps can't read the account itself; Market only needs to know.
+    m_settings->setValue(K("account.signed_in"), !m_account.value(K("token")).toString().isEmpty());
     m_server->broadcast(K("account.changed"), state(),
                         [](const Caller &c) { return c.can(QLatin1String(permissions::MANAGE_SETTINGS)); });
 }

@@ -20,7 +20,16 @@
     "permissions": [
         "astra.permission.MEDIA"
     ],
-    "widgets": [],
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Files",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "medium"
+            ]
+        }
+    ],
     "share": [
         "*/*"
     ],

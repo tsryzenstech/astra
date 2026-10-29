@@ -22,6 +22,17 @@ Page {
     ]
 
     ListGroup {
+        title: "Lock screen"
+        ListItem {
+            text: "Go to the lock screen"
+            subtitle: "Locks the phone now, like the power button."
+            iconName: "lock"
+            separator: false
+            onClicked: System.power("lock")
+        }
+    }
+
+    ListGroup {
         title: "Notifications"
         ListItem {
             text: "Post as"

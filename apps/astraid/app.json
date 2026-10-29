@@ -15,7 +15,7 @@
     "background": "#000000",
     "category": "system",
     "launcher": {
-        "visible": true
+        "visible": false
     },
     "permissions": [
         "astra.permission.INTERNET",

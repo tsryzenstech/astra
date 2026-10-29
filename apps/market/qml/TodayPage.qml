@@ -43,6 +43,22 @@ Flickable {
             }
         }
 
+        // Without an AstraID: a card to sign in (downloads need one).
+        Card {
+            visible: !page.store.signedIn
+            width: parent.width
+            pressable: true
+            onClicked: Packages.launch("com.astra.astraid")
+            Row {
+                spacing: 14
+                Icon { anchors.verticalCenter: parent.verticalCenter; name: "person"; size: 30; color: Theme.accent }
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    Text { text: qsTr("Sign in with AstraID"); font.family: Theme.fontFamily; font.pixelSize: Theme.bodySize; font.weight: Font.DemiBold; color: Theme.text }
+                    Text { text: qsTr("To download apps and get updates"); font.family: Theme.fontFamily; font.pixelSize: Theme.footnoteSize; color: Theme.textSecondary }
+                }
+            }
+        }
         Column {
             visible: page.store.error !== "" && !page.t
             width: parent.width

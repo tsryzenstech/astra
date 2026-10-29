@@ -45,20 +45,21 @@ Item {
         }
     }
 
-    function finishUnlock() {
+    // The lock screen lifts away (on its own after the PIN, under the
+    // finger without one) and the home screen comes in.
+    function finishUnlock(velocity) {
         const action = pendingAction
         pendingAction = null
-        exit.animateTo(1, 0)
+        exit.animateTo(1, velocity || 0)
         root.shell.unlocked(action)
     }
 
     // 0 = lock screen, 1 = content swiped away (PIN pad or unlocked)
     Spring { id: swipe; to: 0; response: 0.42; dampingFraction: 0.9 }
-    // 0 = visible, 1 = dissolved after a successful unlock
-    Spring { id: exit; to: 0; response: 0.45; dampingFraction: 1.0 }
+    // 0 = in place, 1 = lifted off the top after a successful unlock
+    Spring { id: exit; to: 0; response: 0.42; dampingFraction: 0.92 }
 
-    opacity: 1 - exit.value
-    scale: 1 + 0.12 * exit.value
+    transform: Translate { y: -root.height * Math.max(0, exit.value) }
 
     Item {
         id: lockContent
@@ -178,6 +179,8 @@ Item {
                 return
             if (music.expanded)
                 music.drag(Math.max(0, dy))
+            else if (!Lock.hasPin)
+                exit.value = Math.max(0, Math.min(1, -dy / root.height))  // follows the finger
             else if (dy < 0)
                 swipe.value = Math.min(1, -dy / (root.height * 0.45))
         }
@@ -185,6 +188,11 @@ Item {
             const vy = velocity.velocity().y
             if (music.expanded) {
                 music.release(vy)
+            } else if (moved && !Lock.hasPin) {
+                if (exit.value > 0.25 || vy < -600)
+                    root.finishUnlock(-vy / root.height)
+                else
+                    exit.animateTo(0, -vy / root.height)
             } else if (moved) {
                 if (swipe.value > 0.3 || vy < -600)
                     root.authenticate(null)

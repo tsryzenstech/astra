@@ -33,10 +33,26 @@ ActivityManager::ActivityManager(Server *server, PackageManager *packages, Setti
 {
     connect(packages, &PackageManager::packageRemoved, this, &ActivityManager::stop);
     connect(packages, &PackageManager::dataCleared, this, &ActivityManager::stop);
-    // New supplementary groups only apply to a fresh process.
+    // A process keeps the groups it started with: new access is added with
+    // ACLs so the app keeps running; only a revoked one restarts it.
     connect(packages, &PackageManager::permissionsChanged, this, [this](const QString &pkg, bool groupsChanged) {
-        if (groupsChanged && m_running.contains(pkg))
+        if (!groupsChanged || !m_running.contains(pkg))
+            return;
+        const QList<gid_t> now = m_packages->groupsOf(pkg);
+        Running &r = m_running[pkg];
+        bool revoked = false;
+        for (gid_t g : std::as_const(r.groups))
+            if (!now.contains(g))
+                revoked = true;
+        if (revoked) {
             restart(pkg);
+            return;
+        }
+        for (gid_t g : now)
+            if (!r.groups.contains(g)) {
+                grantAccess(pkg, g);
+                r.groups.append(g);
+            }
     });
 }
 
@@ -62,6 +78,36 @@ void ActivityManager::restart(const QString &package)
     r.restarting = true;
     m_server->broadcast(QStringLiteral("activity.restarting"), QJsonObject{{QStringLiteral("package"), package}});
     r.process->terminate();
+}
+
+void ActivityManager::grantAccess(const QString &package, gid_t gid)
+{
+    if (Paths::isDevelopmentRoot())
+        return; // development trees run every app as the developer
+    const uid_t uid = m_packages->uidOf(package);
+    QStringList paths;
+    bool tree = false;
+    if (gid == 1023) {                       // media_rw: the shared storage
+        paths << Paths::resolve(QStringLiteral("/data/media"));
+        tree = true;
+    } else if (gid == 1006) {                // camera: video devices
+        const QDir dev(QStringLiteral("/dev"));
+        for (const QString &n : dev.entryList({QStringLiteral("video*"), QStringLiteral("media*"), QStringLiteral("v4l-subdev*")}, QDir::System))
+            paths << dev.filePath(n);
+    } else {
+        return;                              // reached through astrad: nothing to open
+    }
+    const QString entry = QStringLiteral("u:%1:rwX").arg(uid);
+    for (const QString &path : std::as_const(paths)) {
+        if (tree) {
+            // Existing files, then the default for files created later.
+            QProcess::execute(QStringLiteral("setfacl"), {QStringLiteral("-R"), QStringLiteral("-m"), entry, path});
+            QProcess::execute(QStringLiteral("setfacl"), {QStringLiteral("-R"), QStringLiteral("-d"), QStringLiteral("-m"), entry, path});
+        } else {
+            QProcess::execute(QStringLiteral("setfacl"), {QStringLiteral("-m"), entry, path});
+        }
+    }
+    qCInfo(lcAm) << package << "can now use group" << gid << "without restarting";
 }
 
 void ActivityManager::startFromSystem(const QString &package, const QJsonObject &args)
@@ -154,7 +200,7 @@ void ActivityManager::start(const QString &package, const QJsonObject &args)
         }
         m_server->broadcast(QStringLiteral("activity.exited"), QJsonObject{{QStringLiteral("package"), package}});
     });
-    m_running.insert(package, Running{process, args, QDateTime::currentMSecsSinceEpoch(), false});
+    m_running.insert(package, Running{process, args, QDateTime::currentMSecsSinceEpoch(), false, m_packages->groupsOf(package)});
     process->start();
     if (!process->waitForStarted(3000)) {
         qCWarning(lcAm) << "cannot start" << package << process->errorString();

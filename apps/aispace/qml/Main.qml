@@ -4,62 +4,69 @@ import Astra.Core
 import Astra.Controls
 import Astra.Animation
 
-// AI Space: Cloudy, the astraOS assistant, powered by Claude (Anthropic
-// Messages API). Answers stream in; Cloudy can also act on the phone with
-// tools: open apps, start timers, add calendar events, read the weather.
-// The API key stays in the app's private data.
+// Cloudy: the astraOS assistant, running a small language model on the
+// phone (llama.cpp, started by astrad). The model is downloaded the first
+// time, if you agree; after that Cloudy works without the internet and
+// nothing you write leaves the phone. Cloudy can also act on the phone:
+// open apps, start timers and alarms, add events, read the weather.
 Rectangle {
     id: app
     color: Theme.background
 
-    readonly property string configPath: Files.appData + "/aispace.json"
-    readonly property string model: "claude-opus-5-5"
-    property string apiKey: ""
-    property string effort: "medium"            // low | medium | high
+    readonly property string configPath: Files.appData + "/cloudy.json"
+    property string modelId: "light"
     property var conversations: []              // [{ id, title, messages, updated }]
     property int current: -1
     property bool busy: false
     property string streamingText: ""
     property string error: ""
     readonly property var conv: current >= 0 && current < conversations.length ? conversations[current] : null
+    readonly property var engine: CloudyEngine.state
+    readonly property var model: (engine.models || []).find(m => m.id === modelId) || null
+    readonly property bool installed: !!model && !!model.installed
+    readonly property bool downloading: !!engine.downloading
+    readonly property bool ready: engine.ready === true && engine.running === modelId
+    readonly property string endpoint: "http://127.0.0.1:" + (engine.port || 8742) + "/v1/chat/completions"
 
     function load() {
         try {
             const c = JSON.parse(Files.readText(configPath, 8 * 1024 * 1024) || "{}")
-            apiKey = c.apiKey || ""
-            effort = c.effort || "medium"
+            modelId = c.model || "light"
             conversations = c.conversations || []
         } catch (e) {}
     }
     function save() {
-        Files.writeText(configPath, JSON.stringify({ apiKey: apiKey, effort: effort, conversations: conversations.slice(0, 50) }))
+        Files.writeText(configPath, JSON.stringify({ model: modelId, conversations: conversations.slice(0, 50) }))
     }
     function newConversation() {
         conversations = [{ id: Date.now(), title: qsTr("New Chat"), messages: [], updated: Date.now() }].concat(conversations)
         current = 0
         save()
     }
+    function startEngine() {
+        if (installed && engine.running !== modelId)
+            CloudyEngine.call("start", { model: modelId }, (r, e) => { if (e) app.error = e })
+    }
+    onInstalledChanged: startEngine()
+    Timer { interval: 60000; repeat: true; running: app.ready; onTriggered: CloudyEngine.call("keepAlive", {}, null) }
 
     // ---- tools Cloudy can use on the phone ---------------------------------
-    // Settings › Cloudy can turn off web searches and actions on the phone.
-    readonly property var tools: allTools.filter(t => (t.name !== "search_web" || Settings.values["cloudy.web"] !== false)
-                                                   && (t.name === "search_web" || t.name === "get_weather" || Settings.values["cloudy.actions"] !== false))
+    function fn(name, description, props, required) {
+        return { type: "function", function: { name: name, description: description,
+                 parameters: { type: "object", properties: props, required: required || [] } } }
+    }
     readonly property var allTools: [
-        { name: "open_app", description: "Open an app on the phone. Use the package from list_apps.", eager_input_streaming: true,
-          input_schema: { type: "object", properties: { package: { type: "string" } }, required: ["package"], additionalProperties: false } },
-        { name: "list_apps", description: "List the installed apps (name and package).", eager_input_streaming: true,
-          input_schema: { type: "object", properties: {}, additionalProperties: false } },
-        { name: "start_timer", description: "Start a countdown timer in Clock.", eager_input_streaming: true,
-          input_schema: { type: "object", properties: { seconds: { type: "integer" }, label: { type: "string" } }, required: ["seconds"], additionalProperties: false } },
-        { name: "set_alarm", description: "Set an alarm in Clock (24-hour time).", eager_input_streaming: true,
-          input_schema: { type: "object", properties: { hour: { type: "integer" }, minute: { type: "integer" }, label: { type: "string" } }, required: ["hour", "minute"], additionalProperties: false } },
-        { name: "add_calendar_event", description: "Add an event to the calendar. Times are ISO 8601 in the phone's local time.", eager_input_streaming: true,
-          input_schema: { type: "object", properties: { title: { type: "string" }, start: { type: "string" }, end: { type: "string" }, location: { type: "string" } }, required: ["title", "start"], additionalProperties: false } },
-        { name: "get_weather", description: "Current weather and today's forecast where the phone is.", eager_input_streaming: true,
-          input_schema: { type: "object", properties: {}, additionalProperties: false } },
-        { name: "search_web", description: "Open a web search in Planet, the browser, for the user to read.", eager_input_streaming: true,
-          input_schema: { type: "object", properties: { query: { type: "string" } }, required: ["query"], additionalProperties: false } }
+        fn("open_app", "Open an app on the phone by its package name (see list_apps).", { package: { type: "string" } }, ["package"]),
+        fn("list_apps", "List the installed apps with their package names.", {}),
+        fn("start_timer", "Start a countdown timer.", { seconds: { type: "integer" }, label: { type: "string" } }, ["seconds"]),
+        fn("set_alarm", "Set an alarm (24-hour time).", { hour: { type: "integer" }, minute: { type: "integer" }, label: { type: "string" } }, ["hour", "minute"]),
+        fn("add_calendar_event", "Add a calendar event. Times are ISO 8601 local time.", { title: { type: "string" }, start: { type: "string" }, end: { type: "string" }, location: { type: "string" } }, ["title", "start"]),
+        fn("get_weather", "The current weather and today's forecast here.", {}),
+        fn("search_web", "Open a web search in Planet, the browser.", { query: { type: "string" } }, ["query"])
     ]
+    // Settings › Cloudy can turn off web searches and actions on the phone.
+    readonly property var tools: allTools.filter(t => (t.function.name !== "search_web" || Settings.values["cloudy.web"] !== false)
+                                                   && (t.function.name === "search_web" || t.function.name === "get_weather" || Settings.values["cloudy.actions"] !== false))
     function runTool(name, input, done) {
         const isStr = (v) => typeof v === "string"
         const isInt = (v) => typeof v === "number" && Math.floor(v) === v
@@ -67,42 +74,41 @@ Rectangle {
         case "list_apps":
             return done(JSON.stringify(Packages.list().filter(p => p.launcher).map(p => ({ name: p.name, package: p.package }))))
         case "open_app":
-            if (!isStr(input.package)) return done("package must be a string", true)
+            if (!isStr(input.package)) return done("package must be a string")
             Packages.launch(input.package, {})
             return done("opened")
         case "start_timer":
-            if (!isInt(input.seconds) || input.seconds <= 0) return done("seconds must be a positive integer", true)
-            return Alarms.call("startTimer", { seconds: input.seconds, label: input.label || "" }, (r, e) => done(e || "timer started", !!e))
+            if (!isInt(input.seconds) || input.seconds <= 0) return done("seconds must be a positive integer")
+            return Alarms.call("startTimer", { seconds: input.seconds, label: input.label || "" }, (r, e) => done(e || "timer started"))
         case "set_alarm":
-            if (!isInt(input.hour) || !isInt(input.minute)) return done("hour and minute must be integers", true)
-            return Alarms.call("set", { hour: input.hour, minute: input.minute, days: [], label: input.label || "", enabled: true }, (r, e) => done(e || "alarm set", !!e))
+            if (!isInt(input.hour) || !isInt(input.minute)) return done("hour and minute must be integers")
+            return Alarms.call("set", { hour: input.hour, minute: input.minute, days: [], label: input.label || "", enabled: true }, (r, e) => done(e || "alarm set"))
         case "add_calendar_event": {
             const s = Date.parse(input.start), e = input.end ? Date.parse(input.end) : s + 3600000
-            if (!isStr(input.title) || isNaN(s) || isNaN(e)) return done("title and valid start/end times are required", true)
-            return Calendar.call("add", { title: input.title, start: s, end: e, location: input.location || "", alert: 15 }, (r, err) => done(err || "event added", !!err))
+            if (!isStr(input.title) || isNaN(s) || isNaN(e)) return done("title and valid start/end times are required")
+            return Calendar.call("add", { title: input.title, start: s, end: e, location: input.location || "", alert: 15 }, (r, err) => done(err || "event added"))
         }
         case "get_weather":
-            return done(Weather.available ? JSON.stringify(Weather.current) : "weather not available", !Weather.available)
+            return done(Weather.available ? JSON.stringify(Weather.current) : "weather not available")
         case "search_web":
-            if (!isStr(input.query)) return done("query must be a string", true)
+            if (!isStr(input.query)) return done("query must be a string")
             Packages.launch("com.astra.planet", { query: input.query })
             return done("opened in Planet")
         }
-        done("unknown tool", true)
+        done("unknown tool")
     }
 
     function systemPrompt() {
-        return "You are Cloudy, the assistant built into astraOS, a phone operating system. You talk with the owner of the phone"
-             + (Settings.values["account.name"] ? " (" + Settings.values["account.name"] + ")" : "") + ". "
+        return "You are Cloudy, the assistant built into astraOS, a phone operating system, running on the phone itself. "
+             + (Settings.values["account.name"] ? "You talk with " + Settings.values["account.name"] + ". " : "")
              + "Answer in the user's language (the phone is set to " + Language.nameOf(Language.current) + "). "
-             + "Keep answers short and friendly, like a phone assistant; use lists only when they help. "
-             + "When the user asks you to do something on the phone, use the tools; say briefly what you did. "
+             + "Keep answers short and friendly. When asked to do something on the phone, call a tool, then say briefly what you did. "
              + "It is " + new Date().toString() + "."
     }
 
-    // ---- the Messages API, streamed ------------------------------------------
+    // ---- chat with the local model (OpenAI compatible), streamed --------------
     function send(text) {
-        if (!text.trim() || busy)
+        if (!text.trim() || busy || !ready)
             return
         if (!conv) newConversation()
         const c = conv
@@ -116,10 +122,10 @@ Rectangle {
         busy = true
         error = ""
         streamingText = ""
-        const blocks = []        // the assistant content, rebuilt from the stream
-        const partial = {}       // index -> accumulated input JSON of a tool_use
-        let stop = ""
-        let parsed = 0           // characters of responseText already handled
+        let content = ""
+        const calls = []           // by index: { id, name, args }
+        let finish = ""
+        let parsed = 0
         const xhr = new XMLHttpRequest()
         const consume = () => {
             const textSoFar = xhr.responseText || ""
@@ -129,108 +135,82 @@ Rectangle {
             parsed = end + 2
             for (const ev of chunk.split("\n\n")) {
                 const line = ev.split("\n").find(l => l.startsWith("data: "))
-                if (!line) continue
+                if (!line || line === "data: [DONE]") continue
                 let d
                 try { d = JSON.parse(line.slice(6)) } catch (e) { continue }
-                if (d.type === "content_block_start") {
-                    blocks[d.index] = JSON.parse(JSON.stringify(d.content_block))
-                    if (blocks[d.index].type === "tool_use") partial[d.index] = ""
-                } else if (d.type === "content_block_delta") {
-                    const b = blocks[d.index]
-                    if (d.delta.type === "text_delta") { b.text += d.delta.text; app.streamingText += d.delta.text }
-                    else if (d.delta.type === "input_json_delta") partial[d.index] += d.delta.partial_json
-                    else if (d.delta.type === "thinking_delta") b.thinking = (b.thinking || "") + d.delta.thinking
-                    else if (d.delta.type === "signature_delta") b.signature = (b.signature || "") + d.delta.signature
-                } else if (d.type === "message_delta") {
-                    stop = d.delta.stop_reason || stop
-                } else if (d.type === "error") {
-                    app.error = d.error && d.error.message ? d.error.message : qsTr("Something went wrong")
+                const choice = (d.choices || [])[0]
+                if (!choice) continue
+                const delta = choice.delta || {}
+                if (delta.content) { content += delta.content; app.streamingText = content }
+                for (const t of (delta.tool_calls || [])) {
+                    const k = t.index || 0
+                    calls[k] = calls[k] || { id: "", name: "", args: "" }
+                    if (t.id) calls[k].id = t.id
+                    if (t.function && t.function.name) calls[k].name += t.function.name
+                    if (t.function && t.function.arguments) calls[k].args += t.function.arguments
                 }
+                if (choice.finish_reason) finish = choice.finish_reason
             }
         }
         xhr.onreadystatechange = function() {
             if (xhr.readyState === XMLHttpRequest.LOADING) consume()
             if (xhr.readyState !== XMLHttpRequest.DONE) return
             if (xhr.status !== 200) {
-                let msg = qsTr("Cloudy is not reachable right now.")
-                try { msg = JSON.parse(xhr.responseText).error.message } catch (e) {}
-                if (xhr.status === 401) msg = qsTr("The API key was refused. Check it in AI Space settings.")
-                app.error = msg
+                app.error = xhr.status === 0 ? qsTr("Cloudy is starting, try again in a moment.") : qsTr("Cloudy couldn't answer (%1).").arg(xhr.status)
                 app.busy = false
+                app.startEngine()
                 return
             }
             consume()
-            app.finishTurn(c, blocks.filter(b => b), partial, stop)
+            app.finishTurn(c, content, calls.filter(x => x), finish)
         }
-        xhr.open("POST", "https://api.anthropic.com/v1/messages")
+        xhr.open("POST", endpoint)
         xhr.setRequestHeader("content-type", "application/json")
-        xhr.setRequestHeader("x-api-key", apiKey)
-        xhr.setRequestHeader("anthropic-version", "2026-10-21")
-        // Server-side fallback: a declined request is retried on another model.
-        xhr.setRequestHeader("anthropic-beta", "server-side-fallback-2026-07-01")
         xhr.send(JSON.stringify({
-            model: model,
-            max_tokens: 64000,
+            model: modelId,
             stream: true,
-            system: systemPrompt(),
-            output_config: { effort: effort },
-            fallbacks: "default",
+            temperature: 0.6,
+            max_tokens: 1024,
             tools: tools,
-            messages: c.messages
+            messages: [{ role: "system", content: systemPrompt() }].concat(c.messages)
         }))
     }
-    function finishTurn(c, blocks, partial, stop) {
-        // Tool inputs streamed eagerly: parse and validate them here.
-        const calls = []
-        for (let i = 0; i < blocks.length; i++) {
-            const b = blocks[i]
-            if (b.type !== "tool_use") continue
-            const raw = partial[i] !== undefined ? partial[i] : ""
-            try { b.input = raw ? JSON.parse(raw) : {}; calls.push({ block: b, ok: true }) }
-            catch (e) { b.input = {}; calls.push({ block: b, ok: false }) }
-        }
-        c.messages.push({ role: "assistant", content: blocks })
+    function finishTurn(c, content, calls, finish) {
+        const msg = { role: "assistant", content: content }
+        if (calls.length)
+            msg.tool_calls = calls.map((t, i) => ({ id: t.id || ("call_" + Date.now() + "_" + i), type: "function", function: { name: t.name, arguments: t.args || "{}" } }))
+        c.messages.push(msg)
         c.updated = Date.now()
         streamingText = ""
-        if (stop === "refusal") {
-            error = qsTr("Cloudy can't help with that request.")
-        } else if (stop === "max_tokens" && calls.length) {
+        if (finish === "length")
             error = qsTr("The answer was too long and was cut off.")
-            calls.length = 0
-        }
         conversationsChanged()
         save()
-        if (stop !== "tool_use" || calls.length === 0) {
+        if (!calls.length) {
             busy = false
             return
         }
-        // Run every tool, then answer them all in one user message.
-        const results = []
-        let pending = calls.length
-        for (const call of calls) {
-            const finish = (content, isError) => {
-                results.push({ type: "tool_result", tool_use_id: call.block.id, content: String(content), is_error: !!isError })
-                if (--pending === 0) {
-                    c.messages.push({ role: "user", content: results })
-                    app.request()
-                }
+        // Run every tool, then send all the results back.
+        let pending = msg.tool_calls.length
+        for (const call of msg.tool_calls) {
+            let input = {}
+            let bad = false
+            try { input = JSON.parse(call.function.arguments || "{}") } catch (e) { bad = true }
+            const finishCall = (result) => {
+                c.messages.push({ role: "tool", tool_call_id: call.id, content: String(result) })
+                if (--pending === 0) app.request()
             }
-            if (!call.ok) finish("INVALID_JSON: the tool input was not valid JSON, call the tool again", true)
-            else app.runTool(call.block.name, call.block.input, finish)
+            if (bad) finishCall("invalid JSON arguments: call the tool again")
+            else app.runTool(call.function.name, input, finishCall)
         }
     }
-    function textOf(m) {
-        if (typeof m.content === "string") return m.content
-        return m.content.filter(b => b.type === "text").map(b => b.text).join("")
-    }
-    function toolsOf(m) {
-        return typeof m.content === "string" ? [] : m.content.filter(b => b.type === "tool_use").map(b => b.name)
-    }
+    function textOf(m) { return typeof m.content === "string" ? m.content : "" }
+    function toolsOf(m) { return (m.tool_calls || []).map(t => t.function.name) }
 
     Component.onCompleted: {
         load()
         if (conversations.length) current = 0
-        if (Application.args.prompt) send(Application.args.prompt)
+        startEngine()
     }
 
     // ---- UI ---------------------------------------------------------------------
@@ -278,15 +258,43 @@ Rectangle {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
-            text: app.apiKey ? qsTr("Hi! What can I do for you?") : qsTr("Cloudy runs on Claude by Anthropic. Add your Anthropic API key to start.")
+            text: !app.engine.engine ? qsTr("Cloudy isn't available on this system yet.")
+                : !app.installed ? qsTr("Meet Cloudy")
+                : app.ready ? qsTr("Hi! What can I do for you?") : qsTr("Cloudy is waking up…")
             font.family: Theme.fontFamily
             font.pixelSize: Theme.titleSize
             font.weight: Font.DemiBold
             color: Theme.text
         }
-        Button { visible: !app.apiKey; anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Add API Key"); onClicked: settings.open() }
+        Text {
+            visible: !app.installed && !!app.engine.engine
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            text: qsTr("Cloudy runs on your phone: after a one-time download of about %1 it works without the internet, and what you write stays here.")
+                  .arg(app.model ? Math.round(app.model.size / 1e6) + " MB" : "500 MB")
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.footnoteSize + 1
+            color: Theme.textSecondary
+        }
+        Column {
+            visible: app.downloading
+            width: parent.width
+            spacing: 8
+            ProgressBar { width: parent.width; value: app.engine.progress || 0 }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Downloading… %1%").arg(Math.round((app.engine.progress || 0) * 100)); font.family: Theme.fontFamily; font.pixelSize: Theme.footnoteSize; color: Theme.textSecondary }
+            Button { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Cancel"); primary: false; onClicked: CloudyEngine.call("cancel", {}, null) }
+        }
+        Row {
+            visible: !app.installed && !app.downloading && !!app.engine.engine
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 10
+            Button { text: qsTr("Download"); onClicked: CloudyEngine.call("download", { model: app.modelId }, null) }
+            Button { text: qsTr("Not Now"); primary: false; onClicked: Application.quit() }
+        }
+        Text { visible: !!app.engine.error; width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap; text: app.engine.error || ""; font.family: Theme.fontFamily; font.pixelSize: Theme.footnoteSize; color: Theme.danger }
         Flow {
-            visible: !!app.apiKey
+            visible: app.ready
             width: parent.width
             spacing: 8
             Repeater {
@@ -415,7 +423,7 @@ Rectangle {
                 font.pixelSize: Theme.bodySize
                 color: Theme.text
                 clip: true
-                enabled: !!app.apiKey
+                enabled: app.ready
                 EnterKey.type: Qt.EnterKeySend
                 onAccepted: { app.send(text); text = "" }
                 Text { anchors.fill: parent; verticalAlignment: Text.AlignVCenter; visible: !parent.text; text: qsTr("Ask Cloudy"); font: parent.font; color: Theme.textTertiary }
@@ -473,31 +481,46 @@ Rectangle {
     // ---- settings ------------------------------------------------------------------
     Sheet {
         id: settings
-        onOpenedChanged: if (opened) keyField.text = app.apiKey
         Column {
             width: parent.width
             spacing: 14
-            Text { text: qsTr("AI Space"); font.family: Theme.fontFamily; font.pixelSize: Theme.titleSize; font.weight: Font.Bold; color: Theme.text }
+            Text { text: "Cloudy"; font.family: Theme.fontFamily; font.pixelSize: Theme.titleSize; font.weight: Font.Bold; color: Theme.text }
             Text {
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: qsTr("Cloudy uses Claude (%1) through your own Anthropic API key. Create one at console.anthropic.com. Your chats go to Anthropic to be answered and are kept only on this phone.").arg(app.model)
+                text: qsTr("Cloudy runs a small language model (Qwen 2.5) on this phone with llama.cpp. Your chats never leave the phone.")
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.footnoteSize
                 color: Theme.textSecondary
             }
-            TextField { id: keyField; width: parent.width; placeholder: "sk-ant-…"; echoMode: TextInput.Password; inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText }
-            Text { text: qsTr("Thinking"); font.family: Theme.fontFamily; font.pixelSize: Theme.footnoteSize; color: Theme.textSecondary }
-            SegmentedControl {
+            ListGroup {
                 width: parent.width
-                model: [qsTr("Quick"), qsTr("Balanced"), qsTr("Deep")]
-                currentIndex: ["low", "medium", "high"].indexOf(app.effort)
-                onActivated: (i) => { app.effort = ["low", "medium", "high"][i]; app.save() }
+                title: qsTr("Model")
+                Repeater {
+                    model: app.engine.models || []
+                    delegate: ListItem {
+                        required property var modelData
+                        required property int index
+                        text: modelData.name
+                        subtitle: Math.round(modelData.size / 1e6) + " MB" + (modelData.installed ? " • " + qsTr("Downloaded") : "")
+                        selected: app.modelId === modelData.id
+                        separator: index < (app.engine.models || []).length - 1
+                        onClicked: {
+                            app.modelId = modelData.id
+                            app.save()
+                            if (modelData.installed) app.startEngine()
+                            else CloudyEngine.call("download", { model: modelData.id }, null)
+                        }
+                    }
+                }
             }
             Button {
                 width: parent.width
-                text: qsTr("Save")
-                onClicked: { app.apiKey = keyField.text.trim(); app.save(); settings.close() }
+                text: qsTr("Delete Downloaded Model")
+                primary: false
+                destructive: true
+                visible: app.installed
+                onClicked: { CloudyEngine.call("remove", { model: app.modelId }, null); settings.close() }
             }
             Button {
                 width: parent.width

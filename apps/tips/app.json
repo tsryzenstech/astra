@@ -20,6 +20,14 @@
             "name": "Tip of the day",
             "qml": "widgets/Tip.qml",
             "size": "wide"
+        },
+        {
+            "id": "home",
+            "name": "Tips",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small"
+            ]
         }
     ],
     "names": {

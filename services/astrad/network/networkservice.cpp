@@ -149,6 +149,7 @@ QJsonObject NetworkService::state() const
              {K("security"), current.value(K("security"))},
              {K("networks"), networks},
              {K("known"), m_wifi->knownNetworks()},
+             {K("mac"), m_wifi->address()},
          }},
         {K("bluetooth"), QJsonObject{
              {K("kind"), m_bt->kind()},
@@ -157,6 +158,7 @@ QJsonObject NetworkService::state() const
              {K("name"), m_bt->name()},
              {K("discovering"), m_bt->discovering()},
              {K("devices"), m_bt->devices()},
+             {K("address"), m_bt->address()},
          }},
         {K("hotspot"), QJsonObject{
              {K("supported"), m_wifi->hotspotSupported()},

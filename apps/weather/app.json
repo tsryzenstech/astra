@@ -20,6 +20,16 @@
             "name": "Current conditions",
             "qml": "widgets/Current.qml",
             "size": "wide"
+        },
+        {
+            "id": "home",
+            "name": "Weather",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small",
+                "medium",
+                "large"
+            ]
         }
     ],
     "names": {

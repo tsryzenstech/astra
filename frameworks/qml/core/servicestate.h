@@ -31,6 +31,8 @@ public:
     // Calls "<service>.<method>"; callback(result, error).
     Q_INVOKABLE void call(const QString &method, const QVariantMap &params = QVariantMap(),
                           const QJSValue &callback = QJSValue());
+    // Fetches every service's state again (after a permission is granted).
+    static void reloadAll();
 
 Q_SIGNALS:
     void stateChanged();
@@ -38,6 +40,7 @@ Q_SIGNALS:
     void event(const QString &name, const QVariant &data);
 
 protected:
+    ~ServiceState() override;
     // service: "network"; stateMethod: "state" (empty: reload() decides);
     // stateEvent: an event that carries the full state.
     ServiceState(const QString &service, const QString &stateMethod, const QString &stateEvent, QObject *parent);
@@ -100,6 +103,17 @@ class AccountState : public ServiceState
     QML_SINGLETON
 public:
     explicit AccountState(QObject *parent = nullptr);
+};
+
+// Cloudy's on-device model (singleton "CloudyEngine", Cloudy only). state:
+// { models, engine, downloading, progress, running, ready, port, error }
+class CloudyState : public ServiceState
+{
+    Q_OBJECT
+    QML_NAMED_ELEMENT(CloudyEngine)
+    QML_SINGLETON
+public:
+    explicit CloudyState(QObject *parent = nullptr);
 };
 
 // Calls and SMS (singleton "Telephony"). state: { calls: [...] }

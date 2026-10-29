@@ -3,7 +3,7 @@ import QtQuick
 import Astra.Core
 import Astra.Controls
 
-// Settings > Cloudy: the assistant of AI Space (Claude by Anthropic).
+// Settings > Cloudy: the on-device assistant.
 Page {
     id: page
     title: qsTr("Cloudy")
@@ -12,10 +12,10 @@ Page {
     EmptyState {
         iconName: "sparkles"
         title: qsTr("Cloudy")
-        message: qsTr("Ask questions, plan your day, set timers and alarms, add events and open apps. Cloudy runs on Claude by Anthropic with your own API key.")
+        message: qsTr("Ask questions, plan your day, set timers and alarms, add events and open apps. Cloudy runs on your phone: what you write stays here.")
     }
     ListGroup {
-        footer: qsTr("Your chats are sent to Anthropic to be answered and are kept only on this phone. The API key stays in AI Space's private storage.")
+        footer: qsTr("Cloudy uses a small model downloaded once from Hugging Face (Qwen 2.5, Apache 2.0) and runs it with llama.cpp.")
         SwitchRow {
             text: qsTr("Search the web from Cloudy")
             subtitle: qsTr("Cloudy can open web searches in Planet.")
@@ -32,7 +32,7 @@ Page {
     }
     ListGroup {
         ListItem {
-            text: qsTr("Open AI Space")
+            text: qsTr("Open Cloudy")
             iconSource: page.aiSpace.iconUrl || ""
             chevron: true
             separator: false

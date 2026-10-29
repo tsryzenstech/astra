@@ -24,6 +24,8 @@ Item {
             stagger.restart()
         }
     }
+    // A notification that arrives while the panel is open drops in at once.
+    Component.onCompleted: if (panel && panel.opened) spring.animateTo(1, 0)
     Timer {
         id: stagger
         onTriggered: spring.animateTo(root.panel.opened ? 1 : 0, 0)

@@ -41,7 +41,11 @@ private:
         QJsonObject args;
         qint64 started = 0;
         bool restarting = false;
+        QList<gid_t> groups;          // supplementary groups the process started with
     };
+    // A permission granted while the app runs: open its files and devices
+    // to the app's uid (POSIX ACLs) instead of restarting it.
+    void grantAccess(const QString &package, gid_t gid);
 
     Server *m_server;
     PackageManager *m_packages;

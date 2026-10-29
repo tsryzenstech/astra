@@ -221,6 +221,11 @@ void IwdWifi::forget(const QString &ssid)
     }
 }
 
+QString IwdWifi::address() const
+{
+    return props(m_device, kDevice).value(QStringLiteral("Address")).toString();
+}
+
 // Every BSS of the networks in range, with the network's signal.
 QJsonArray IwdWifi::accessPoints() const
 {

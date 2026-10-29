@@ -13,6 +13,9 @@ Item {
     property color tint: "white"
     Behavior on tint { ColorAnimation { duration: 200 } }
     property bool inCall: false
+    // Control Center open: every indicator shows, dimmed when it has nothing
+    // to report (no SIM, Wi-Fi off, no battery), with the carrier on the left.
+    property bool detailed: false
     signal callPillClicked()
 
     readonly property var wifi: Network.state.wifi || {}
@@ -78,8 +81,20 @@ Item {
             size: 15
             color: root.tint
         }
+        Text {
+            visible: root.detailed
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.airplane ? qsTr("Airplane Mode") : !root.cell.available ? qsTr("No Modem")
+                : !root.cell.simPresent ? qsTr("No SIM") : (root.cell.operator || qsTr("No Service"))
+            font.family: Theme.fontFamily
+            font.pixelSize: 14
+            font.weight: Font.Medium
+            color: root.tint
+            opacity: 0.85
+        }
         CellularGlyph {
-            visible: !root.airplane && !!root.cell.available && !!root.cell.simPresent
+            visible: root.detailed ? !root.airplane : (!root.airplane && !!root.cell.available && !!root.cell.simPresent)
+            opacity: root.cell.registered ? 1 : 0.4
             anchors.verticalCenter: parent.verticalCenter
             barHeight: 11
             color: root.tint
@@ -88,7 +103,8 @@ Item {
             technology: root.cell.dataConnected && !(root.wifi.state === "connected") ? (root.cell.technology || "") : ""
         }
         WifiGlyph {
-            visible: !!root.wifi.powered && (root.wifi.state === "connected" || root.wifi.state === "connecting")
+            visible: root.detailed || (!!root.wifi.powered && (root.wifi.state === "connected" || root.wifi.state === "connecting"))
+            opacity: root.wifi.state === "connected" ? 1 : 0.4
             anchors.verticalCenter: parent.verticalCenter
             height: 12.5
             color: root.tint
@@ -96,11 +112,12 @@ Item {
             connecting: root.wifi.state === "connecting"
         }
         BatteryGlyph {
-            visible: System.batteryLevel >= 0
+            visible: root.detailed || System.batteryLevel >= 0
+            opacity: System.batteryLevel >= 0 ? 1 : 0.4
             anchors.verticalCenter: parent.verticalCenter
             height: 13
             color: root.tint
-            level: System.batteryLevel
+            level: Math.max(0, System.batteryLevel)
             charging: System.charging
             showLevel: Settings.values["battery.show_percentage"] !== false
         }

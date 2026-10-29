@@ -33,6 +33,8 @@ Item {
     // Unlock, then optionally run an action (open Settings, Camera...).
     function unlocked(action) {
         locked = false
+        if (!appOpen)
+            home.playEntrance()
         if (action)
             action()
     }
@@ -59,9 +61,63 @@ Item {
     }
 
     // Leaving an app (or a text field) puts the keyboard away.
+    // ---- screen off / on ----------------------------------------------------
+    // The screen fades to black before the panel goes off (or to the Always
+    // On Display), and fades in from black when it comes back.
+    property bool aod: false
+    property real savedBrightness: -1
+    function sleep() {
+        hideKeyboard()
+        blackout.fadeTo(1, function() {
+            if (Settings.values["display.aod"]) {
+                shell.aod = true
+                shell.savedBrightness = System.brightness
+                System.setBrightness(Math.min(System.brightness, 0.08))
+                blackout.opacity = 0
+            } else {
+                Host.setScreenOn(false)
+            }
+        })
+    }
+    function wake() {
+        if (aod) {
+            aod = false
+            if (savedBrightness >= 0)
+                System.setBrightness(savedBrightness)
+            savedBrightness = -1
+            blackout.opacity = 1
+            blackout.fadeTo(0, null)
+        } else {
+            Host.setScreenOn(true)
+        }
+    }
+    // A ringing alarm or call wakes the phone from the Always On Display.
+    Connections {
+        target: alarm
+        function onActiveChanged() { if (alarm.active && shell.aod) shell.wake() }
+    }
+    Connections {
+        target: call
+        function onRingingFullChanged() { if (call.ringingFull && shell.aod) shell.wake() }
+    }
+    Connections {
+        target: Host
+        function onScreenOnChanged() {
+            if (Host.screenOn) {
+                blackout.opacity = 1
+                blackout.fadeTo(0, null)
+            }
+        }
+    }
+
     function hideKeyboard() {
         if (Host.keyboard)
             Host.keyboard.hide()
+    }
+    // Notification Center and Control Center cover what you were typing in.
+    Connections {
+        target: panels
+        function onOpenedChanged() { if (panels.opened) shell.hideKeyboard() }
     }
     Connections {
         target: apps
@@ -222,6 +278,13 @@ Item {
             if (toRecents)
                 return
             const dy = start.y - m.y
+            if (!inApp) {
+                // On home the bar follows the finger and the page shrinks.
+                home.recentsPull = Math.max(0, Math.min(1, dy / 320))
+                indicator.following = true
+                indicator.followX = m.x - start.x
+                indicator.followY = Math.max(0, dy) * 0.45
+            }
             if (inApp) {
                 apps.updateCloseGesture(m.x - start.x, dy)
                 const w = apps.activeWindow
@@ -250,6 +313,7 @@ Item {
         }
         onReleased: {
             holdTimer.stop()
+            pullBack.restart()
             const v = bottomVelocity.velocity()
             indicator.release(v.x, v.y)
             if (toRecents)
@@ -263,6 +327,8 @@ Item {
             if (inApp && !toRecents)
                 apps.endCloseGesture(0, 0)
         }
+        // The home page grows back when the finger lets go.
+        NumberAnimation { id: pullBack; target: home; property: "recentsPull"; to: 0; duration: 320; easing.type: Easing.OutBack }
         Timer {
             id: holdTimer
             interval: 180
@@ -329,6 +395,7 @@ Item {
         width: parent.width
         z: 20
         tint: shell.lightApp && !shell.locked ? "#0B0B0F" : "white"
+        detailed: panels.reveal > 0.5 && panels.page > 0.5
         showClock: !shell.locked || lockScreen.musicExpanded || shell.panelOpen || lockScreen.pinPadVisible
         inCall: call.ongoing !== null && !(apps.activeWindow && apps.activeWindow.packageName === "com.astra.phone")
                 && !call.ringingFull
@@ -402,13 +469,13 @@ Item {
         function onPowerKeyPressed() {
             if (powerMenu.active) {
                 powerMenu.close()
-            } else if (!Host.screenOn) {
-                Host.setScreenOn(true)
+            } else if (!Host.screenOn || shell.aod) {
+                shell.wake()
             } else if (!shell.locked) {
                 shell.hideKeyboard()
                 shell.lock()
             } else {
-                Host.setScreenOn(false)
+                shell.sleep()
             }
         }
         function onPowerKeyLongPressed() {
@@ -444,13 +511,13 @@ Item {
         interval: Math.max(15, saving ? Math.min(30, Number(Settings.values["display.screen_timeout"] ?? 60)) || 30
                                       : Number(Settings.values["display.screen_timeout"] ?? 60)) * 1000
         // "Never" (0), a ringing alarm or call, or Stay awake keep it on.
-        readonly property bool allowed: Host.screenOn && !alarm.active && !call.ringingFull && call.ongoing === null
+        readonly property bool allowed: Host.screenOn && !shell.aod && !alarm.active && !call.ringingFull && call.ongoing === null
                  && !(Settings.values["developer.enabled"] && Settings.values["developer.stay_awake"] && System.charging)
                  && Number(Settings.values["display.screen_timeout"] ?? 60) > 0 && !Host.development
         running: allowed
         onTriggered: {
             shell.lock()
-            Host.setScreenOn(false)
+            shell.sleep()
         }
     }
     // Any touch restarts the idle timer.
@@ -463,6 +530,42 @@ Item {
                 idle.restart()
             m.accepted = false
         }
+    }
+
+    // First start: set the phone up, then straight to the home screen.
+    SetupWizard {
+        anchors.fill: parent
+        z: 25
+        onFinished: lockScreen.finishUnlock(0)
+    }
+
+    AlwaysOnDisplay {
+        anchors.fill: parent
+        z: 96
+        active: shell.aod
+        onWakeRequested: shell.wake()
+    }
+    Rectangle {
+        id: blackout
+        anchors.fill: parent
+        z: 97
+        color: "black"
+        opacity: 0
+        visible: opacity > 0.001
+        property var done: null
+        function fadeTo(target, then) {
+            done = then
+            fade.to = target
+            fade.duration = target > opacity ? 260 : 340
+            fade.restart()
+        }
+        NumberAnimation on opacity {
+            id: fade
+            running: false
+            easing.type: Easing.InOutQuad
+            onFinished: { const d = blackout.done; blackout.done = null; if (d) d() }
+        }
+        MouseArea { anchors.fill: parent; enabled: blackout.opacity > 0.5 }
     }
 
     DeveloperOverlay {

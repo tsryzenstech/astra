@@ -38,6 +38,7 @@ public:
     bool powered() const override;
     void setPowered(bool on) override;
     QString name() const override;
+    QString address() const override;
     void setName(const QString &name) override;
     bool discovering() const override;
     void setDiscovering(bool on) override;

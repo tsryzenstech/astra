@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QFileSystemWatcher>
+#include <QHash>
 #include <QJSValue>
 #include <QObject>
 #include <QVariantMap>
@@ -85,6 +86,9 @@ public:
     // Shared storage (needs the MEDIA permission). Paths are absolute.
     // media(["*.png", "*.jpg"]) -> [{ path, url, name, folder, modified, size, video }], newest first
     Q_INVOKABLE QVariantList media(const QStringList &nameFilters) const;
+    // The same list, scanned on a worker thread: callback(list). Galleries
+    // use it so the first frame doesn't wait for the storage.
+    Q_INVOKABLE void mediaAsync(const QStringList &nameFilters, const QJSValue &callback);
     Q_INVOKABLE bool removeMedia(const QString &path);
     Q_INVOKABLE QVariantMap imageInfo(const QString &path) const; // width, height, size, modified
 
@@ -98,6 +102,8 @@ private:
 
     QVariantMap m_args;
     QFileSystemWatcher *m_watcher = nullptr;
+    int m_mediaRequest = 0;
+    QHash<int, QJSValue> m_mediaCallbacks;
 };
 
 } // namespace astra::qml

@@ -52,6 +52,8 @@ Rectangle {
         reload()
         if (Application.args.number)
             openThread(Application.args.number)
+        if (Application.args.text)
+            input.text = Application.args.text
     }
     Connections {
         target: Telephony
@@ -59,7 +61,10 @@ Rectangle {
     }
     Connections {
         target: Application
-        function onIntent(args) { if (args.number) app.openThread(args.number) }
+        function onIntent(args) {
+            if (args.number) app.openThread(args.number)
+            if (args.text) input.text = args.text
+        }
     }
 
     // ---- conversations ------------------------------------------------------------

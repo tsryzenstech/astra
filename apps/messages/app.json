@@ -22,6 +22,14 @@
             "name": "Unread messages",
             "qml": "widgets/Unread.qml",
             "size": "small"
+        },
+        {
+            "id": "home",
+            "name": "Messages",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small"
+            ]
         }
     ],
     "names": {

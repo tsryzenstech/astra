@@ -74,6 +74,11 @@ void BluezBluetooth::setPowered(bool on)
                         [this](const QString &) { m_watcher->poke(); });
 }
 
+QString BluezBluetooth::address() const
+{
+    return adapterProps().value(QStringLiteral("Address")).toString();
+}
+
 QString BluezBluetooth::name() const
 {
     return adapterProps().value(QStringLiteral("Alias")).toString();

@@ -21,6 +21,15 @@
             "name": "Analog clock",
             "qml": "widgets/Analog.qml",
             "size": "small"
+        },
+        {
+            "id": "home",
+            "name": "Clock",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small",
+                "medium"
+            ]
         }
     ],
     "names": {

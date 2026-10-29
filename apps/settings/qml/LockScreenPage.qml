@@ -25,7 +25,7 @@ Page {
     readonly property int clockWeight: poppins ? (fontWeights[weight] ?? Font.DemiBold) : Font.Normal
 
     readonly property var selected: Settings.values["lockscreen.widgets"] || []
-    readonly property var available: Packages.widgets
+    readonly property var available: Packages.widgets.filter(w => !!w.size)   // lock screen ones (home widgets have "home")
     readonly property int maxUnits: 4
 
     function widgetInfo(key) {
@@ -129,6 +129,15 @@ Page {
     }
 
     // ---- clock font ----------------------------------------------------------
+    ListGroup {
+        footer: qsTr("When the phone is locked the screen stays dim and black, with the time and your notifications. Double tap to wake it.")
+        SwitchRow {
+            text: qsTr("Always On Display")
+            iconName: "display"
+            key: "display.aod"
+            separator: false
+        }
+    }
     ListGroup {
         title: qsTr("Clock font")
         footer: Fonts.families.length === 0 ? qsTr("Fonts copied to /system/fonts appear here.") : ""

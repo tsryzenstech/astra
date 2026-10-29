@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick
+import Astra.Core
 import QtQuick.Effects
 import QtWayland.Compositor
 import Astra.Controls
@@ -33,7 +34,10 @@ Item {
     readonly property real progress: openness.value
     readonly property bool wantsOpen: openness.to > 0.5     // opening or open (not closing)
     // Motion blur follows the speed of the morph.
-    readonly property real motionBlur: Math.min(0.55, Math.abs(openness.velocity) * 0.13)
+    // Devices can turn motion blur off (ro.astra.motion_blur=false in the
+    // vendor properties) when their GPU can't afford it.
+    readonly property bool motionBlurAllowed: System.property("ro.astra.motion_blur", "true") !== "false"
+    readonly property real motionBlur: motionBlurAllowed ? Math.min(0.55, Math.abs(openness.velocity) * 0.13) : 0
     readonly property bool settledOpen: progress > 0.999 && !openness.running && !gesturing
     readonly property bool morphing: !inBackground && progress > 0.002 && !settledOpen
 

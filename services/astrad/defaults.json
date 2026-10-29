@@ -27,6 +27,18 @@
     "home.layout": {
         "pages": [
             [
+                {
+                    "widget": {
+                        "key": "system/greeting",
+                        "size": "medium"
+                    }
+                },
+                {
+                    "widget": {
+                        "key": "system/search",
+                        "size": "bar"
+                    }
+                },
                 "com.astra.weather",
                 "com.astra.clock",
                 "com.astra.tune",
@@ -47,8 +59,7 @@
                 "com.astra.home",
                 "com.astra.maps",
                 "com.astra.notes",
-                "com.astra.recorder",
-                "com.astra.astraid"
+                "com.astra.recorder"
             ]
         ],
         "dock": [
@@ -56,7 +67,8 @@
             "com.astra.messages",
             "com.astra.planet",
             "com.astra.camera"
-        ]
+        ],
+        "version": 2
     },
     "lockscreen.clock_weight": "SemiBold",
     "lockscreen.widgets": [
@@ -116,5 +128,7 @@
     ],
     "focus.game.apps": [],
     "hotspot.name": "",
-    "keyboard.recent_emoji": []
+    "keyboard.recent_emoji": [],
+    "display.aod": true,
+    "setup.done": false
 }

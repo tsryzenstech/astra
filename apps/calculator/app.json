@@ -18,6 +18,15 @@
         "visible": true
     },
     "permissions": [],
-    "widgets": [],
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Calculator",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small"
+            ]
+        }
+    ],
     "appearance": "dark"
 }

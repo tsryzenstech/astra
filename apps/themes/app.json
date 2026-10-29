@@ -14,7 +14,16 @@
     "permissions": [
         "astra.permission.MANAGE_THEMES"
     ],
-    "widgets": [],
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Themes",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small"
+            ]
+        }
+    ],
     "names": {
         "it": "Temi"
     }

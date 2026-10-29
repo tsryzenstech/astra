@@ -160,19 +160,23 @@ Rectangle {
                     }
                 }
             }
-            Row {
+            // The call button stays in the middle; backspace sits to its right.
+            Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 20
-                spacing: 50
-                Item { width: 50; height: 1 }
+                width: 78
+                height: 78
                 Rectangle {
-                    width: 78; height: 78; radius: 39
+                    anchors.fill: parent
+                    radius: 39
                     color: "#34C759"
                     Icon { anchors.centerIn: parent; name: "phone"; size: 34 }
                     MouseArea { anchors.fill: parent; onClicked: app.dial(app.number) }
                 }
                 IconButton {
+                    anchors.left: parent.right
+                    anchors.leftMargin: 36
                     anchors.verticalCenter: parent.verticalCenter
                     size: 50
                     iconName: "backspace"

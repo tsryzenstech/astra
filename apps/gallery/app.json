@@ -14,7 +14,18 @@
     "permissions": [
         "astra.permission.MEDIA"
     ],
-    "widgets": [],
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Gallery",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small",
+                "medium",
+                "large"
+            ]
+        }
+    ],
     "names": {
         "it": "Galleria"
     },

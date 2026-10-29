@@ -25,9 +25,15 @@ Rectangle {
         Settings.setValue(favKey, isFavorite(path) ? favorites.filter(p => p !== path) : favorites.concat([path]))
     }
 
+    property bool loading: false
     function reload() {
-        if (granted)
-            items = Application.media(filters)
+        if (!granted)
+            return
+        loading = true
+        Application.mediaAsync(filters, function(list) {
+            app.items = list
+            app.loading = false
+        })
     }
     function checkAccess() {
         Permissions.check("astra.permission.MEDIA", function(ok) {

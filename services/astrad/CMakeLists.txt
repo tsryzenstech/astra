@@ -9,6 +9,7 @@ qt_add_executable(astrad
     activitymanager.cpp activitymanager.h
     alarmservice.cpp alarmservice.h
     calendarservice.cpp calendarservice.h
+    cloudyservice.cpp cloudyservice.h
     contactsservice.cpp contactsservice.h
     developerservice.cpp developerservice.h
     dialogservice.cpp dialogservice.h

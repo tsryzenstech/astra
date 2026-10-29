@@ -18,7 +18,16 @@
         "visible": true
     },
     "permissions": [],
-    "widgets": [],
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Notes",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small"
+            ]
+        }
+    ],
     "share": [
         "text/plain"
     ]

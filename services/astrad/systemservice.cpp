@@ -126,6 +126,11 @@ QJsonObject SystemService::info() const
         {K("storageTotal"), double(storage.bytesTotal())},
         {K("storageFree"), double(storage.bytesAvailable())},
         {K("kernel"), QString::fromLatin1(uts.release)},
+        {K("serial"), [] {
+             QFile f(QStringLiteral("/sys/devices/soc0/serial_number"));
+             const QString soc = f.open(QIODevice::ReadOnly) ? QString::fromLatin1(f.readAll()).trimmed() : QString();
+             return Properties::get(QStringLiteral("ro.serialno"), soc);
+         }()},
         {K("architecture"), QString::fromLatin1(uts.machine)},
         {K("qt"), QString::fromLatin1(qVersion())},
         {K("uptime"), uptime},
@@ -228,6 +233,11 @@ QJsonValue SystemService::handle(const QString &call, const QJsonObject &params,
     if (call == QLatin1String("power")) {
         caller.require(QLatin1String(permissions::POWER));
         const QString action = params.value(K("action")).toString();
+        // Back to the lock screen (Developer Options > Testing), screen on.
+        if (action == QLatin1String("lock")) {
+            m_server->broadcast(K("system.lock"), QJsonObject());
+            return true;
+        }
         QByteArray command;
         if (action == QLatin1String("reboot"))
             command = "reboot";

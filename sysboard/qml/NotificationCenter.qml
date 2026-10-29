@@ -44,7 +44,7 @@ Item {
     Flickable {
         id: list
         x: 27
-        y: 200
+        y: 236
         width: parent.width - 54
         height: parent.height - y - 40
         contentHeight: column.height + 20

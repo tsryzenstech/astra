@@ -40,6 +40,14 @@
             "name": "Search",
             "qml": "widgets/Search.qml",
             "size": "small"
+        },
+        {
+            "id": "home",
+            "name": "Planet",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small"
+            ]
         }
     ]
 }

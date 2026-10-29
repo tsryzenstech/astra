@@ -98,6 +98,18 @@ void MMCellular::refresh()
         Q_EMIT changed();
         if (m_modem.isEmpty())
             return;
+        // The SIM is a separate object: its ICCID and IMSI for About.
+        const QString sim = props(m_modem, kModem).value(QStringLiteral("Sim")).value<QDBusObjectPath>().path();
+        if (!sim.isEmpty() && sim != QLatin1String("/"))
+            dbusCall(kService, sim, QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("GetAll"),
+                     {QStringLiteral("org.freedesktop.ModemManager1.Sim")}, this,
+                     [this](const QString &err, const QDBusMessage &r) {
+                         if (err.isEmpty() && !r.arguments().isEmpty()) {
+                             m_sim.clear();
+                             r.arguments().at(0).value<QDBusArgument>() >> m_sim;
+                             Q_EMIT changed();
+                         }
+                     });
         // Calls are separate objects listed by the Voice interface.
         dbusCall(kService, m_modem, kVoice, QStringLiteral("ListCalls"), {}, this,
                  [this](const QString &error, const QDBusMessage &reply) {
@@ -176,6 +188,15 @@ QJsonObject MMCellular::state() const
         {QStringLiteral("dataConnected"), modemState == kStateConnected},
         {QStringLiteral("apn"), m_apn},
         {QStringLiteral("allowRoaming"), m_allowRoaming},
+        // Identity, for Settings > About
+        {QStringLiteral("imei"), g.value(QStringLiteral("Imei")).toString().isEmpty()
+                                     ? m.value(QStringLiteral("EquipmentIdentifier")).toString() : g.value(QStringLiteral("Imei")).toString()},
+        {QStringLiteral("baseband"), m.value(QStringLiteral("Revision")).toString()},
+        {QStringLiteral("modemModel"), m.value(QStringLiteral("Model")).toString()},
+        {QStringLiteral("number"), m.value(QStringLiteral("OwnNumbers")).toStringList().value(0)},
+        {QStringLiteral("iccid"), m_sim.value(QStringLiteral("SimIdentifier")).toString()},
+        {QStringLiteral("imsi"), m_sim.value(QStringLiteral("Imsi")).toString()},
+        {QStringLiteral("simOperator"), m_sim.value(QStringLiteral("OperatorName")).toString()},
     };
 }
 

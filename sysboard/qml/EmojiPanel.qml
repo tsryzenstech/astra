@@ -4,8 +4,8 @@ import Astra.Core
 import Astra.Controls
 import Astra.Animation
 
-// The emoji page of the keyboard: every emoji of the Twemoji set (Unicode
-// 14) on pages that scroll sideways, a category bar to jump between them,
+// The emoji page of the keyboard: every emoji of Noto Color Emoji (Unicode
+// 16) on pages that scroll sideways, a category bar to jump between them,
 // recents first, and skin tones on a long press (the last choice sticks).
 Item {
     id: root

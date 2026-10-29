@@ -27,6 +27,7 @@
     "New on Market": "Novità su Market",
     "No Apps": "Nessuna app",
     "No Results": "Nessun risultato",
+    "Not Now": "Non ora",
     "OK": "OK",
     "Only install files from people you trust.": "Installa solo file di persone di cui ti fidi.",
     "OPEN": "APRI",
@@ -35,8 +36,12 @@
     "Settings": "Impostazioni",
     "Share": "Condividi",
     "Sideloading is off": "Installazione da file disattivata",
+    "Sign In": "Accedi",
+    "Sign in with AstraID": "Accedi con AstraID",
     "SIZE": "DIMENSIONE",
+    "To download apps and get updates": "Per scaricare app e ricevere aggiornamenti",
     "Today": "Oggi",
+    "Today's apps": "Le app di oggi",
     "TOP APPS": "APP PIÙ SCARICATE",
     "Try Again": "Riprova",
     "Try another word.": "Prova con un'altra parola.",
@@ -46,5 +51,6 @@
     "VERSION": "VERSIONE",
     "Version %1": "Versione %1",
     "Website": "Sito web",
-    "What's New": "Novità"
+    "What's New": "Novità",
+    "You need an AstraID to download apps from Market. It's free.": "Serve un AstraID per scaricare app da Market. È gratis."
 }

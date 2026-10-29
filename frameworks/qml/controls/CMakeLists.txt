@@ -37,6 +37,7 @@ qt_add_qml_module(astracontrols
         TextField.qml
         Theme.qml
         WeatherGlyph.qml
+        WidgetTile.qml
         WifiGlyph.qml
     RESOURCES
         ${ASTRA_ICONS}

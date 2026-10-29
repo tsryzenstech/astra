@@ -9,6 +9,7 @@ Item {
     property real to: 1
     property real value: 0
     property real stepSize: 0
+    property color fillColor: Theme.accent
     readonly property real position: (value - from) / (to - from)
     signal moved(real value)
 
@@ -26,7 +27,7 @@ Item {
             width: root.position * parent.width
             height: parent.height
             radius: parent.radius
-            color: Theme.accent
+            color: root.fillColor
         }
     }
 

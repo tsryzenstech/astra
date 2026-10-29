@@ -1,9 +1,11 @@
 {
     "Allow access": "Consenti l'accesso",
     "Allow Camera to take photos and videos.": "Consenti a Fotocamera di scattare foto e registrare video.",
+    "Camera": "Fotocamera",
     "Camera access": "Accesso alla fotocamera",
     "No camera found": "Nessuna fotocamera trovata",
     "PHOTO": "FOTO",
+    "Take a photo": "Scatta una foto",
     "The camera of this phone is not available yet.": "La fotocamera di questo telefono non è ancora disponibile.",
     "VIDEO": "VIDEO"
 }

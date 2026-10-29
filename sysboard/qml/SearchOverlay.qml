@@ -31,7 +31,8 @@ Item {
     }
 
     visible: reveal.value > 0.01
-    Spring { id: reveal; to: 0; response: 0.4; dampingFraction: 0.85 }
+    // The app list rises from the bottom with a little bounce.
+    Spring { id: reveal; to: 0; response: 0.46; dampingFraction: 0.74 }
 
     BlurLayer {
         anchors.fill: parent
@@ -45,9 +46,10 @@ Item {
     }
 
     Item {
-        anchors.fill: parent
-        opacity: reveal.value
-        y: -30 * (1 - reveal.value)
+        width: parent.width
+        height: parent.height
+        opacity: Math.min(1, reveal.value * 1.8)
+        y: (1 - reveal.value) * root.height * 0.75
 
         Row {
             id: bar

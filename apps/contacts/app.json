@@ -21,7 +21,17 @@
         "astra.permission.CONTACTS",
         "astra.permission.MEDIA"
     ],
-    "widgets": [],
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Contacts",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small",
+                "medium"
+            ]
+        }
+    ],
     "opens": [
         "text/vcard",
         "text/x-vcard"

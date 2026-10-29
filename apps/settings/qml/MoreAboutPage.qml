@@ -118,7 +118,24 @@ Page {
         ListItem { text: qsTr("Processor"); value: (page.info.cpu || "—") + (page.info.cores ? " • " + qsTr("%n cores", "", page.info.cores) : "") }
         ListItem { text: qsTr("Memory"); value: page.gb(page.info.ram) }
         ListItem { text: qsTr("Storage"); value: page.gb(page.info.storageTotal) }
-        ListItem { text: qsTr("Up time"); value: page.info.uptime ? page.duration(page.info.uptime) : "—"; separator: false }
+        ListItem { text: qsTr("Up time"); value: page.info.uptime ? page.duration(page.info.uptime) : "—" }
+        ListItem { text: qsTr("Serial number"); value: page.info.serial || "—"; separator: false }
+    }
+
+    // Phone and network identity (Settings > About, as on every phone).
+    ListGroup {
+        id: netGroup
+        title: qsTr("Network")
+        readonly property var cell: Network.state.cellular || ({})
+        ListItem { text: qsTr("IMEI"); value: netGroup.cell.imei || "—" }
+        ListItem { text: qsTr("Phone number"); value: netGroup.cell.number || "—" }
+        ListItem { text: qsTr("Carrier"); value: netGroup.cell.operator || netGroup.cell.simOperator || "—" }
+        ListItem { text: qsTr("ICCID"); value: netGroup.cell.iccid || "—" }
+        ListItem { text: qsTr("IMSI"); value: netGroup.cell.imsi || "—" }
+        ListItem { text: qsTr("Modem"); value: netGroup.cell.modemModel || "—" }
+        ListItem { text: qsTr("Baseband"); value: netGroup.cell.baseband || "—" }
+        ListItem { text: qsTr("Wi-Fi address"); value: ((Network.state.wifi || {}).mac || "—").toUpperCase() }
+        ListItem { text: qsTr("Bluetooth address"); value: (Network.state.bluetooth || {}).address || "—"; separator: false }
     }
 
     ListGroup {

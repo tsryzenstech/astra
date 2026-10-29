@@ -1,10 +1,14 @@
 {
+    "A new voice memo": "Un nuovo memo vocale",
     "All Recordings": "Tutte le registrazioni",
     "Allow the microphone and Files in Settings › Apps › Recorder.": "Consenti microfono e File in Impostazioni › App › Registratore.",
     "New Recording %1": "Nuova registrazione %1",
     "No Recordings": "Nessuna registrazione",
+    "Record": "Registra",
     "Recorder": "Registratore",
+    "Recorder can't start": "Impossibile avviare Registratore",
     "Rename": "Rinomina",
     "Save": "Salva",
-    "Tap the record button to start.": "Tocca il pulsante di registrazione per iniziare."
+    "Tap the record button to start.": "Tocca il pulsante di registrazione per iniziare.",
+    "This version of astraOS is missing %1, which this app needs. Update the system to use it.": "In questa versione di astraOS manca %1, necessario per questa app. Aggiorna il sistema per usarla."
 }

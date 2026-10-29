@@ -13,6 +13,7 @@
     "Inbox": "In arrivo",
     "Junk": "Indesiderata",
     "Load More": "Carica altri",
+    "Mail": "Mail",
     "Mail Account": "Account email",
     "Mailboxes": "Caselle",
     "New Message": "Nuovo messaggio",
@@ -37,6 +38,7 @@
     "Use an app password from Yahoo Account Security.": "Usa una password per le app dalla sicurezza dell'account Yahoo.",
     "Use an app password: Google Account › Security › 2-Step Verification › App passwords.": "Usa una password per le app: Account Google › Sicurezza › Verifica in due passaggi › Password per le app.",
     "Use an app-specific password from account.apple.com.": "Usa una password specifica per le app da account.apple.com.",
+    "Your inbox": "La tua posta in arrivo",
     "Your Microsoft account must allow IMAP with a password (app password).": "Il tuo account Microsoft deve consentire IMAP con password (password per le app).",
     "Your name": "Il tuo nome"
 }

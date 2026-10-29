@@ -21,5 +21,14 @@
         "astra.permission.MICROPHONE",
         "astra.permission.MEDIA"
     ],
-    "widgets": []
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Recorder",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small"
+            ]
+        }
+    ]
 }

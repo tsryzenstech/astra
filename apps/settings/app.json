@@ -33,6 +33,15 @@
             "names": {
                 "it": "Batteria"
             }
+        },
+        {
+            "id": "home",
+            "name": "Settings",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small",
+                "medium"
+            ]
         }
     ],
     "names": {

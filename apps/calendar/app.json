@@ -20,5 +20,16 @@
     "permissions": [
         "astra.permission.CALENDAR"
     ],
-    "widgets": []
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Calendar",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small",
+                "medium",
+                "large"
+            ]
+        }
+    ]
 }

@@ -9,6 +9,7 @@
 #include "alarmservice.h"
 #include "accountservice.h"
 #include "calendarservice.h"
+#include "cloudyservice.h"
 #include "contactsservice.h"
 #include "locationservice.h"
 #include "developerservice.h"
@@ -153,6 +154,7 @@ int main(int argc, char **argv)
     UpdateService update(&server, &settings);
     DeveloperService developer(&server, &settings, &lock);
     CalendarService calendar(&server, &notifications);
+    CloudyService cloudy(&server);
     AccountService account(&server, &settings, &notifications, &contacts, &location, &hardware, &network, &alarms);
     contacts.setChangedHook([&account] { account.contactsChanged(); });
     // Find My Device > Lock: SysBoard locks the phone.
@@ -205,6 +207,7 @@ int main(int argc, char **argv)
     server.registerService(QStringLiteral("contacts"), &contacts);
     server.registerService(QStringLiteral("location"), &location);
     server.registerService(QStringLiteral("calendar"), &calendar);
+    server.registerService(QStringLiteral("cloudy"), &cloudy);
     server.registerService(QStringLiteral("account"), &account);
     server.registerService(QStringLiteral("alarms"), &alarms);
     server.registerService(QStringLiteral("display"), &display);

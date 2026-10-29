@@ -22,6 +22,14 @@
             "name": "Camera",
             "qml": "widgets/Shutter.qml",
             "size": "small"
+        },
+        {
+            "id": "home",
+            "name": "Camera",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small"
+            ]
         }
     ],
     "names": {

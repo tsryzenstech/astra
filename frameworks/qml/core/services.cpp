@@ -12,6 +12,10 @@
 #include <QFileSystemWatcher>
 #include <QImageReader>
 #include <QUrl>
+#include <thread>
+#include <QDateTime>
+#include <QJSEngine>
+#include <QPointer>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -153,6 +157,55 @@ QVariantList ApplicationInfo::media(const QStringList &nameFilters) const
         });
     }
     return out;
+}
+
+void ApplicationInfo::mediaAsync(const QStringList &nameFilters, const QJSValue &callback)
+{
+    watchMedia();
+    struct Entry { QString path, folder; QDateTime modified; qint64 size; };
+    const QString root = Paths::userMedia();
+    // The callback stays on this thread; the worker only carries its id.
+    const int id = ++m_mediaRequest;
+    m_mediaCallbacks.insert(id, callback);
+    QPointer<ApplicationInfo> self(this);
+    std::thread([self, root, nameFilters, id] {
+        QList<Entry> files;
+        QDirIterator it(root, nameFilters, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+        while (it.hasNext()) {
+            it.next();
+            const QString path = it.filePath();
+            if (path.contains(QLatin1String("/.")) || path.contains(QLatin1String("/Android/")))
+                continue; // hidden folders (.thumbnails, .trash) and app data
+            const QFileInfo f = it.fileInfo();
+            files.append({f.absoluteFilePath(), f.absolutePath().mid(root.size() + 1), f.lastModified(), f.size()});
+        }
+        std::sort(files.begin(), files.end(), [](const Entry &a, const Entry &b) { return a.modified > b.modified; });
+        QMetaObject::invokeMethod(qApp, [self, files, id] {
+            if (!self)
+                return;
+            const QJSValue callback = self->m_mediaCallbacks.take(id);
+            if (!callback.isCallable())
+                return;
+            QJSEngine *engine = qjsEngine(self.data());
+            if (!engine)
+                return;
+            QJSValue list = engine->newArray(uint(files.size()));
+            quint32 i = 0;
+            for (const Entry &e : files) {
+                const QString suffix = QFileInfo(e.path).suffix().toLower();
+                list.setProperty(i++, engine->toScriptValue(QVariantMap{
+                    {QStringLiteral("path"), e.path},
+                    {QStringLiteral("url"), QUrl::fromLocalFile(e.path)},
+                    {QStringLiteral("name"), QFileInfo(e.path).fileName()},
+                    {QStringLiteral("folder"), e.folder},
+                    {QStringLiteral("modified"), e.modified},
+                    {QStringLiteral("size"), double(e.size)},
+                    {QStringLiteral("video"), suffix == QLatin1String("mp4") || suffix == QLatin1String("webm") || suffix == QLatin1String("mkv")}}));
+            }
+            QJSValue cb = callback;
+            cb.call({list});
+        }, Qt::QueuedConnection);
+    }).detach();
 }
 
 bool ApplicationInfo::removeMedia(const QString &path)

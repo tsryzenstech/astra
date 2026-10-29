@@ -37,6 +37,25 @@ Item {
         shown = false
         reveal.animateTo(0, 0)
     }
+    // The cards jump up together while the blur fades back to home.
+    property bool closingAll: false
+    Spring { id: fling; to: 0; response: 0.34; dampingFraction: 0.9 }
+    function closeAll() {
+        closingAll = true
+        fling.value = -0.04            // a little dip first, then up
+        fling.animateTo(1, 6)
+        close()
+        closeAllTimer.start()
+    }
+    Timer {
+        id: closeAllTimer
+        interval: 380
+        onTriggered: {
+            root.apps.stopAll()
+            fling.snap(0)
+            root.closingAll = false
+        }
+    }
     // Screen rect of the first card, where the current app shrinks to.
     function firstCardRect() {
         return Qt.rect((width - cardWidth) / 2, cardY, cardWidth, cardHeight)
@@ -84,8 +103,10 @@ Item {
         orientation: ListView.Horizontal
         model: root.cards
         spacing: 18
-        interactive: root.shown
+        interactive: root.shown && !root.closingAll
         opacity: Math.min(1, reveal.value * 1.6)
+        // Close all: every card leaps up and away.
+        transform: Translate { y: -fling.value * (root.height * 0.9) }
         leftMargin: (width - root.cardWidth) / 2
         rightMargin: leftMargin
         snapMode: ListView.SnapToItem
@@ -249,10 +270,7 @@ Item {
             id: closeAllArea
             anchors.fill: parent
             enabled: root.shown
-            onClicked: {
-                root.apps.stopAll()
-                root.close()
-            }
+            onClicked: root.closeAll()
         }
     }
 }

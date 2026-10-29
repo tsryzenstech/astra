@@ -20,5 +20,15 @@
     "permissions": [
         "astra.permission.INTERNET"
     ],
-    "widgets": []
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Home",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small",
+                "medium"
+            ]
+        }
+    ]
 }

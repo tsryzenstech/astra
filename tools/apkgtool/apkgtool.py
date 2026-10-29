@@ -33,7 +33,8 @@ COMPRESSION_ZLIB = 1
 TYPE_FILE = 0
 
 PACKAGE_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
-WIDGET_SIZES = ("small", "wide")
+WIDGET_SIZES = ("small", "wide")                         # lock screen
+HOME_WIDGET_SIZES = ("small", "medium", "large", "bar")   # home screen
 EXCLUDED_NAMES = {"__pycache__", ".DS_Store", "Thumbs.db"}
 EXCLUDED_SUFFIXES = (".qmlc", ".jsc", ".pyc", "~")
 
@@ -70,13 +71,19 @@ def validate_manifest(manifest, root):
         raise ApkgError("app.json: 'permissions' must be a list of strings")
     seen = set()
     for widget in manifest.get("widgets", []):
-        for key in ("id", "name", "qml", "size"):
+        for key in ("id", "name", "qml"):
             if not isinstance(widget.get(key), str):
                 raise ApkgError(f"app.json: widget is missing '{key}'")
+        # A widget is for the lock screen ("size") and/or the home screen ("home": [sizes]).
+        home = widget.get("home")
+        if "size" not in widget and not home:
+            raise ApkgError(f"app.json: widget '{widget['id']}' needs 'size' (lock screen) or 'home' (home screen)")
+        if home is not None and (not isinstance(home, list) or not all(h in HOME_WIDGET_SIZES for h in home)):
+            raise ApkgError(f"app.json: widget 'home' sizes must be among {HOME_WIDGET_SIZES}")
         if widget["id"] in seen:
             raise ApkgError(f"app.json: duplicate widget id '{widget['id']}'")
         seen.add(widget["id"])
-        if widget["size"] not in WIDGET_SIZES:
+        if "size" in widget and widget["size"] not in WIDGET_SIZES:
             raise ApkgError(f"app.json: widget size must be one of {WIDGET_SIZES}")
         if not os.path.isfile(os.path.join(root, widget["qml"])):
             raise ApkgError(f"app.json: widget '{widget['id']}' points to missing file {widget['qml']}")
