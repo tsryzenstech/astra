@@ -26,10 +26,15 @@ prepare)
     # (through openresolv) and ModemManager bearers write it.
     : > /run/resolv.conf
     chmod 644 /run/resolv.conf
+    mkdir -p /data/var/lib/dbus /run/dbus
     [ -f /data/var/lib/dbus/machine-id ] || cat /proc/sys/kernel/random/uuid | tr -d - > /data/var/lib/dbus/machine-id
+    ln -sfn /data/var/lib/dbus/machine-id /run/machine-id
     ;;
 dbus)
     bin=$(find_bin /system/bin/dbus-daemon) || missing dbus-daemon
+    mkdir -p /run/dbus
+    chown messagebus:messagebus /run/dbus 2>/dev/null || true
+    chmod 0755 /run/dbus
     rm -f /run/dbus/system_bus_socket /run/dbus/dbus.pid
     exec "$bin" --system --nofork --nopidfile
     ;;

@@ -11,9 +11,10 @@ on post-fs-data
     mkdir /data/var/lib/ModemManager 0700 root root
     mkdir /data/var/lib/dbus 0755 root root
     exec -- /system/bin/sh /system/etc/connectivity/launch.sh prepare
+    start dbus
 
 service dbus /system/bin/sh /system/etc/connectivity/launch.sh dbus
-    class early
+    class core
 
 service pd-mapper /system/bin/sh /system/etc/connectivity/launch.sh pd-mapper
     class core
