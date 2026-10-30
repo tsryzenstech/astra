@@ -28,6 +28,7 @@
 #include <sys/klog.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
@@ -68,8 +69,63 @@ static void print_kernel_tail(int lines)
     free(buf);
 }
 
+/* Kernels with the USB gadget stack as modules (postmarketOS's): the
+ * ramdisk carries them in /lib/modules, loaded in the order of gadget.order. */
+static void load_gadget_modules(void)
+{
+    char *order = read_file("/lib/modules/gadget.order", NULL);
+    for (char *line = order ? strtok(order, "\n") : NULL; line; line = strtok(NULL, "\n")) {
+        char path[256];
+        snprintf(path, sizeof(path), "/lib/modules/%s", line);
+        int fd = open(path, O_RDONLY | O_CLOEXEC);
+        if (fd < 0)
+            continue;
+        /* MODULE_INIT_COMPRESSED_FILE: the kernel decompresses .ko.zst itself. */
+        if (syscall(SYS_finit_module, fd, "", 4) < 0 && errno != EEXIST &&
+            syscall(SYS_finit_module, fd, "", 0) < 0 && errno != EEXIST)
+            WARN("rescue: cannot load %s: %s", line, strerror(errno));
+        close(fd);
+    }
+    free(order);
+}
+
+/* What tells why a boot fails, collected into a small FAT image that the
+ * phone shows to the computer as a USB drive named ASTRALOGS: this boot's
+ * kernel log (display and USB probing included), the previous boot's log
+ * kept in RAM by ramoops, and the state of displays, drivers and devices. */
+static const char COLLECT_LOGS[] =
+    "sleep 12\n"
+    "L=/logs; mkdir -p $L\n"
+    "dmesg > $L/dmesg.txt\n"
+    "for f in /sys/fs/pstore/*; do [ -f \"$f\" ] && cat \"$f\" > \"$L/previous-boot-${f##*/}.txt\"; done\n"
+    "mkdir -p /sys/kernel/debug; mount -t debugfs none /sys/kernel/debug 2>/dev/null\n"
+    "{ echo \"== reason\"; echo \"$ASTRA_RESCUE_REASON\"; echo \"== kernel\"; uname -a; cat /proc/cmdline\n"
+    "  echo \"== partitions\"; cat /proc/partitions\n"
+    "  echo \"== drm\"; ls -l /dev/dri /sys/class/drm /dev/fb* 2>&1\n"
+    "  for s in /sys/class/drm/*/status; do echo \"$s: $(cat $s)\"; done\n"
+    "  echo \"== devices waiting for a driver\"; cat /sys/kernel/debug/devices_deferred 2>&1\n"
+    "  echo \"== usb\"; ls /sys/class/udc /sys/class/typec 2>&1\n"
+    "  echo \"== modules\"; cat /proc/modules\n"
+    "} > $L/info.txt 2>&1\n"
+    "dd if=/dev/zero of=/logs.img bs=1M count=32 2>/dev/null\n"
+    "mkfs.vfat -n ASTRALOGS /logs.img >/dev/null\n"
+    "mkdir -p /mnt/logs && mount -t vfat -o loop /logs.img /mnt/logs && cp $L/* /mnt/logs/ && sync && umount /mnt/logs\n";
+
+static void collect_logs(void)
+{
+    pid_t pid = fork();
+    if (pid == 0) {
+        setenv("PATH", "/bin", 1);
+        execl(BUSYBOX, "sh", "-c", COLLECT_LOGS, (char *)NULL);
+        _exit(127);
+    }
+    if (pid > 0)
+        waitpid(pid, NULL, 0);
+}
+
 static int usb_serial_gadget(void)
 {
+    load_gadget_modules();
     mkdir("/sys/kernel/config", 0755);
     if (access("/sys/kernel/config/usb_gadget", F_OK) < 0 &&
         mount("configfs", "/sys/kernel/config", "configfs", 0, NULL) < 0 && errno != EBUSY)
@@ -85,6 +141,13 @@ static int usb_serial_gadget(void)
     write_file(GADGET "/configs/c.1/strings/0x409/configuration", "rescue serial");
     write_file(GADGET "/configs/c.1/MaxPower", "500");
     symlink(GADGET "/functions/acm.GS0", GADGET "/configs/c.1/acm.GS0");
+    /* The logs, as a read-only USB drive. */
+    if (access("/logs.img", F_OK) == 0 && mkdir_p(GADGET "/functions/mass_storage.logs", 0755) == 0) {
+        write_file(GADGET "/functions/mass_storage.logs/lun.0/removable", "1");
+        write_file(GADGET "/functions/mass_storage.logs/lun.0/ro", "1");
+        write_file(GADGET "/functions/mass_storage.logs/lun.0/file", "/logs.img");
+        symlink(GADGET "/functions/mass_storage.logs", GADGET "/configs/c.1/mass_storage.logs");
+    }
 
     /* The USB controller can take a moment to probe. */
     for (int i = 0; i < 100; i++) {
@@ -159,10 +222,12 @@ void rescue(const char *why)
         if (pid > 0)
             waitpid(pid, NULL, 0);
     }
-    int usb = usb_serial_gadget();
     /* The previous boot's kernel log (ramoops), read with cat in /sys/fs/pstore. */
     mkdir("/sys/fs/pstore", 0755);
     mount("pstore", "/sys/fs/pstore", "pstore", 0, NULL);
+    if (have_shell)
+        collect_logs();
+    int usb = usb_serial_gadget();
 
     char banner[1024];
     snprintf(banner, sizeof(banner),
@@ -174,7 +239,7 @@ void rescue(const char *why)
              "  Hold the power button for 10 seconds to turn the phone off,\n"
              "  or connect it to a computer and run: fastboot reboot bootloader\n",
              why,
-             usb == 0 && have_shell ? "A rescue shell is available over USB serial (ttyACM / COM port)."
+             usb == 0 && have_shell ? "Logs: USB drive ASTRALOGS. Shell: USB serial (ttyACM / COM port)."
                                     : "No USB rescue shell is available on this build.");
     tty_print(banner);
     print_kernel_tail(40);
