@@ -1,0 +1,87 @@
+# astraOS SDK
+
+Everything needed to make an astraOS app: project templates, the components
+of the system UI, the design language check, packaging, and running on a
+phone. [Astra Studio](https://github.com/tsryzenstech/astra-studio) is the IDE
+built on it (Windows); the same tools work from the command line on Windows,
+Linux and macOS.
+
+- [Getting started](#getting-started)
+- [The design language](../DESIGN.md): what `astra check` enforces
+- [API reference](REFERENCE.md): Astra.Controls and Astra.Core
+- [Writing apps](../APPS.md), [the .apkg format](../APKG.md)
+
+## Getting started
+
+You need Python 3. In this repository the SDK is `sdk/` (Astra Studio ships
+its own copy):
+
+```bash
+sdk/bin/astra new myapp --template list --name "My App" --package com.example.myapp
+sdk/bin/astra check myapp
+sdk/bin/astra run myapp
+```
+
+On Windows use `sdk\bin\astra.cmd`. `astra run` packages the app, installs it
+on the phone connected over USB (Settings > Developer options > USB
+debugging) and follows its log.
+
+| Command | |
+|---|---|
+| `astra new <dir> [--template app\|tabs\|list] [--name] [--package] [--accent #RRGGBB]` | a new project |
+| `astra templates` | the templates |
+| `astra check [dir] [--json]` | the design language and the manifest; `--json` for tools |
+| `astra build [dir] [-o file.apkg]` | check, then package (`dist/<package>.apkg`) |
+| `astra run [dir]` | build, install on the phone, start, follow the log |
+| `astra install <app.apkg>`, `astra logs`, `astra screenshot [file]`, `astra devices` | the phone |
+| `astra i18n [dir]` | add new `qsTr()` strings to `i18n/<language>.json` |
+
+## A project
+
+```
+myapp/
+├── app.json          manifest: package, name, version, accent, permissions, widgets
+├── icon.svg
+├── qml/Main.qml      the app: a Page, a PageStack or an Item
+├── widgets/          home and lock screen widgets (optional)
+└── i18n/it.json      translations (astra i18n)
+```
+
+```qml
+import QtQuick
+import Astra.Core
+import Astra.Controls
+
+Page {
+    title: qsTr("Hello")
+    ListGroup {
+        ListItem {
+            text: qsTr("Post a notification")
+            chevron: true
+            onClicked: Notifications.post(qsTr("Hello"), qsTr("From my app"))
+        }
+    }
+}
+```
+
+The templates:
+
+| Template | |
+|---|---|
+| `app` | one page with a list, a card and a sheet |
+| `tabs` | sections behind a `TabBar`, each with its own `PageStack` |
+| `list` | items saved in the app's data folder (`Files.appData`), a detail page, a sheet to add one |
+
+## Publishing
+
+Upload the `.apkg` from `astra build` in the developer panel of the store
+(`/dev/` on the astraOS cloud server) or with `curl` from CI (see the server's
+README). Market runs the same design check before publishing.
+
+## Updating the reference
+
+`docs/sdk/REFERENCE.md` is generated from the sources:
+
+```bash
+python3 sdk/tools/gen_reference.py
+```

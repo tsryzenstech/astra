@@ -8,6 +8,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QImageReader>
@@ -106,6 +107,17 @@ ApplicationInfo::ApplicationInfo(QObject *parent)
 QString ApplicationInfo::packageName() const
 {
     return qEnvironmentVariable("ASTRA_PACKAGE");
+}
+
+QColor ApplicationInfo::accent() const
+{
+    QFile f(Paths::dataApp() + QLatin1Char('/') + packageName() + QStringLiteral("/code/app.json"));
+    if (f.open(QIODevice::ReadOnly)) {
+        const QColor c(QJsonDocument::fromJson(f.readAll()).object().value(QLatin1String("accent")).toString());
+        if (c.isValid())
+            return c;
+    }
+    return {};   // Theme.accent applies
 }
 
 QString ApplicationInfo::dataDir() const

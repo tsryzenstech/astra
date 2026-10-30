@@ -72,6 +72,8 @@ Details: [docs/FILESYSTEM.md](docs/FILESYSTEM.md).
 - [Filesystem layout](docs/FILESYSTEM.md)
 - [The .apkg package format](docs/APKG.md)
 - [Writing apps and lock screen widgets](docs/APPS.md)
+- [The design language](docs/DESIGN.md), enforced on every app
+- [SDK](docs/sdk/README.md): templates, `astra` command, [API reference](docs/sdk/REFERENCE.md); IDE: [Astra Studio](https://github.com/tsryzenstech/astra-studio)
 - [IPC protocol and system services](docs/IPC.md)
 - [AnimationEngine](docs/ANIMATION.md)
 - [Development setup](docs/DEVELOPMENT.md)

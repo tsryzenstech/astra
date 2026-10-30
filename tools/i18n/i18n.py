@@ -74,7 +74,10 @@ def main(argv):
         print(__doc__)
         return 2
     mode, wanted = argv[0], argv[1:]
-    comps = components()
+    # A path to an app outside the tree (astra i18n <project>) is a component too.
+    external = {w: (os.path.abspath(w), os.path.join(os.path.abspath(w), "i18n"))
+                for w in wanted if os.path.isfile(os.path.join(w, "app.json"))}
+    comps = external if external else components()
     missing_total = 0
     for name, (src, i18n) in comps.items():
         if wanted and name not in wanted:

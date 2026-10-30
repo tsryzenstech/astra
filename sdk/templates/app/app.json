@@ -1,0 +1,14 @@
+{
+    "package": "{{package}}",
+    "name": "{{name}}",
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "accent": "{{accent}}",
+    "category": "Utilities",
+    "launcher": { "visible": true },
+    "permissions": [],
+    "widgets": []
+}

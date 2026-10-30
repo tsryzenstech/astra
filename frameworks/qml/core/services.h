@@ -4,6 +4,7 @@
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QJSValue>
+#include <QColor>
 #include <QObject>
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
@@ -73,9 +74,13 @@ class ApplicationInfo : public QObject
     Q_PROPERTY(QVariantMap args READ args NOTIFY argsChanged)
     Q_PROPERTY(QString dataDir READ dataDir CONSTANT)
     Q_PROPERTY(QString mediaDir READ mediaDir CONSTANT)
+    // The app's own colour ("accent" in app.json), or the user's system
+    // accent when the app has none. The only colour an app may add to Theme.
+    Q_PROPERTY(QColor accent READ accent CONSTANT)
 
 public:
     explicit ApplicationInfo(QObject *parent = nullptr);
+    QColor accent() const;
     QString packageName() const;
     QVariantMap args() const { return m_args; }
     QString dataDir() const;

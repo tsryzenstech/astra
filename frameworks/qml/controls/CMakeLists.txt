@@ -34,6 +34,7 @@ qt_add_qml_module(astracontrols
         Slider.qml
         Spinner.qml
         Switch.qml
+        TabBar.qml
         TextField.qml
         Theme.qml
         WeatherGlyph.qml

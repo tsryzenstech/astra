@@ -34,8 +34,15 @@ Page {
 ```
 
 ```bash
-python3 tools/apkgtool/apkgtool.py pack hello -o hello.apkg
+sdk/bin/astra new hello          # or start from Astra Studio
+sdk/bin/astra run hello          # check, package, install on the phone, start
 ```
+
+Apps are built from Astra.Controls and Theme and follow the system's
+[design language](DESIGN.md), which `astra check` enforces; the
+[SDK](sdk/README.md) has the templates and the [reference](sdk/REFERENCE.md).
+`python3 tools/apkgtool/apkgtool.py pack hello -o hello.apkg` packages
+without the check (system apps only).
 
 System apps are packed by CMake (`astra_add_app()` in `apps/CMakeLists.txt`).
 
