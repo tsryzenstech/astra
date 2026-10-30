@@ -36,6 +36,8 @@ on init
     chown system graphics /dev/dri/card0
     chown system graphics /dev/dri/card1
     chown system graphics /dev/dri/renderD128
+    chmod 0666 /dev/fb0
+    chown system graphics /dev/fb0
     start bootanim
 
 on fs
