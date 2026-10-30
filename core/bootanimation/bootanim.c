@@ -182,78 +182,89 @@ static void render(struct surface *s, const struct config *cfg, const struct ima
 
 static int drm_open(struct surface *s)
 {
-    for (int card = 0; card < 4; card++) {
-        char path[32];
-        snprintf(path, sizeof(path), "/dev/dri/card%d", card);
-        int fd = open(path, O_RDWR | O_CLOEXEC);
-        if (fd < 0)
-            continue;
-        drmModeRes *res = drmModeGetResources(fd);
-        if (!res) {
-            close(fd);
-            continue;
-        }
-        for (int i = 0; i < res->count_connectors; i++) {
-            drmModeConnector *conn = drmModeGetConnector(fd, res->connectors[i]);
-            if (!conn)
+    for (int pass = 0; pass < 2; pass++) {
+        for (int card = 0; card < 4; card++) {
+            char path[32];
+            snprintf(path, sizeof(path), "/dev/dri/card%d", card);
+            int fd = open(path, O_RDWR | O_CLOEXEC);
+            if (fd < 0)
                 continue;
-            if (conn->connection != DRM_MODE_CONNECTED || conn->count_modes == 0) {
+            drmModeRes *res = drmModeGetResources(fd);
+            if (!res) {
+                close(fd);
+                continue;
+            }
+            for (int i = 0; i < res->count_connectors; i++) {
+                drmModeConnector *conn = drmModeGetConnector(fd, res->connectors[i]);
+                if (!conn)
+                    continue;
+                if (conn->connection != DRM_MODE_CONNECTED || conn->count_modes == 0) {
+                    drmModeFreeConnector(conn);
+                    continue;
+                }
+                if (conn->connector_type == DRM_MODE_CONNECTOR_Unknown) {
+                    drmModeFreeConnector(conn);
+                    continue;
+                }
+                if (pass == 0 && conn->connector_type != DRM_MODE_CONNECTOR_DSI &&
+                    conn->connector_type != DRM_MODE_CONNECTOR_eDP) {
+                    drmModeFreeConnector(conn);
+                    continue;
+                }
+                s->mode = conn->modes[0];
+                for (int m = 0; m < conn->count_modes; m++)
+                    if (conn->modes[m].type & DRM_MODE_TYPE_PREFERRED)
+                        s->mode = conn->modes[m];
+
+                uint32_t crtc = 0;
+                drmModeEncoder *enc = conn->encoder_id ? drmModeGetEncoder(fd, conn->encoder_id) : NULL;
+                if (enc && enc->crtc_id)
+                    crtc = enc->crtc_id;
+                for (int e = 0; !crtc && e < conn->count_encoders; e++) {
+                    drmModeEncoder *cand = drmModeGetEncoder(fd, conn->encoders[e]);
+                    for (int c = 0; cand && c < res->count_crtcs; c++)
+                        if (cand->possible_crtcs & (1u << c)) {
+                            crtc = res->crtcs[c];
+                            break;
+                        }
+                    drmModeFreeEncoder(cand);
+                }
+                drmModeFreeEncoder(enc);
+                s->conn_id = conn->connector_id;
                 drmModeFreeConnector(conn);
-                continue;
-            }
-            s->mode = conn->modes[0];
-            for (int m = 0; m < conn->count_modes; m++)
-                if (conn->modes[m].type & DRM_MODE_TYPE_PREFERRED)
-                    s->mode = conn->modes[m];
+                if (!crtc)
+                    continue;
 
-            uint32_t crtc = 0;
-            drmModeEncoder *enc = conn->encoder_id ? drmModeGetEncoder(fd, conn->encoder_id) : NULL;
-            if (enc && enc->crtc_id)
-                crtc = enc->crtc_id;
-            for (int e = 0; !crtc && e < conn->count_encoders; e++) {
-                drmModeEncoder *cand = drmModeGetEncoder(fd, conn->encoders[e]);
-                for (int c = 0; cand && c < res->count_crtcs; c++)
-                    if (cand->possible_crtcs & (1u << c)) {
-                        crtc = res->crtcs[c];
-                        break;
-                    }
-                drmModeFreeEncoder(cand);
-            }
-            drmModeFreeEncoder(enc);
-            s->conn_id = conn->connector_id;
-            drmModeFreeConnector(conn);
-            if (!crtc)
-                continue;
+                s->crtc_id = crtc;
+                s->drm_fd = fd;
+                s->width = s->mode.hdisplay;
+                s->height = s->mode.vdisplay;
+                drmModeFreeResources(res);
 
-            s->crtc_id = crtc;
-            s->drm_fd = fd;
-            s->width = s->mode.hdisplay;
-            s->height = s->mode.vdisplay;
+                struct drm_mode_create_dumb creq = {.width = (uint32_t)s->width, .height = (uint32_t)s->height, .bpp = 32};
+                if (drmIoctl(fd, DRM_IOCTL_MODE_CREATE_DUMB, &creq) < 0)
+                    goto fail;
+                s->handle = creq.handle;
+                s->stride = (int)creq.pitch;
+                s->size = creq.size;
+                if (drmModeAddFB(fd, (uint32_t)s->width, (uint32_t)s->height, 24, 32, creq.pitch, creq.handle, &s->fb_id))
+                    goto fail;
+                struct drm_mode_map_dumb mreq = {.handle = creq.handle};
+                if (drmIoctl(fd, DRM_IOCTL_MODE_MAP_DUMB, &mreq) < 0)
+                    goto fail;
+                s->pixels = mmap(NULL, s->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)mreq.offset);
+                if (s->pixels == MAP_FAILED)
+                    goto fail;
+                s->saved_crtc = drmModeGetCrtc(fd, crtc);
+                return 0;
+            fail:
+                fprintf(stderr, "bootanim: dumb buffer setup failed: %s\n", strerror(errno));
+                close(fd);
+                return -1;
+            }
             drmModeFreeResources(res);
-
-            struct drm_mode_create_dumb creq = {.width = (uint32_t)s->width, .height = (uint32_t)s->height, .bpp = 32};
-            if (drmIoctl(fd, DRM_IOCTL_MODE_CREATE_DUMB, &creq) < 0)
-                goto fail;
-            s->handle = creq.handle;
-            s->stride = (int)creq.pitch;
-            s->size = creq.size;
-            if (drmModeAddFB(fd, (uint32_t)s->width, (uint32_t)s->height, 24, 32, creq.pitch, creq.handle, &s->fb_id))
-                goto fail;
-            struct drm_mode_map_dumb mreq = {.handle = creq.handle};
-            if (drmIoctl(fd, DRM_IOCTL_MODE_MAP_DUMB, &mreq) < 0)
-                goto fail;
-            s->pixels = mmap(NULL, s->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)mreq.offset);
-            if (s->pixels == MAP_FAILED)
-                goto fail;
-            s->saved_crtc = drmModeGetCrtc(fd, crtc);
-            return 0;
-        fail:
-            fprintf(stderr, "bootanim: dumb buffer setup failed: %s\n", strerror(errno));
             close(fd);
-            return -1;
         }
-        drmModeFreeResources(res);
-        close(fd);
     }
     return -1;
 }

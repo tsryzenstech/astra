@@ -60,7 +60,21 @@ static QString displayCard(int timeoutMs)
 {
     for (int waited = 0;; waited += 100) {
         const QDir drm(QStringLiteral("/sys/class/drm"));
+        // First priority: the internal panel (DSI/eDP).
+        for (const QString &pattern : {QStringLiteral("card*-DSI-*"), QStringLiteral("card*-eDP-*")}) {
+            for (const QString &entry : drm.entryList({pattern}, QDir::Dirs | QDir::System, QDir::Name)) {
+                QFile status(drm.filePath(entry) + QStringLiteral("/status"));
+                if (status.open(QIODevice::ReadOnly) && status.readAll().trimmed() == "connected") {
+                    const QString card = QStringLiteral("/dev/dri/") + entry.section(QLatin1Char('-'), 0, 0);
+                    if (QFileInfo::exists(card))
+                        return card;
+                }
+            }
+        }
+        // Second priority: any connected connector that is not a boot framebuffer (Unknown).
         for (const QString &entry : drm.entryList({QStringLiteral("card*-*")}, QDir::Dirs | QDir::System, QDir::Name)) {
+            if (entry.contains(QLatin1String("Unknown")))
+                continue;
             QFile status(drm.filePath(entry) + QStringLiteral("/status"));
             if (status.open(QIODevice::ReadOnly) && status.readAll().trimmed() == "connected") {
                 const QString card = QStringLiteral("/dev/dri/") + entry.section(QLatin1Char('-'), 0, 0);
