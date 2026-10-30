@@ -231,6 +231,26 @@ int lp_map_super(const char *super_dev)
     return mapped;
 }
 
+int lp_map_linear(const char *name, const char *dev, uint64_t start_sector, uint64_t num_sectors)
+{
+    struct stat st;
+    if (stat(dev, &st) < 0)
+        return -1;
+    struct lp_extent ext = {.num_sectors = num_sectors, .target_type = LP_TARGET_TYPE_LINEAR,
+                            .target_data = start_sector};
+    unsigned minor_num;
+    if (dm_create(name, st.st_rdev, &ext, 1, 0, &minor_num) < 0)
+        return -1;
+    char link[96], target[32];
+    mkdir_p("/dev/block/mapper", 0755);
+    snprintf(link, sizeof(link), "/dev/block/mapper/%s", name);
+    snprintf(target, sizeof(target), "/dev/dm-%u", minor_num);
+    unlink(link);
+    symlink(target, link);
+    INFO("lp: mapped %s -> %s (%s from sector %llu)", name, target, dev, (unsigned long long)start_sector);
+    return 0;
+}
+
 int lp_partition_path(const char *name, char *out, size_t outlen)
 {
     snprintf(out, outlen, "/dev/block/mapper/%s", name);

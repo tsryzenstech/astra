@@ -8,9 +8,12 @@
 #include "util.h"
 
 #include <errno.h>
+#include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -115,14 +118,70 @@ void fstab_free(struct fstab *fs)
     free(fs);
 }
 
+/* Booted through U-Boot, userdata starts with a small disk image: a GPT
+ * (4096 or 512 byte sectors) whose first partition, "astra_esp", is the EFI
+ * system partition U-Boot starts astraOS from. /data is what follows the
+ * first ASTRA_ESP_RESERVED bytes. */
+#define ASTRA_ESP_RESERVED (128ULL << 20)
+
+static int has_astra_esp(const char *dev)
+{
+    int fd = open(dev, O_RDONLY | O_CLOEXEC);
+    if (fd < 0)
+        return 0;
+    int found = 0;
+    for (unsigned lba = 512; lba <= 4096 && !found; lba *= 8) {
+        unsigned char hdr[92], entry[128];
+        if (pread(fd, hdr, sizeof(hdr), lba) != sizeof(hdr) || memcmp(hdr, "EFI PART", 8))
+            continue;
+        uint64_t entries_lba;
+        memcpy(&entries_lba, hdr + 72, sizeof(entries_lba));
+        if (pread(fd, entry, sizeof(entry), (off_t)(entries_lba * lba)) != sizeof(entry))
+            continue;
+        /* The partition name is UTF-16LE at offset 56. */
+        const char *want = "astra_esp";
+        found = 1;
+        for (size_t i = 0; i <= strlen(want); i++)
+            if (entry[56 + 2 * i] != (unsigned char)want[i] || entry[57 + 2 * i] != 0)
+                found = 0;
+    }
+    close(fd);
+    return found;
+}
+
+static int map_astra_data(const char *dev, char *out, size_t outlen)
+{
+    int fd = open(dev, O_RDONLY | O_CLOEXEC);
+    uint64_t size = 0;
+    if (fd < 0 || ioctl(fd, BLKGETSIZE64, &size) < 0 || size <= 2 * ASTRA_ESP_RESERVED) {
+        if (fd >= 0)
+            close(fd);
+        return -1;
+    }
+    close(fd);
+    if (lp_map_linear("astra-data", dev, ASTRA_ESP_RESERVED / 512, (size - ASTRA_ESP_RESERVED) / 512) < 0)
+        return -1;
+    return lp_partition_path("astra-data", out, outlen);
+}
+
 static int resolve_source(const struct fstab_entry *e, char *out, size_t outlen)
 {
     if (e->logical)
         return lp_partition_path(e->src, out, outlen);
 
     const char *prefix = "/dev/block/by-name/";
-    if (!strncmp(e->src, prefix, strlen(prefix)))
-        return find_block_by_partname(e->src + strlen(prefix), out, outlen, e->wait ? 10000 : 0);
+    if (!strncmp(e->src, prefix, strlen(prefix))) {
+        if (find_block_by_partname(e->src + strlen(prefix), out, outlen, e->wait ? 10000 : 0) < 0)
+            return -1;
+        if (!strcmp(e->mount_point, "/data") && has_astra_esp(out)) {
+            char data[128];
+            if (map_astra_data(out, data, sizeof(data)) == 0) {
+                INFO("fstab: /data follows the EFI partition on %s", out);
+                snprintf(out, outlen, "%s", data);
+            }
+        }
+        return 0;
+    }
 
     snprintf(out, outlen, "%s", e->src);
     if (e->wait) {
