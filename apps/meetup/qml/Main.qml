@@ -291,6 +291,9 @@ Rectangle {
                 item.camOn = app.camOn
                 item.joinedNow.connect(() => app.callStart = Date.now())
             }
+            // Why it failed: the system module missing, or an error in the call view.
+            readonly property string error: status === Loader.Error ? Qt.createComponent(source).errorString().trim() : ""
+            onErrorChanged: if (error) console.warn("MeetUp:", error)
         }
         Text {
             anchors.centerIn: parent
@@ -298,7 +301,9 @@ Rectangle {
             visible: callLoader.status === Loader.Error
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
-            text: qsTr("This version of astraOS is missing %1, which calls need.").arg("Qt WebEngine")
+            text: /module "QtWebEngine" is not installed/.test(callLoader.error)
+                  ? qsTr("This version of astraOS is missing %1, which calls need.").arg("Qt WebEngine")
+                  : callLoader.error
             color: "white"
             font.family: Theme.fontFamily
             font.pixelSize: Theme.bodySize

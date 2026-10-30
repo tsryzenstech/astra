@@ -13,6 +13,9 @@ Rectangle {
         anchors.fill: parent
         source: Qt.resolvedUrl("Browser.qml")
         asynchronous: false
+        // Why it failed: the system module missing, or an error in the app itself.
+        readonly property string error: status === Loader.Error ? Qt.createComponent(source).errorString().trim() : ""
+        onErrorChanged: if (error) console.warn("Planet:", error)
     }
     EmptyState {
         anchors.centerIn: parent
@@ -20,6 +23,8 @@ Rectangle {
         visible: loader.status === Loader.Error
         iconName: "warning"
         title: qsTr("Planet can't start")
-        message: qsTr("This version of astraOS is missing %1, which this app needs. Update the system to use it.").arg("Qt WebEngine")
+        message: /module "QtWebEngine" is not installed/.test(loader.error)
+                 ? qsTr("This version of astraOS is missing %1, which this app needs. Update the system to use it.").arg("Qt WebEngine")
+                 : loader.error
     }
 }

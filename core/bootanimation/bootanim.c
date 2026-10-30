@@ -10,8 +10,12 @@
  *   background #RRGGBB
  *   logo_width_percent <1-100>  (logo width relative to the screen width)
  *
- * Control: writing "stop" to /run/astra/bootanim.ctl (a FIFO) fades the logo
- * out, releases the display and exits. The FIFO disappears right before exit.
+ * Control (/run/astra/bootanim.ctl, a FIFO, written by SysBoard):
+ *   release  drop DRM master but keep the logo on screen, so SysBoard can take
+ *            the display without a black gap; answered by creating
+ *            /run/astra/bootanim.released.
+ *   stop     exit (fading the logo out first when the display was not
+ *            released). The FIFO disappears right before exit.
  *
  * Testing: bootanim --dump out.ppm <width> <height>
  *
@@ -38,6 +42,7 @@
 
 #define DEFAULT_DESC "/system/media/bootanimation/desc.txt"
 #define CONTROL_FIFO "/run/astra/bootanim.ctl"
+#define RELEASED_FILE "/run/astra/bootanim.released"
 
 struct config {
     char logo[1024];
@@ -284,9 +289,11 @@ static void drm_present(struct surface *s, int first)
     drmModeDirtyFB(s->drm_fd, s->fb_id, NULL, 0);
 }
 
-static void drm_close(struct surface *s)
+/* released: SysBoard owns the display and its framebuffer replaced ours, so
+ * leave the CRTC alone (removing a framebuffer on screen turns the panel off). */
+static void drm_close(struct surface *s, int released)
 {
-    if (s->fb_id)
+    if (s->fb_id && !released)
         drmModeRmFB(s->drm_fd, s->fb_id);
     drmDropMaster(s->drm_fd);
     munmap(s->pixels, s->size);
@@ -371,9 +378,9 @@ int main(int argc, char **argv)
 
     struct surface s = {.drm_fd = -1, .fb_fd = -1};
     /* Started as soon as /dev exists: the display driver (and its panel)
-     * may still be probing, so give it a few seconds. */
+     * may still be loading, so give it up to 20 seconds. */
     int use_drm = 0;
-    for (int tries = 0; tries < 80 && !stop_requested; tries++) {
+    for (int tries = 0; tries < 200 && !stop_requested; tries++) {
         if ((use_drm = drm_open(&s) == 0))
             break;
         usleep(100000);
@@ -383,11 +390,20 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    render(&s, &cfg, &logo, 1.0f);
+    /* Frames are drawn in memory and copied in one go: drawing straight into
+     * the buffer on screen shows half-drawn frames. */
+    struct surface back = s;
+    const size_t frame = (size_t)s.height * (size_t)s.stride;
+    back.pixels = malloc(frame);
+    render(back.pixels ? &back : &s, &cfg, &logo, 1.0f);
+    if (back.pixels)
+        memcpy(s.pixels, back.pixels, frame);
     if (use_drm)
         drm_present(&s, 1);
 
+    unlink(RELEASED_FILE);
     int ctl = open_control();
+    int released = 0;
     while (!stop_requested) {
         struct pollfd pfd = {.fd = ctl, .events = POLLIN};
         if (poll(&pfd, ctl >= 0 ? 1 : 0, ctl >= 0 ? -1 : 1000) > 0) {
@@ -395,27 +411,38 @@ int main(int argc, char **argv)
             ssize_t n = read(ctl, buf, sizeof(buf) - 1);
             if (n > 0) {
                 buf[n] = '\0';
+                if (strstr(buf, "release") && !released) {
+                    if (use_drm)
+                        drmDropMaster(s.drm_fd);
+                    released = 1;
+                    int fd = open(RELEASED_FILE, O_WRONLY | O_CREAT | O_CLOEXEC, 0644);
+                    if (fd >= 0)
+                        close(fd);
+                }
                 if (strstr(buf, "stop"))
                     stop_requested = 1;
             }
         }
     }
 
-    /* Short fade-out so the hand-over to SysBoard does not look like a cut. */
-    for (int step = 9; step >= 0; step--) {
-        render(&s, &cfg, &logo, (float)step / 10.0f);
+    /* Stopped without a hand-over: a short fade-out instead of a cut. */
+    for (int step = 9; !released && back.pixels && step >= 0; step--) {
+        render(&back, &cfg, &logo, (float)step / 10.0f);
+        memcpy(s.pixels, back.pixels, frame);
         if (use_drm)
             drm_present(&s, 0);
         usleep(16000);
     }
+    free(back.pixels);
 
     if (use_drm)
-        drm_close(&s);
+        drm_close(&s, released);
     else {
         munmap(s.pixels, s.size);
         close(s.fb_fd);
     }
     unlink(CONTROL_FIFO);
+    unlink(RELEASED_FILE);
     free(logo.rgba);
     return 0;
 }

@@ -44,7 +44,9 @@ public:
     bool virtualKeyboard() const; // is the astraOS input method loaded?
     QObject *keyboard() const;
 
-    // Blocks until the boot animation released the display (max ~1.5 s).
+    // Blocks until the boot animation dropped DRM master (max ~1.5 s); its
+    // logo stays on screen until stopBootAnimation(), after our first frame.
+    static void releaseBootAnimation();
     static void stopBootAnimation();
 
     Q_INVOKABLE void compositorReady(QQuickWindow *window);

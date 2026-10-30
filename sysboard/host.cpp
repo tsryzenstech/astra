@@ -23,6 +23,7 @@
 #include <QThread>
 #include <QTimer>
 
+#include <cstring>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -167,27 +168,43 @@ QObject *SysBoardHost::keyboard() const
     return qApp->property("astraKeyboard").value<QObject *>();
 }
 
-void SysBoardHost::stopBootAnimation()
+// Writes a command to the boot animation's FIFO; false when it is not running.
+static bool bootAnimationCommand(const char *command)
 {
     const QByteArray fifo = QFile::encodeName(Paths::bootAnimationControl());
     const int fd = ::open(fifo.constData(), O_WRONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0)
-        return; // not running (development or already gone)
-    if (::write(fd, "stop\n", 5) < 0)
+        return false; // not running (development or already gone)
+    if (::write(fd, command, strlen(command)) < 0)
         qWarning("sysboard: cannot signal the boot animation");
     ::close(fd);
+    return true;
+}
+
+void SysBoardHost::releaseBootAnimation()
+{
+    if (!bootAnimationCommand("release\n"))
+        return;
+    const QString released = QFileInfo(Paths::bootAnimationControl()).absolutePath() + QStringLiteral("/bootanim.released");
     QElapsedTimer t;
     t.start();
-    while (QFileInfo::exists(QString::fromLocal8Bit(fifo)) && t.elapsed() < 1500)
+    while (!QFileInfo::exists(released) && QFileInfo::exists(Paths::bootAnimationControl()) && t.elapsed() < 1500)
         QThread::msleep(10);
+}
+
+void SysBoardHost::stopBootAnimation()
+{
+    bootAnimationCommand("stop\n");
 }
 
 void SysBoardHost::compositorReady(QQuickWindow *window)
 {
     m_window = window;
-    // First frame on screen: the GPU path works (see main.cpp).
+    // First frame on screen: the GPU path works (see main.cpp), and the boot
+    // logo, still shown until now, can go.
     connect(window, &QQuickWindow::frameSwapped, this, [] {
         QFile::remove(Paths::runtimeDir() + QStringLiteral("/sysboard.starting"));
+        stopBootAnimation();
     }, Qt::ConnectionType(Qt::QueuedConnection | Qt::SingleShotConnection));
     // The input method follows the focus window (nested development
     // displays may not activate it by themselves).

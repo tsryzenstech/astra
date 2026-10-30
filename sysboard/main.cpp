@@ -149,8 +149,9 @@ int main(int argc, char **argv)
     qputenv("QT_PLUGIN_PATH", qEnvironmentVariableIsEmpty("QT_PLUGIN_PATH") ? plugins : plugins + ':' + qgetenv("QT_PLUGIN_PATH"));
     setDefaultEnv("QT_QUICK_CONTROLS_STYLE", "Basic");
 
-    // The boot animation owns the display until we are about to show.
-    SysBoardHost::stopBootAnimation();
+    // The boot animation hands over DRM master before Qt opens the display,
+    // and keeps its logo up until our first frame (see compositorReady).
+    SysBoardHost::releaseBootAnimation();
 
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("SysBoard"));
