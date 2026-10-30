@@ -170,6 +170,18 @@ int fstab_mount(const struct fstab_entry *e, const char *root)
             return 0;
         }
     }
+    if (e->formattable) {
+        /* Data left by the stock system is often f2fs where we expect ext4
+         * (or the other way round): mount it as it is. */
+        const char *other = !strcmp(e->type, "ext4") ? "f2fs" : "ext4";
+        if (mount(dev, target, other, e->flags, NULL) == 0) {
+            WARN("fstab: %s is %s, not %s: mounted as it is", dev, other, e->type);
+            return 0;
+        }
+        /* Still start the system, with a /data that lives in memory. */
+        ERR("fstab: mount %s on %s failed: %s; using a temporary %s", dev, target, strerror(err), target);
+        return mount("tmpfs", target, "tmpfs", MS_NOSUID | MS_NODEV, "mode=0755");
+    }
     ERR("fstab: mount %s on %s failed: %s", dev, target, strerror(err));
     return -1;
 }
