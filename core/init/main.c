@@ -116,8 +116,10 @@ static int first_stage_main(void)
         }
     }
     fstab_free(fs);
-    /* Quiet again for the rest of the boot. */
-    write_file("/proc/sys/kernel/printk", "4 4 1 7");
+    /* Quiet again for the rest of the boot, unless astra.verbose (device
+     * bring-up) asks to keep every message, the services' output included
+     * (it reaches /dev/kmsg at the default level 4), on the screen. */
+    write_file("/proc/sys/kernel/printk", cmdline_has("astra.verbose") ? "7 4 1 7" : "4 4 1 7");
 
     struct stat st;
     stat("/", &st);

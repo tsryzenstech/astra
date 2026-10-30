@@ -9,7 +9,8 @@
 # /vendor/etc/init.
 
 on early-init
-    write /proc/sys/kernel/printk "4 4 1 7"
+    # The console level is set by the first stage (quiet, or everything
+    # with astra.verbose on the kernel command line).
     mkdir /dev/socket 0755 root root
     mkdir /run/astra 0775 root system
     mkdir /run/astra/display 0770 system graphics
