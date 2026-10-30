@@ -31,6 +31,8 @@ class SettingsService;
 //   account.signIn {email, password, register?, name?, server?}   account.signOut
 //   account.setFindMy {on}  account.setContactsBackup {on}
 //   account.backupNow  account.restoreContacts -> {added}              MANAGE_SETTINGS
+//   account.request {method, path, body} -> {status, body}              apps with INTERNET:
+//       the app's own API on the AstraID server, /api/app/<package>/..., with this phone's token
 class AccountService : public Service
 {
     Q_OBJECT

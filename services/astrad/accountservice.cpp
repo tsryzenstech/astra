@@ -20,6 +20,7 @@
 #include <QJsonDocument>
 #include <QLoggingCategory>
 #include <QNetworkReply>
+#include <QStringList>
 #include <QSysInfo>
 
 Q_LOGGING_CATEGORY(lcAccount, "astrad.account")
@@ -265,6 +266,40 @@ void AccountService::backup(std::function<void(const QString &)> done)
 
 QJsonValue AccountService::handle(const QString &call, const QJsonObject &params, const Caller &caller)
 {
+    // An app's own API on the AstraID server, called with the phone's token
+    // (which the app never sees): only /api/app/<the app's package>/...
+    if (call == QLatin1String("request")) {
+        caller.require(QLatin1String(permissions::INTERNET));
+        const QString path = params.value(K("path")).toString();
+        const QString prefix = QStringLiteral("/api/app/%1/").arg(caller.package);
+        if (caller.package.isEmpty() || !path.startsWith(prefix) || path.contains(QLatin1String("..")) ||
+            path.contains(QLatin1Char('#')))
+            throw RpcError{protocol::PermissionDenied, K("an app can only reach its own server API (/api/app/<package>/)")};
+        const QString method = params.value(K("method")).toString(QStringLiteral("GET")).toUpper();
+        if (!QStringList{K("GET"), K("POST"), K("PUT"), K("DELETE")}.contains(method))
+            throw RpcError{protocol::InvalidParams, K("method is GET, POST, PUT or DELETE")};
+        if (m_account.value(K("token")).toString().isEmpty())
+            throw RpcError{protocol::Failed, K("sign in to AstraID first")};
+        const PendingReply pending = caller.defer();
+        QNetworkReply *reply = request(method.toLatin1(), path, params.value(K("body")));
+        connect(reply, &QNetworkReply::finished, this, [reply, pending] {
+            reply->deleteLater();
+            const QByteArray data = reply->readAll();
+            const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            if (status == 0) {
+                pending.reject(protocol::Failed, reply->errorString());
+                return;
+            }
+            QJsonParseError parse;
+            const QJsonDocument doc = QJsonDocument::fromJson(data, &parse);
+            QJsonValue body = parse.error == QJsonParseError::NoError
+                                  ? (doc.isArray() ? QJsonValue(doc.array()) : QJsonValue(doc.object()))
+                                  : QJsonValue(QString::fromUtf8(data.left(64 * 1024)));
+            pending.resolve(QJsonObject{{K("status"), status}, {K("body"), body}});
+        });
+        return Deferred;
+    }
+
     caller.require(QLatin1String(permissions::MANAGE_SETTINGS));
     if (call == QLatin1String("state"))
         return state();
