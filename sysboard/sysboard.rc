@@ -2,7 +2,6 @@
 # home screen, Control/Notification Center).
 service sysboard /system/bin/sysboard
     class main
-    user system
     group system graphics input video audio media_rw
     critical
     setenv XDG_RUNTIME_DIR /run/astra/display

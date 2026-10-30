@@ -268,6 +268,7 @@ static void drm_present(struct surface *s, int first)
 
 static void drm_close(struct surface *s)
 {
+    drmDropMaster(s->drm_fd);
     munmap(s->pixels, s->size);
     drmModeRmFB(s->drm_fd, s->fb_id);
     struct drm_mode_destroy_dumb dreq = {.handle = s->handle};
