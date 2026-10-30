@@ -9,6 +9,8 @@ add_executable(astra-init
 )
 set_target_properties(astra-init PROPERTIES OUTPUT_NAME init)
 target_compile_options(astra-init PRIVATE -Wall -Wextra -Wno-unused-parameter)
+find_package(Threads REQUIRED)
+target_link_libraries(astra-init PRIVATE Threads::Threads)
 
 # The same binary is used as the ramdisk's /init (first stage) and as
 # /system/bin/init (second stage). It must not depend on shared libraries

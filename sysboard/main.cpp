@@ -118,11 +118,8 @@ int main(int argc, char **argv)
         // Wait for GPU render node if it hasn't appeared yet.
         for (int i = 0; i < 50 && !QFileInfo::exists(QStringLiteral("/dev/dri/renderD128")); ++i)
             ::usleep(100000);
-        // No GPU yet (firmware missing, driver not probed) or the last start
-        // never drew a frame: render in software rather than crash-loop on
-        // a black screen. Host removes the marker after the first frame.
         const QString marker = Paths::runtimeDir() + QStringLiteral("/sysboard.starting");
-        if (!QFileInfo::exists(QStringLiteral("/dev/dri/renderD128")) || QFileInfo::exists(marker)) {
+        if (!QFileInfo::exists(QStringLiteral("/dev/dri/renderD128"))) {
             qWarning("sysboard: using software rendering");
             setDefaultEnv("MESA_LOADER_DRIVER_OVERRIDE", "kms_swrast");
             setDefaultEnv("GALLIUM_DRIVER", "llvmpipe");

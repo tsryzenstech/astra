@@ -310,15 +310,6 @@ static int fb_open(struct surface *s)
         close(fd);
         return -1;
     }
-    /* Unblank the framebuffer and hide the fbcon cursor. */
-    ioctl(fd, FBIOBLANK, 0 /* FB_BLANK_UNBLANK */);
-    /* Disable the fbcon cursor so it does not blink over the logo. */
-    int ttyfd = open("/dev/tty0", O_RDWR | O_CLOEXEC);
-    if (ttyfd >= 0) {
-        write(ttyfd, "\033[?25l", 6);   /* hide cursor */
-        write(ttyfd, "\033[2J", 4);     /* clear screen */
-        close(ttyfd);
-    }
     s->fb_fd = fd;
     s->width = (int)var.xres;
     s->height = (int)var.yres;
@@ -329,7 +320,6 @@ static int fb_open(struct surface *s)
         close(fd);
         return -1;
     }
-    memset(s->pixels, 0, s->size);
     return 0;
 }
 
@@ -381,23 +371,14 @@ int main(int argc, char **argv)
 
     struct surface s = {.drm_fd = -1, .fb_fd = -1};
     /* Started as soon as /dev exists: the display driver (and its panel)
-     * may still be probing, so give it a few seconds.
-     *
-     * On Qualcomm MSM/DPU the dumb-buffer KMS path produces corrupted
-     * output (green pixels) because the DPU cannot scanout from generic
-     * GEM buffers.  The fbdev emulation that the MSM driver provides
-     * works correctly, so try fbdev first. */
+     * may still be probing, so give it a few seconds. */
     int use_drm = 0;
     for (int tries = 0; tries < 80 && !stop_requested; tries++) {
-        if (fb_open(&s) == 0)
+        if ((use_drm = drm_open(&s) == 0))
             break;
-        if (drm_open(&s) == 0) {
-            use_drm = 1;
-            break;
-        }
         usleep(100000);
     }
-    if (s.drm_fd < 0 && s.fb_fd < 0) {
+    if (!use_drm && fb_open(&s) < 0) {
         fprintf(stderr, "bootanim: no display available\n");
         return 1;
     }
