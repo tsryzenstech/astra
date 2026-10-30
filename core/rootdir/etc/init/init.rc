@@ -27,9 +27,9 @@ on init
     write /proc/sys/kernel/panic_on_oops 1
     write /proc/sys/kernel/kptr_restrict 2
     write /proc/sys/vm/overcommit_memory 1
-    # The logo shows as soon as the display driver is up; it keeps waiting
-    # for it while udev loads the modules below.
-    start bootanim
+    # No bootanim: drawing through KMS dumb buffers corrupts the screen on
+    # Qualcomm's display driver (MSM DPU) and the phone reboots. SysBoard
+    # shows the boot logo instead, through the GPU (sysboard/qml/Main.qml).
     start ueventd
     exec -- /system/bin/udevadm trigger --action=add
     exec -- /system/bin/udevadm settle --timeout=10

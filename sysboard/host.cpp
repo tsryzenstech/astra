@@ -156,6 +156,11 @@ QUrl SysBoardHost::wallpaper() const
         QStringLiteral("ro.system.wallpaper"), QStringLiteral("/system/media/wallpapers/default_wallpaper.png"))));
 }
 
+QUrl SysBoardHost::bootLogo() const
+{
+    return QUrl::fromLocalFile(Paths::resolve(QStringLiteral("/system/media/bootanimation/logo.png")));
+}
+
 bool SysBoardHost::virtualKeyboard() const
 {
     return keyboard() != nullptr;
