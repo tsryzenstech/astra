@@ -47,6 +47,9 @@ myapp/
 └── i18n/it.json      translations (astra i18n)
 ```
 
+The package holds every file of the project except hidden ones and the
+`build/` and `dist/` directories, and `astra check` checks exactly those files.
+
 ```qml
 import QtQuick
 import Astra.Core

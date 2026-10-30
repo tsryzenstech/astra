@@ -77,6 +77,19 @@ class ApkgToolTest(unittest.TestCase):
         with self.assertRaises(apkgtool.ApkgError):
             apkgtool.pack(self.app, self.out)
 
+    def test_build_output_not_packed(self):
+        # `astra build` writes dist/<package>.apkg into the app: the next build must not carry it,
+        # and nothing under build/ ships without `astra check` seeing it.
+        apkgtool.pack(self.app, os.path.join(self.app, "dist", "hello.apkg"))
+        os.makedirs(os.path.join(self.app, "build"))
+        self.write("build/X.qml", "import QtQuick.Controls\nButton {}\n")
+        _, count, _ = apkgtool.pack(self.app, self.out)
+        self.assertEqual(count, 4)
+        self.manifest["main"] = "build/X.qml"
+        self.write("app.json", json.dumps(self.manifest))
+        with self.assertRaises(apkgtool.ApkgError):
+            apkgtool.pack(self.app, self.out)
+
     def test_system_apps_pack(self):
         apps = os.path.join(SOURCE, "apps")
         for name in sorted(os.listdir(apps)):
