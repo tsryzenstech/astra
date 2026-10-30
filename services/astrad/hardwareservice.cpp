@@ -69,7 +69,9 @@ HardwareService::HardwareService(Server *server, SettingsService *settings, QObj
     }
     qCInfo(lcHw) << "backlight:" << m_backlight << "torch:" << m_torch << "battery:" << m_batteryDir;
 
-    // Restore persisted state.
+    // Restore persisted state and unblank panel.
+    if (!m_backlight.isEmpty())
+        writeSys(m_backlight + QStringLiteral("/bl_power"), "0");
     setBrightness(m_settings->value(QStringLiteral("display.brightness")).toDouble(0.7));
 
     m_lastBattery = battery();

@@ -34,11 +34,40 @@
 #include <sys/syscall.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <linux/watchdog.h>
 
 #define FIRST_STAGE_FSTAB "/first_stage.fstab"
 #define VENDOR_FSTAB "/vendor/etc/fstab"
 #define CONTROL_SOCKET "/dev/socket/init"
 #define NEW_ROOT "/newroot"
+
+static int watchdog_fd = -1;
+
+static void watchdog_init(void)
+{
+    if (watchdog_fd >= 0)
+        return;
+    watchdog_fd = open("/dev/watchdog", O_WRONLY | O_CLOEXEC);
+    if (watchdog_fd < 0)
+        watchdog_fd = open("/dev/watchdog0", O_WRONLY | O_CLOEXEC);
+    if (watchdog_fd >= 0)
+        INFO("hardware watchdog enabled on /dev/watchdog");
+}
+
+static void watchdog_pet(void)
+{
+    static long long last_pet = 0;
+    long long now = now_ms();
+    if (watchdog_fd < 0 && (now - last_pet > 2000)) {
+        watchdog_init();
+        last_pet = now;
+    }
+    if (watchdog_fd >= 0 && (now - last_pet >= 2000)) {
+        ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0);
+        write(watchdog_fd, "\0", 1);
+        last_pet = now;
+    }
+}
 
 static void mount_pseudo(void)
 {
@@ -253,9 +282,14 @@ static int second_stage_main(void)
     rc_trigger("post-fs-data");
     rc_trigger("boot");
 
+    watchdog_init();
+
     for (;;) {
         struct pollfd pfd[2] = {{.fd = sfd, .events = POLLIN}, {.fd = cfd, .events = POLLIN}};
-        int r = poll(pfd, cfd >= 0 ? 2 : 1, services_poll_timeout());
+        int timeout = services_poll_timeout();
+        if (timeout < 0 || timeout > 2000)
+            timeout = 2000;
+        int r = poll(pfd, cfd >= 0 ? 2 : 1, timeout);
         if (r < 0 && errno != EINTR)
             continue;
         if (pfd[0].revents & POLLIN) {
@@ -271,6 +305,7 @@ static int second_stage_main(void)
         if (cfd >= 0 && (pfd[1].revents & POLLIN))
             handle_control(cfd);
         services_restart_due();
+        watchdog_pet();
     }
     return 0;
 }

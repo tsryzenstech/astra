@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
+#include <drm_fourcc.h>
 
 #define DEFAULT_DESC "/system/media/bootanimation/desc.txt"
 #define CONTROL_FIFO "/run/astra/bootanim.ctl"
@@ -247,14 +248,20 @@ static int drm_open(struct surface *s)
                 s->handle = creq.handle;
                 s->stride = (int)creq.pitch;
                 s->size = creq.size;
-                if (drmModeAddFB(fd, (uint32_t)s->width, (uint32_t)s->height, 24, 32, creq.pitch, creq.handle, &s->fb_id))
-                    goto fail;
+                uint32_t handles[4] = {creq.handle, 0, 0, 0};
+                uint32_t pitches[4] = {creq.pitch, 0, 0, 0};
+                uint32_t offsets[4] = {0, 0, 0, 0};
+                if (drmModeAddFB2(fd, s->width, s->height, DRM_FORMAT_XRGB8888, handles, pitches, offsets, &s->fb_id, 0)) {
+                    if (drmModeAddFB(fd, (uint32_t)s->width, (uint32_t)s->height, 24, 32, creq.pitch, creq.handle, &s->fb_id))
+                        goto fail;
+                }
                 struct drm_mode_map_dumb mreq = {.handle = creq.handle};
                 if (drmIoctl(fd, DRM_IOCTL_MODE_MAP_DUMB, &mreq) < 0)
                     goto fail;
                 s->pixels = mmap(NULL, s->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)mreq.offset);
                 if (s->pixels == MAP_FAILED)
                     goto fail;
+                memset(s->pixels, 0, s->size);
                 s->saved_crtc = drmModeGetCrtc(fd, crtc);
                 return 0;
             fail:
@@ -279,9 +286,10 @@ static void drm_present(struct surface *s, int first)
 
 static void drm_close(struct surface *s)
 {
+    if (s->fb_id)
+        drmModeRmFB(s->drm_fd, s->fb_id);
     drmDropMaster(s->drm_fd);
     munmap(s->pixels, s->size);
-    drmModeRmFB(s->drm_fd, s->fb_id);
     struct drm_mode_destroy_dumb dreq = {.handle = s->handle};
     drmIoctl(s->drm_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq);
     drmModeFreeCrtc(s->saved_crtc);

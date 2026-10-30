@@ -6,10 +6,13 @@
 
 on post-fs-data
     mkdir /run/dbus 0755 messagebus messagebus
+    mkdir /data/var 0755 root root
+    symlink /run /data/var/run
+    mkdir /data/var/lib 0755 root root
     mkdir /data/var/lib/iwd 0700 root root
     mkdir /data/var/lib/bluetooth 0700 root root
     mkdir /data/var/lib/ModemManager 0700 root root
-    mkdir /data/var/lib/dbus 0755 root root
+    mkdir /data/var/lib/dbus 0755 messagebus messagebus
     exec -- /system/bin/sh /system/etc/connectivity/launch.sh prepare
     start dbus
 

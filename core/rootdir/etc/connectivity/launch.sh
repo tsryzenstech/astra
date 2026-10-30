@@ -27,16 +27,18 @@ prepare)
     : > /run/resolv.conf
     chmod 644 /run/resolv.conf
     mkdir -p /data/var/lib/dbus /run/dbus
+    chown messagebus:messagebus /run/dbus 2>/dev/null || chown 1060:1060 /run/dbus 2>/dev/null || true
+    chown messagebus:messagebus /data/var/lib/dbus 2>/dev/null || chown 1060:1060 /data/var/lib/dbus 2>/dev/null || true
     [ -f /data/var/lib/dbus/machine-id ] || cat /proc/sys/kernel/random/uuid | tr -d - > /data/var/lib/dbus/machine-id
     ln -sfn /data/var/lib/dbus/machine-id /run/machine-id
     ;;
 dbus)
     bin=$(find_bin /system/bin/dbus-daemon) || missing dbus-daemon
     mkdir -p /run/dbus
-    chown messagebus:messagebus /run/dbus 2>/dev/null || true
+    chown messagebus:messagebus /run/dbus 2>/dev/null || chown 1060:1060 /run/dbus 2>/dev/null || true
     chmod 0755 /run/dbus
     rm -f /run/dbus/system_bus_socket /run/dbus/dbus.pid
-    exec "$bin" --system --nofork --nopidfile
+    exec "$bin" --system --nofork --nopidfile --nosyslog
     ;;
 iwd)
     bin=$(find_bin /system/libexec/iwd /system/lib/iwd/iwd /system/bin/iwd) || missing iwd

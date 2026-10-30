@@ -115,6 +115,9 @@ int main(int argc, char **argv)
         const QString card = displayCard(15000);
         if (card.isEmpty())
             qWarning("sysboard: no display with a connected panel yet");
+        // Wait for GPU render node if it hasn't appeared yet.
+        for (int i = 0; i < 50 && !QFileInfo::exists(QStringLiteral("/dev/dri/renderD128")); ++i)
+            ::usleep(100000);
         // No GPU yet (firmware missing, driver not probed) or the last start
         // never drew a frame: render in software rather than crash-loop on
         // a black screen. Host removes the marker after the first frame.
