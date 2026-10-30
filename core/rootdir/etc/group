@@ -16,7 +16,7 @@ inet:x:3003:system
 net_admin:x:3005:system
 video:x:1040:system,graphics
 tty:x:5:
-apps:x:10000:
+apps:x:20000:
 nogroup:x:65534:
 disk:x:6:
 lp:x:7:

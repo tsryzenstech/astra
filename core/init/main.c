@@ -8,6 +8,12 @@
  *                  filesystems, executes the .rc scripts and supervises
  *                  services. Listens on /dev/socket/init for control
  *                  requests (start/stop/restart <service>, reboot, poweroff).
+ *   supervisor   - `init --supervisor <rc files>`: astraOS on another
+ *                  distribution's init (postmarketOS/OpenRC). Runs only the
+ *                  early-init, post-fs-data and boot triggers of the given
+ *                  files and supervises their services, with the same control
+ *                  socket; mounts, devices, the watchdog and the kernel are
+ *                  left to the host system, and reboot goes through it.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -174,12 +180,26 @@ static int first_stage_main(void)
 
 /* ---- second stage ----------------------------------------------------- */
 
+static int supervisor;
+
 static void do_reboot(const char *mode)
 {
     INFO("shutting down (%s)", mode);
     rc_trigger("shutdown");
     services_stop_all(3000);
     sync();
+    if (supervisor) {
+        /* The host's init shuts the system down; modes it has no command
+         * for (bootloader, recovery) go straight to the kernel. */
+        if (!strcmp(mode, "poweroff"))
+            execl("/sbin/poweroff", "poweroff", (char *)NULL);
+        else if (!strcmp(mode, "reboot"))
+            execl("/sbin/reboot", "reboot", (char *)NULL);
+        else
+            syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, mode);
+        ERR("cannot %s: %s", mode, strerror(errno));
+        return;
+    }
     umount2("/data", MNT_DETACH);
     if (!strcmp(mode, "poweroff"))
         reboot(RB_POWER_OFF);
@@ -310,6 +330,74 @@ static int second_stage_main(void)
     return 0;
 }
 
+static int supervisor_main(int argc, char **argv)
+{
+    supervisor = 1;
+    klog_init();
+    INFO("astraOS init: supervisor");
+    umask(022);
+    mkdir_p("/dev/socket", 0755);
+
+    /* Services find the host's programs after astraOS's own. */
+    init_setenv("PATH", "/system/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
+    init_setenv("LANG", "en_US.UTF-8");
+    init_setenv("QT_PLUGIN_PATH", "/system/lib/qt6/plugins");
+    const char *tz = getenv("TZ");
+    init_setenv("TZ", tz && *tz ? tz : "UTC");
+
+    for (int i = 0; i < argc; i++) {
+        struct stat st;
+        if (stat(argv[i], &st) < 0)
+            WARN("%s: %s", argv[i], strerror(errno));
+        else if (S_ISDIR(st.st_mode))
+            rc_parse_dir(argv[i]);
+        else
+            rc_parse_file(argv[i]);
+    }
+
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    sigaddset(&mask, SIGTERM);
+    sigaddset(&mask, SIGINT);
+    sigprocmask(SIG_BLOCK, &mask, NULL);
+    int sfd = signalfd(-1, &mask, SFD_CLOEXEC | SFD_NONBLOCK);
+    int cfd = open_control_socket();
+
+    /* "init" and "fs" are the host's job (devices, mounts, kernel knobs). */
+    rc_trigger("early-init");
+    rc_trigger("post-fs-data");
+    rc_trigger("boot");
+
+    for (;;) {
+        struct pollfd pfd[2] = {{.fd = sfd, .events = POLLIN}, {.fd = cfd, .events = POLLIN}};
+        int timeout = services_poll_timeout();
+        if (timeout < 0 || timeout > 2000)
+            timeout = 2000;
+        int r = poll(pfd, cfd >= 0 ? 2 : 1, timeout);
+        if (r < 0 && errno != EINTR)
+            continue;
+        if (pfd[0].revents & POLLIN) {
+            struct signalfd_siginfo si;
+            while (read(sfd, &si, sizeof(si)) == sizeof(si)) {
+                /* Stopped by the host's service manager: stop ours and exit. */
+                if (si.ssi_signo == SIGTERM || si.ssi_signo == SIGINT) {
+                    INFO("stopping astraOS services");
+                    rc_trigger("shutdown");
+                    services_stop_all(3000);
+                    unlink(CONTROL_SOCKET);
+                    return 0;
+                }
+            }
+            services_reap();
+        }
+        if (cfd >= 0 && (pfd[1].revents & POLLIN))
+            handle_control(cfd);
+        services_restart_due();
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 3 && !strcmp(argv[1], "--check")) {
@@ -326,11 +414,13 @@ int main(int argc, char **argv)
     }
     if (argc >= 2 && !strcmp(argv[1], "second_stage"))
         return second_stage_main();
+    if (argc >= 3 && !strcmp(argv[1], "--supervisor"))
+        return supervisor_main(argc - 2, argv + 2);
     if (getpid() == 1 && access(FIRST_STAGE_FSTAB, F_OK) == 0)
         return first_stage_main();
     if (getpid() == 1)
         return second_stage_main();
 
-    fprintf(stderr, "usage: init [second_stage | --check <rc>]\n");
+    fprintf(stderr, "usage: init [second_stage | --supervisor <rc file or dir>... | --check <rc>]\n");
     return 1;
 }
