@@ -1,0 +1,56 @@
+# The astraOS SDK on every change to it, the components or the apps:
+#   - every system app passes the design check (astra check --system),
+#   - every template creates, checks and builds,
+#   - docs/sdk/REFERENCE.md matches the components (sdk/tools/gen_reference.py),
+#   - astra-sdk-<sha>.zip (sdk/, its tools and the SDK docs) as an artifact.
+name: sdk
+on:
+  push:
+    branches: [main]
+    paths: ["sdk/**", "apps/**", "frameworks/qml/**", "tools/apkgtool/**", "tools/i18n/**", "tools/adu/**",
+            "docs/sdk/**", "docs/DESIGN.md", ".github/workflows/sdk.yml"]
+  pull_request:
+    paths: ["sdk/**", "apps/**", "frameworks/qml/**", "docs/sdk/**", ".github/workflows/sdk.yml"]
+  workflow_dispatch:
+
+jobs:
+  sdk:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Design check of the system apps
+        run: |
+          status=0
+          for app in apps/*/; do
+              [ -f "$app/app.json" ] || continue
+              echo "::group::$app"
+              python3 sdk/bin/astra check "$app" --system || status=1
+              echo "::endgroup::"
+          done
+          exit $status
+      - name: Templates
+        run: |
+          for t in app tabs list; do
+              python3 sdk/bin/astra new "$RUNNER_TEMP/$t" --template "$t" --name "Example $t" --package "com.example.$t"
+              python3 sdk/bin/astra check "$RUNNER_TEMP/$t"
+              python3 sdk/bin/astra build "$RUNNER_TEMP/$t" -o "$RUNNER_TEMP/$t.apkg"
+          done
+      - name: Reference is up to date
+        run: |
+          python3 sdk/tools/gen_reference.py
+          git diff --exit-code docs/sdk/REFERENCE.md ||
+              { echo "::error::run python3 sdk/tools/gen_reference.py and commit docs/sdk/REFERENCE.md"; exit 1; }
+      - name: Package
+        run: |
+          mkdir -p "$RUNNER_TEMP/astra-sdk/docs" "$RUNNER_TEMP/astra-sdk/sdk/tools"
+          cp -r sdk/. "$RUNNER_TEMP/astra-sdk/sdk/"
+          cp tools/apkgtool/apkgtool.py tools/adu/adu.py tools/i18n/i18n.py "$RUNNER_TEMP/astra-sdk/sdk/tools/"
+          cp -r docs/sdk docs/DESIGN.md "$RUNNER_TEMP/astra-sdk/docs/"
+          find "$RUNNER_TEMP/astra-sdk" -name __pycache__ -prune -exec rm -rf {} +
+      - uses: actions/upload-artifact@v4
+        with:
+          name: astra-sdk-${{ github.sha }}
+          path: ${{ runner.temp }}/astra-sdk

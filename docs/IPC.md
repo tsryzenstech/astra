@@ -44,6 +44,8 @@ apps (SysBoard, daemons) are *system* callers.
 | `hardware.state`, `hardware.battery` | any | |
 | `hardware.setBrightness`, `setTorch`, `setRadio`, `setScreen` | HARDWARE | |
 | `weather.current`, `weather.refresh` | any | Open-Meteo, configured city |
+| `account.request {method, path, body}` | apps with INTERNET | the app's own API on the AstraID server (`/api/app/<package>/…`) with the phone's token; resolves `{status, body}` |
+| `account.state`, `account.signIn`, … | MANAGE_SETTINGS | AstraID session (Settings) |
 
 ## Topics
 

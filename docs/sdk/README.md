@@ -72,11 +72,33 @@ The templates:
 | `tabs` | sections behind a `TabBar`, each with its own `PageStack` |
 | `list` | items saved in the app's data folder (`Files.appData`), a detail page, a sheet to add one |
 
+## Talking to a server
+
+An app that needs a backend (a chat service, a sync API) does not ship its
+own credentials: it calls its API on the astraOS cloud server through the
+phone's AstraID session, which the app never sees. The path must be under
+`/api/app/<the app's package>/`; the app needs `astra.permission.INTERNET`.
+
+```qml
+Account.call("request", { method: "POST", path: "/api/app/com.example.chat/send",
+                          body: { to: chatId, text: message } },
+             (reply, error) => {
+    if (error)                       // offline, or not signed in to AstraID
+        return console.warn(error)
+    console.log(reply.status, JSON.stringify(reply.body))   // body: JSON, or text
+})
+```
+
+Methods are `GET`, `POST`, `PUT` and `DELETE`. The server side is a set of
+routes in astra-cloud under the same prefix; WhatsAstra (`lib/whatsapp.js`,
+backed by OpenWA) is the example.
+
 ## Publishing
 
 Upload the `.apkg` from `astra build` in the developer panel of the store
 (`/dev/` on the astraOS cloud server) or with `curl` from CI (see the server's
-README). Market runs the same design check before publishing.
+README). Run `astra check` first: the design check is what astraOS apps are
+held to (in this repository the `sdk` workflow runs it on every system app).
 
 ## Updating the reference
 
