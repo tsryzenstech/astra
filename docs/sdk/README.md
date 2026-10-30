@@ -97,8 +97,10 @@ backed by OpenWA) is the example.
 
 Upload the `.apkg` from `astra build` in the developer panel of the store
 (`/dev/` on the astraOS cloud server) or with `curl` from CI (see the server's
-README). Run `astra check` first: the design check is what astraOS apps are
-held to (in this repository the `sdk` workflow runs it on every system app).
+README). Market enforces the design check: it runs `astra check` on every
+uploaded package and refuses a version with errors, returning the findings
+(warnings are shown but do not block it). Run `astra check` first to catch them
+earlier (in this repository the `sdk` workflow runs it on every system app).
 
 ## Updating the reference
 
