@@ -24,7 +24,10 @@ if(_idx LESS _len)
 else()
     set(ASTRA_CHANNEL_LETTER "")
 endif()
-set(ASTRA_VERSION "${ASTRA_VERSION_MAJOR}.${ASTRA_VERSION_MINOR}${ASTRA_CHANNEL_LETTER}")
+# Device builds between versions (pre-releases) add "-rev<N>" (see
+# docs/VERSIONING.md); the device repository's CI passes it.
+set(ASTRA_VERSION_SUFFIX "" CACHE STRING "Appended to the version, e.g. -rev3 for a pre-release build")
+set(ASTRA_VERSION "${ASTRA_VERSION_MAJOR}.${ASTRA_VERSION_MINOR}${ASTRA_CHANNEL_LETTER}${ASTRA_VERSION_SUFFIX}")
 
 find_package(Git QUIET)
 set(ASTRA_BUILD_NUMBER 0)

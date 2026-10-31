@@ -1,0 +1,54 @@
+# A new astraOS version (version.json: major/minor) starts a pre-release
+# build of every device: the device repositories get an "astra-version"
+# repository_dispatch event (see docs/VERSIONING.md).
+#
+# Needs the DEVICE_DISPATCH_TOKEN secret: a token that can run workflows in
+# the device repositories (fine-grained: Contents read and write on them).
+# Without it the devices still notice the new version on their own, a few
+# hours later (their scheduled check).
+name: version
+on:
+  push:
+    branches: [main]
+    paths: ["version.json"]
+  workflow_dispatch:
+
+jobs:
+  notify-devices:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Version
+        id: v
+        run: |
+          version() { python3 -c '
+          import json, sys
+          v = json.load(sys.stdin)
+          letter = {"alpha": "a", "beta": "b", "delta": "d", "stable": ""}[v["channel"]]
+          print("%s.%s%s" % (v["major"], v["minor"], letter))'; }
+          now=$(version < version.json)
+          before=$(git show HEAD~1:version.json 2>/dev/null | version 2>/dev/null || true)
+          echo "version=$now" >> "$GITHUB_OUTPUT"
+          if [ "$now" != "$before" ] || [ "${{ github.event_name }}" = workflow_dispatch ]; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              echo "astraOS $before -> $now"
+          fi
+      - name: Start the device builds
+        if: steps.v.outputs.changed == 'true'
+        env:
+          TOKEN: ${{ secrets.DEVICE_DISPATCH_TOKEN }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+              echo "::warning::DEVICE_DISPATCH_TOKEN is not set: the devices will build $VERSION at their next scheduled check"
+              exit 0
+          fi
+          for repo in tsryzenstech/astra_device_xiaomi_sweet; do
+              curl -fsS -X POST \
+                  -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
+                  "https://api.github.com/repos/$repo/dispatches" \
+                  -d "{\"event_type\":\"astra-version\",\"client_payload\":{\"version\":\"$VERSION\"}}"
+              echo "$repo: pre-release build of astraOS $VERSION requested"
+          done
