@@ -17,6 +17,8 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QJsonObject>
+#include <QOpenGLContext>
+#include <QOpenGLFunctions>
 #include <QPointingDevice>
 #include <QProcess>
 #include <QQuickWindow>
@@ -211,6 +213,26 @@ void SysBoardHost::compositorReady(QQuickWindow *window)
         QFile::remove(Paths::runtimeDir() + QStringLiteral("/sysboard.starting"));
         stopBootAnimation();
     }, Qt::ConnectionType(Qt::QueuedConnection | Qt::SingleShotConnection));
+
+    // The display's state in the boot log, every 10 s: the GPU renderer and
+    // the frames shown. Tells a black screen from frames that never reach
+    // the panel (counter stuck) or software rendering (llvmpipe).
+    connect(window, &QQuickWindow::sceneGraphInitialized, window, [window] {
+        QOpenGLContext *gl = QOpenGLContext::currentContext();
+        const char *renderer = gl ? reinterpret_cast<const char *>(gl->functions()->glGetString(GL_RENDERER)) : nullptr;
+        const QString name = QString::fromLatin1(renderer ? renderer : "not OpenGL");
+        // Called on the render thread: hand the name to the window's thread.
+        QMetaObject::invokeMethod(window, [window, name] { window->setProperty("astraRenderer", name); },
+                                  Qt::QueuedConnection);
+    }, Qt::DirectConnection);
+    auto *frames = new int(0);
+    connect(window, &QQuickWindow::frameSwapped, this, [frames] { ++*frames; });
+    auto *report = new QTimer(this);
+    connect(report, &QTimer::timeout, this, [window, frames] {
+        qInfo("sysboard: display %dx%d, renderer %s, %d frames shown", window->width(), window->height(),
+              qPrintable(window->property("astraRenderer").toString()), *frames);
+    });
+    report->start(10000);
     // The input method follows the focus window (nested development
     // displays may not activate it by themselves).
     window->requestActivate();
