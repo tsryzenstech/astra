@@ -10,4 +10,7 @@ service sysboard /system/bin/sysboard
     setenv QT_QPA_EGLFS_KMS_ATOMIC 1
     setenv QT_QPA_EGLFS_HIDECURSOR 1
     setenv QT_IM_MODULE astra
+    # Apps hand their GPU buffers over as dma-bufs: Mesa 26 dropped
+    # EGL_WL_bind_wayland_display (wl_drm), Qt's default.
+    setenv QT_WAYLAND_CLIENT_BUFFER_INTEGRATION linux-dmabuf-unstable-v1
     setenv HOME /data/system

@@ -338,7 +338,21 @@ static int supervisor_main(int argc, char **argv)
     umask(022);
     mkdir_p("/dev/socket", 0755);
 
-    /* Services find the host's programs after astraOS's own. */
+    /* Services get the environment the host's service manager gave us
+     * (device settings in /etc/conf.d/astraos, e.g. driver options), and
+     * find the host's programs after astraOS's own. */
+    for (char **e = environ; *e; e++) {
+        char *eq = strchr(*e, '=');
+        if (!eq || eq == *e)
+            continue;
+        char key[128];
+        size_t n = (size_t)(eq - *e);
+        if (n >= sizeof(key))
+            continue;
+        memcpy(key, *e, n);
+        key[n] = '\0';
+        init_setenv(key, eq + 1);
+    }
     init_setenv("PATH", "/system/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
     init_setenv("LANG", "en_US.UTF-8");
     init_setenv("QT_PLUGIN_PATH", "/system/lib/qt6/plugins");
