@@ -24,12 +24,10 @@ on early-init
     hostname astra
 
 on init
-    write /proc/sys/kernel/panic_on_oops 1
+    # A driver's oops must not restart the phone.
+    write /proc/sys/kernel/panic_on_oops 0
     write /proc/sys/kernel/kptr_restrict 2
     write /proc/sys/vm/overcommit_memory 1
-    # No bootanim: drawing through KMS dumb buffers corrupts the screen on
-    # Qualcomm's display driver (MSM DPU) and the phone reboots. SysBoard
-    # shows the boot logo instead, through the GPU (sysboard/qml/Main.qml).
     start ueventd
     exec -- /system/bin/udevadm trigger --action=add
     exec -- /system/bin/udevadm settle --timeout=10
@@ -39,6 +37,9 @@ on init
     chown system graphics /dev/dri/card0
     chown system graphics /dev/dri/card1
     chown system graphics /dev/dri/renderD128
+    chmod 0666 /dev/fb0
+    chown system graphics /dev/fb0
+    start bootanim
 
 on fs
     mount_all /vendor/etc/fstab

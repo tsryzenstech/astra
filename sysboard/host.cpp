@@ -17,15 +17,12 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QJsonObject>
-#include <QOpenGLContext>
-#include <QOpenGLFunctions>
 #include <QPointingDevice>
 #include <QProcess>
 #include <QQuickWindow>
 #include <QThread>
 #include <QTimer>
 
-#include <cstring>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -158,11 +155,6 @@ QUrl SysBoardHost::wallpaper() const
         QStringLiteral("ro.system.wallpaper"), QStringLiteral("/system/media/wallpapers/default_wallpaper.png"))));
 }
 
-QUrl SysBoardHost::bootLogo() const
-{
-    return QUrl::fromLocalFile(Paths::resolve(QStringLiteral("/system/media/bootanimation/logo.png")));
-}
-
 bool SysBoardHost::virtualKeyboard() const
 {
     return keyboard() != nullptr;
@@ -175,64 +167,28 @@ QObject *SysBoardHost::keyboard() const
     return qApp->property("astraKeyboard").value<QObject *>();
 }
 
-// Writes a command to the boot animation's FIFO; false when it is not running.
-static bool bootAnimationCommand(const char *command)
+void SysBoardHost::stopBootAnimation()
 {
     const QByteArray fifo = QFile::encodeName(Paths::bootAnimationControl());
     const int fd = ::open(fifo.constData(), O_WRONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0)
-        return false; // not running (development or already gone)
-    if (::write(fd, command, strlen(command)) < 0)
+        return; // not running (development or already gone)
+    if (::write(fd, "stop\n", 5) < 0)
         qWarning("sysboard: cannot signal the boot animation");
     ::close(fd);
-    return true;
-}
-
-void SysBoardHost::releaseBootAnimation()
-{
-    if (!bootAnimationCommand("release\n"))
-        return;
-    const QString released = QFileInfo(Paths::bootAnimationControl()).absolutePath() + QStringLiteral("/bootanim.released");
     QElapsedTimer t;
     t.start();
-    while (!QFileInfo::exists(released) && QFileInfo::exists(Paths::bootAnimationControl()) && t.elapsed() < 1500)
+    while (QFileInfo::exists(QString::fromLocal8Bit(fifo)) && t.elapsed() < 1500)
         QThread::msleep(10);
-}
-
-void SysBoardHost::stopBootAnimation()
-{
-    bootAnimationCommand("stop\n");
 }
 
 void SysBoardHost::compositorReady(QQuickWindow *window)
 {
     m_window = window;
-    // First frame on screen: the GPU path works (see main.cpp), and the boot
-    // logo, still shown until now, can go.
+    // First frame on screen: the GPU path works (see main.cpp).
     connect(window, &QQuickWindow::frameSwapped, this, [] {
         QFile::remove(Paths::runtimeDir() + QStringLiteral("/sysboard.starting"));
-        stopBootAnimation();
     }, Qt::ConnectionType(Qt::QueuedConnection | Qt::SingleShotConnection));
-
-    // The display's state in the boot log, every 10 s: the GPU renderer and
-    // the frames shown. Tells a black screen from frames that never reach
-    // the panel (counter stuck) or software rendering (llvmpipe).
-    connect(window, &QQuickWindow::sceneGraphInitialized, window, [window] {
-        QOpenGLContext *gl = QOpenGLContext::currentContext();
-        const char *renderer = gl ? reinterpret_cast<const char *>(gl->functions()->glGetString(GL_RENDERER)) : nullptr;
-        const QString name = QString::fromLatin1(renderer ? renderer : "not OpenGL");
-        // Called on the render thread: hand the name to the window's thread.
-        QMetaObject::invokeMethod(window, [window, name] { window->setProperty("astraRenderer", name); },
-                                  Qt::QueuedConnection);
-    }, Qt::DirectConnection);
-    auto *frames = new int(0);
-    connect(window, &QQuickWindow::frameSwapped, this, [frames] { ++*frames; });
-    auto *report = new QTimer(this);
-    connect(report, &QTimer::timeout, this, [window, frames] {
-        qInfo("sysboard: display %dx%d, renderer %s, %d frames shown", window->width(), window->height(),
-              qPrintable(window->property("astraRenderer").toString()), *frames);
-    });
-    report->start(10000);
     // The input method follows the focus window (nested development
     // displays may not activate it by themselves).
     window->requestActivate();

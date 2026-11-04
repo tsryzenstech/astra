@@ -10,12 +10,8 @@
  *   background #RRGGBB
  *   logo_width_percent <1-100>  (logo width relative to the screen width)
  *
- * Control (/run/astra/bootanim.ctl, a FIFO, written by SysBoard):
- *   release  drop DRM master but keep the logo on screen, so SysBoard can take
- *            the display without a black gap; answered by creating
- *            /run/astra/bootanim.released.
- *   stop     exit (fading the logo out first when the display was not
- *            released). The FIFO disappears right before exit.
+ * Control: writing "stop" to /run/astra/bootanim.ctl (a FIFO) fades the logo
+ * out, releases the display and exits. The FIFO disappears right before exit.
  *
  * Testing: bootanim --dump out.ppm <width> <height>
  *
@@ -42,7 +38,6 @@
 
 #define DEFAULT_DESC "/system/media/bootanimation/desc.txt"
 #define CONTROL_FIFO "/run/astra/bootanim.ctl"
-#define RELEASED_FILE "/run/astra/bootanim.released"
 
 struct config {
     char logo[1024];
@@ -289,11 +284,9 @@ static void drm_present(struct surface *s, int first)
     drmModeDirtyFB(s->drm_fd, s->fb_id, NULL, 0);
 }
 
-/* released: SysBoard owns the display and its framebuffer replaced ours, so
- * leave the CRTC alone (removing a framebuffer on screen turns the panel off). */
-static void drm_close(struct surface *s, int released)
+static void drm_close(struct surface *s)
 {
-    if (s->fb_id && !released)
+    if (s->fb_id)
         drmModeRmFB(s->drm_fd, s->fb_id);
     drmDropMaster(s->drm_fd);
     munmap(s->pixels, s->size);
@@ -317,6 +310,15 @@ static int fb_open(struct surface *s)
         close(fd);
         return -1;
     }
+    /* Unblank the framebuffer and hide the fbcon cursor. */
+    ioctl(fd, FBIOBLANK, 0 /* FB_BLANK_UNBLANK */);
+    /* Disable the fbcon cursor so it does not blink over the logo. */
+    int ttyfd = open("/dev/tty0", O_RDWR | O_CLOEXEC);
+    if (ttyfd >= 0) {
+        write(ttyfd, "\033[?25l", 6);   /* hide cursor */
+        write(ttyfd, "\033[2J", 4);     /* clear screen */
+        close(ttyfd);
+    }
     s->fb_fd = fd;
     s->width = (int)var.xres;
     s->height = (int)var.yres;
@@ -327,7 +329,20 @@ static int fb_open(struct surface *s)
         close(fd);
         return -1;
     }
+    memset(s->pixels, 0, s->size);
     return 0;
+}
+
+/* A command-mode panel (sweet's) keeps its own image and only gets a new one
+ * when asked: writes to the framebuffer stay invisible without this. */
+static void fb_refresh(struct surface *s)
+{
+    struct fb_var_screeninfo var;
+    if (ioctl(s->fb_fd, FBIOGET_VSCREENINFO, &var) < 0)
+        return;
+    var.activate = FB_ACTIVATE_NOW | FB_ACTIVATE_FORCE;
+    if (ioctl(s->fb_fd, FBIOPUT_VSCREENINFO, &var) < 0)
+        fprintf(stderr, "bootanim: framebuffer refresh failed: %s\n", strerror(errno));
 }
 
 /* ---- main ------------------------------------------------------------- */
@@ -378,32 +393,34 @@ int main(int argc, char **argv)
 
     struct surface s = {.drm_fd = -1, .fb_fd = -1};
     /* Started as soon as /dev exists: the display driver (and its panel)
-     * may still be loading, so give it up to 20 seconds. */
+     * may still be probing, so give it a few seconds.
+     *
+     * On Qualcomm MSM/DPU the dumb-buffer KMS path produces corrupted
+     * output (green pixels) because the DPU cannot scanout from generic
+     * GEM buffers.  The fbdev emulation that the MSM driver provides
+     * works correctly, so try fbdev first. */
     int use_drm = 0;
-    for (int tries = 0; tries < 200 && !stop_requested; tries++) {
-        if ((use_drm = drm_open(&s) == 0))
+    for (int tries = 0; tries < 80 && !stop_requested; tries++) {
+        if (fb_open(&s) == 0)
             break;
+        if (drm_open(&s) == 0) {
+            use_drm = 1;
+            break;
+        }
         usleep(100000);
     }
-    if (!use_drm && fb_open(&s) < 0) {
+    if (s.drm_fd < 0 && s.fb_fd < 0) {
         fprintf(stderr, "bootanim: no display available\n");
         return 1;
     }
 
-    /* Frames are drawn in memory and copied in one go: drawing straight into
-     * the buffer on screen shows half-drawn frames. */
-    struct surface back = s;
-    const size_t frame = (size_t)s.height * (size_t)s.stride;
-    back.pixels = malloc(frame);
-    render(back.pixels ? &back : &s, &cfg, &logo, 1.0f);
-    if (back.pixels)
-        memcpy(s.pixels, back.pixels, frame);
+    render(&s, &cfg, &logo, 1.0f);
     if (use_drm)
         drm_present(&s, 1);
+    else
+        fb_refresh(&s);
 
-    unlink(RELEASED_FILE);
     int ctl = open_control();
-    int released = 0;
     while (!stop_requested) {
         struct pollfd pfd = {.fd = ctl, .events = POLLIN};
         if (poll(&pfd, ctl >= 0 ? 1 : 0, ctl >= 0 ? -1 : 1000) > 0) {
@@ -411,38 +428,27 @@ int main(int argc, char **argv)
             ssize_t n = read(ctl, buf, sizeof(buf) - 1);
             if (n > 0) {
                 buf[n] = '\0';
-                if (strstr(buf, "release") && !released) {
-                    if (use_drm)
-                        drmDropMaster(s.drm_fd);
-                    released = 1;
-                    int fd = open(RELEASED_FILE, O_WRONLY | O_CREAT | O_CLOEXEC, 0644);
-                    if (fd >= 0)
-                        close(fd);
-                }
                 if (strstr(buf, "stop"))
                     stop_requested = 1;
             }
         }
     }
 
-    /* Stopped without a hand-over: a short fade-out instead of a cut. */
-    for (int step = 9; !released && back.pixels && step >= 0; step--) {
-        render(&back, &cfg, &logo, (float)step / 10.0f);
-        memcpy(s.pixels, back.pixels, frame);
+    /* Short fade-out so the hand-over to SysBoard does not look like a cut. */
+    for (int step = 9; step >= 0; step--) {
+        render(&s, &cfg, &logo, (float)step / 10.0f);
         if (use_drm)
             drm_present(&s, 0);
         usleep(16000);
     }
-    free(back.pixels);
 
     if (use_drm)
-        drm_close(&s, released);
+        drm_close(&s);
     else {
         munmap(s.pixels, s.size);
         close(s.fb_fd);
     }
     unlink(CONTROL_FIFO);
-    unlink(RELEASED_FILE);
     free(logo.rgba);
     return 0;
 }
