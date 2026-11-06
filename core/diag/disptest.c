@@ -7,6 +7,7 @@
  *   disptest gl  legacy|atomic HZ RGB   the same through the GPU (as Qt does)
  *   disptest fb  plain|force RGB        writes to /dev/fb0
  *   disptest reinit                     initialises the panel once more (boot)
+ *   disptest setreg ADDR FROM TO        a display register, from userspace (boot)
  *
  * Exit status 0 means every call succeeded: it says nothing about what the
  * panel shows, which only a person can see.
@@ -288,6 +289,40 @@ static int panel_reinit(void)
     return output_report(&o, 0.1);
 }
 
+/*
+ * For a setting the display driver cannot express yet. Waits for the driver to
+ * have programmed FROM, writes TO, and keeps at it for a moment in case the
+ * driver is still enabling the display. Anything else is left alone.
+ */
+static int set_register(unsigned long addr, uint32_t from, uint32_t to)
+{
+    for (int i = 0; i < 50 && access("/sys/class/graphics/fb0", F_OK) < 0; i++)
+        usleep(100000);
+    int fd = open("/dev/mem", O_RDWR | O_SYNC | O_CLOEXEC);
+    if (fd < 0)
+        return fail("/dev/mem");
+    unsigned long base = addr & ~0xfffUL;
+    volatile uint32_t *map = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)base);
+    if (map == MAP_FAILED)
+        return fail("mmap /dev/mem");
+    volatile uint32_t *reg = map + (addr - base) / 4;
+    int written = 0;
+    /* 5 s at most for FROM to appear, then 1.5 s more watching it. */
+    for (int i = 0, settled = 0; i < 65 && settled < 15; i++) {
+        uint32_t value = *reg;
+        if (value == from) {
+            *reg = to;
+            written++;
+            settled = 0;
+        } else if (value == to) {
+            settled++;
+        }
+        usleep(100000);
+    }
+    printf("0x%08lx = 0x%08x, written %d times\n", addr, *reg, written);
+    return *reg == to ? 0 : 1;
+}
+
 /* ---- through the GPU --------------------------------------------------- */
 
 static const char VERTEX[] =
@@ -479,6 +514,9 @@ int main(int argc, char **argv)
         return test_gpu();
     if (argc == 2 && !strcmp(argv[1], "reinit"))
         return panel_reinit();
+    if (argc == 5 && !strcmp(argv[1], "setreg"))
+        return set_register(strtoul(argv[2], NULL, 16), (uint32_t)strtoul(argv[3], NULL, 16),
+                            (uint32_t)strtoul(argv[4], NULL, 16));
     if (argc == 4 && !strcmp(argv[1], "fb"))
         return test_fb(!strcmp(argv[2], "force"), (uint32_t)strtoul(argv[3], NULL, 16));
     if (argc == 5 && (!strcmp(argv[1], "kms") || !strcmp(argv[1], "gl"))) {
@@ -486,6 +524,6 @@ int main(int argc, char **argv)
         uint32_t color = (uint32_t)strtoul(argv[4], NULL, 16);
         return !strcmp(argv[1], "kms") ? test_kms(atomic, hz, color) : test_gl(atomic, hz, color);
     }
-    fprintf(stderr, "usage: disptest gpu | reinit | kms legacy|atomic HZ RGB | gl legacy|atomic HZ RGB | fb plain|force RGB\n");
+    fprintf(stderr, "usage: disptest gpu | reinit | setreg ADDR FROM TO | kms legacy|atomic HZ RGB | gl legacy|atomic HZ RGB | fb plain|force RGB\n");
     return 2;
 }
