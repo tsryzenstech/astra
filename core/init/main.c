@@ -280,7 +280,7 @@ static int second_stage_main(void)
     rc_trigger("init");
     rc_trigger("fs");
     rc_trigger("post-fs-data");
-    rc_trigger("boot");
+    rc_trigger(cmdline_has("astra.diag") ? "diag" : "boot");
 
     watchdog_init();
 

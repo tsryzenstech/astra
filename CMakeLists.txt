@@ -42,6 +42,7 @@ endif()
 if(ASTRA_BUILD_CORE)
     add_subdirectory(core/init)
     add_subdirectory(core/bootanimation)
+    add_subdirectory(core/diag)
 endif()
 add_subdirectory(core/rootdir)
 

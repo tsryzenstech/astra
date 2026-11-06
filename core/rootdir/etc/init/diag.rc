@@ -1,0 +1,9 @@
+# Diagnostics: with astra.diag on the kernel command line, init runs "on diag"
+# instead of "on boot", so nothing else touches the display.
+on diag
+    start astra-diag
+
+service astra-diag /system/bin/astra-diag
+    class diag
+    oneshot
+    disabled
