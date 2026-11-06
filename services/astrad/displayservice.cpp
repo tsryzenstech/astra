@@ -2,6 +2,7 @@
 #include "displayservice.h"
 
 #include <astra/paths.h>
+#include <astra/properties.h>
 #include <astra/protocol.h>
 
 #include <QFile>
@@ -38,7 +39,14 @@ void DisplayService::writeKmsConfig()
     const QString path = Paths::dataSystem() + QStringLiteral("/kms.json");
     const QString mode = m_settings->value(QStringLiteral("display.mode")).toString();
     const QString output = m_info.value(QLatin1String("output")).toString();
-    if (mode.isEmpty() || output.isEmpty()) {
+    // A saved mode this device does not offer (any more) is not applied.
+    bool offered = false;
+    for (const QJsonValue &v : std::as_const(m_modes)) {
+        const QJsonObject m = v.toObject();
+        offered = offered || mode == QStringLiteral("%1x%2@%3").arg(m.value(QLatin1String("width")).toInt())
+                                         .arg(m.value(QLatin1String("height")).toInt()).arg(m.value(QLatin1String("refresh")).toInt());
+    }
+    if (!offered || output.isEmpty()) {
         QFile::remove(path);
         return;
     }
@@ -71,12 +79,14 @@ void DisplayService::probe()
                 continue;
             if (conn->connection == DRM_MODE_CONNECTED && conn->count_modes > 0) {
                 QSet<QString> seen;
+                // Some panels only work at one rate (a device's vendor/build.prop).
+                const int onlyRefresh = Properties::get(QStringLiteral("ro.astra.display.refresh")).toInt();
                 drmModeEncoder *enc = conn->encoder_id ? drmModeGetEncoder(fd, conn->encoder_id) : nullptr;
                 drmModeCrtc *crtc = enc && enc->crtc_id ? drmModeGetCrtc(fd, enc->crtc_id) : nullptr;
                 for (int m = 0; m < conn->count_modes; ++m) {
                     const drmModeModeInfo &mode = conn->modes[m];
                     const QString key = QStringLiteral("%1x%2@%3").arg(mode.hdisplay).arg(mode.vdisplay).arg(mode.vrefresh);
-                    if (seen.contains(key))
+                    if (seen.contains(key) || (onlyRefresh > 0 && int(mode.vrefresh) != onlyRefresh))
                         continue;
                     seen.insert(key);
                     const bool current = crtc && crtc->mode_valid && crtc->mode.hdisplay == mode.hdisplay &&

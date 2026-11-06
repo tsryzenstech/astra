@@ -28,8 +28,11 @@ on init
     write /proc/sys/kernel/kptr_restrict 2
     write /proc/sys/vm/overcommit_memory 1
     start ueventd
-    # No "udevadm trigger": it would load every module at once (watchdog,
-    # modem, Wi-Fi, audio), which has never run on a phone with this system.
+    # Every device's driver. The hardware watchdog's among them: bootloaders can
+    # leave it running, and without its driver it freezes the phone at ~30 s and
+    # resets it at ~50 s. Init keeps it fed from then on.
+    exec -- /system/bin/udevadm trigger --action=add
+    exec -- /system/bin/udevadm settle --timeout=20
     chmod 0666 /dev/dri/card0
     chmod 0666 /dev/dri/card1
     chmod 0666 /dev/dri/renderD128

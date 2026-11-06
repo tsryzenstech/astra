@@ -7,7 +7,7 @@ import QtWayland.Compositor.XdgShell
 // SysBoard is a Wayland compositor: apps are clients whose windows are
 // composed (and animated) inside the Shell.
 WaylandCompositor {
-    id: compositor
+    id: server
 
     socketName: Host.socketName
 
@@ -29,11 +29,11 @@ WaylandCompositor {
                 id: shell
                 anchors.fill: parent
                 asynchronous: true
-                sourceComponent: SystemShell { compositor: compositor }
+                sourceComponent: SystemShell { compositor: server }
                 onLoaded: {
-                    for (const w of compositor.earlyToplevels)
+                    for (const w of server.earlyToplevels)
                         item.appLayer.addToplevel(w[0], w[1])
-                    compositor.earlyToplevels = []
+                    server.earlyToplevels = []
                     console.info("sysboard: shell ready")
                     Host.shellLoaded()
                 }
@@ -73,7 +73,7 @@ WaylandCompositor {
             if (shell.item)
                 shell.item.appLayer.addToplevel(toplevel, xdgSurface)
             else
-                compositor.earlyToplevels.push([toplevel, xdgSurface])
+                server.earlyToplevels.push([toplevel, xdgSurface])
         }
     }
     // Windows of apps started before the shell finished loading.

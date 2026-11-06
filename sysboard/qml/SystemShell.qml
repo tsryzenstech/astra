@@ -464,17 +464,16 @@ Item {
 
     Connections {
         target: Host
-        // Power: unlocked -> lock screen; on the lock screen -> screen off;
-        // screen off -> on. Held: the power menu.
+        // Power: screen on -> off (or the Always On Display), locked for when it
+        // comes back; screen off -> on. Held: the power menu.
         function onPowerKeyPressed() {
             if (powerMenu.active) {
                 powerMenu.close()
             } else if (!Host.screenOn || shell.aod) {
                 shell.wake()
-            } else if (!shell.locked) {
-                shell.hideKeyboard()
-                shell.lock()
             } else {
+                if (!shell.locked)
+                    shell.lock()
                 shell.sleep()
             }
         }

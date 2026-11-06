@@ -56,6 +56,9 @@ rmtfs)
     # Needs the modem's shared memory and its UFS partitions (modemst1/2, fsg).
     [ -e /dev/qcom_rmtfs_mem1 ] || missing "the rmtfs memory region"
     bin=$(find_bin /system/bin/rmtfs) || missing rmtfs
+    # It looks the partitions up where udev's persistent rules would put them.
+    mkdir -p /dev/disk
+    ln -sfn /dev/block/by-name /dev/disk/by-partlabel
     exec "$bin" -r -P -s
     ;;
 pd-mapper)
