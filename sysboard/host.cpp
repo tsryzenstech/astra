@@ -22,6 +22,11 @@
 #include <QQuickWindow>
 #include <QThread>
 #include <QTimer>
+#include <QTouchEvent>
+#include <QWaylandCompositor>
+#include <QWaylandQuickItem>
+#include <QWaylandSeat>
+#include <QWaylandSurface>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -279,8 +284,58 @@ void SysBoardHost::buttonChanged(Button b, bool down)
     }
 }
 
+// Touch on an app's surface. QWaylandSeat::sendFullTouchEvent() sends the item's
+// coordinates as if they were the surface's, so at any scale other than 1 the
+// app gets the touch in the wrong place: at QT_SCALE_FACTOR 2.75, at 1/2.75 of
+// where the finger is. This does what QWaylandQuickItem::touchEvent() does, with
+// the mapping the mouse path already has.
+bool SysBoardHost::forwardTouch(QWaylandQuickItem *item, QTouchEvent *event)
+{
+    QWaylandSurface *surface = item->surface();
+    if (!surface || !item->inputEventsEnabled() || !item->touchEventsEnabled())
+        return false;
+    QWaylandSeat *seat = item->compositor()->seatFor(event);
+    const QList<QEventPoint> &points = event->points();
+    const QPointF first = points.isEmpty() ? QPointF() : points.first().position();
+    if (event->type() == QEvent::TouchBegin && !item->inputRegionContains(first)) {
+        event->ignore();
+        return true;
+    }
+    event->accept();
+    if (event->type() == QEvent::TouchCancel) {
+        seat->sendTouchCancelEvent(surface->client());
+        return true;
+    }
+    if (seat->mouseFocus() != item->view())
+        seat->sendMouseMoveEvent(item->view(), item->mapToSurface(first), item->mapToScene(first));
+    for (const QEventPoint &point : points)
+        seat->sendTouchPointEvent(surface, point.id(), item->mapToSurface(point.position()), Qt::TouchPointState(point.state()));
+    seat->sendTouchFrameEvent(surface->client());
+    if (event->type() == QEvent::TouchBegin) {
+        // A gesture can take the input away from under a finger: the app must not
+        // stay with a button held down. Qt keeps this list privately for its own path.
+        if (!item->property("astraTouchWatched").toBool()) {
+            item->setProperty("astraTouchWatched", true);
+            connect(item, &QWaylandQuickItem::inputEventsEnabledChanged, this, [item, seat] {
+                if (!item->inputEventsEnabled() && item->surface())
+                    seat->sendTouchCancelEvent(item->surface()->client());
+            });
+        }
+        if (item->focusOnClick())
+            item->takeFocus(seat);
+    }
+    return true;
+}
+
 bool SysBoardHost::eventFilter(QObject *watched, QEvent *event)
 {
+    if (event->type() == QEvent::TouchBegin || event->type() == QEvent::TouchUpdate ||
+        event->type() == QEvent::TouchEnd || event->type() == QEvent::TouchCancel) {
+        if (auto *item = qobject_cast<QWaylandQuickItem *>(watched))
+            if (forwardTouch(item, static_cast<QTouchEvent *>(event)))
+                return true;
+        return QObject::eventFilter(watched, event);
+    }
     if (event->type() != QEvent::KeyPress && event->type() != QEvent::KeyRelease)
         return QObject::eventFilter(watched, event);
     auto *ke = static_cast<QKeyEvent *>(event);

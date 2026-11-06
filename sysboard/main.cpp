@@ -103,6 +103,10 @@ int main(int argc, char **argv)
         setDefaultEnv("QT_QPA_EGLFS_INTEGRATION", "eglfs_kms");
         setDefaultEnv("QT_QPA_EGLFS_KMS_ATOMIC", "1");
         setDefaultEnv("QT_QPA_EGLFS_HIDECURSOR", "1");
+        // The render thread loses effects: on the phone the battery glyph and, on
+        // each start, a different few icons never appeared, while the same QML
+        // alone drew them. It also takes the shell 20 s to load instead of 4.
+        setDefaultEnv("QSG_RENDER_LOOP", "basic");
         setDefaultEnv("XDG_RUNTIME_DIR", QFile::encodeName(Paths::displayDir()));
         // Display size (Settings > Display): the device density times the
         // user's UI size; resolution and refresh rate from astrad's kms.json.

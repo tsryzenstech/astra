@@ -12,6 +12,8 @@
 
 class QLocalServer;
 class QJsonValue;
+class QTouchEvent;
+class QWaylandQuickItem;
 
 // Glue between SysBoard's QML and the platform: display hand-over from the
 // boot animation, Wayland socket publication, power key and screen power.
@@ -76,6 +78,7 @@ protected:
 private:
     explicit SysBoardHost(QObject *parent = nullptr);
     void startDevAutomation();
+    bool forwardTouch(QWaylandQuickItem *item, QTouchEvent *event);
     void onSystemEvent(const QString &name, const QJsonValue &data);
     enum class Button { Power, VolumeUp, VolumeDown };
     void buttonChanged(Button b, bool down);

@@ -87,7 +87,19 @@ QJsonObject HardwareService::battery() const
         return {{QStringLiteral("present"), false}};
     }
     auto num = [this](const char *file) { return readSys(m_batteryDir + QLatin1Char('/') + QLatin1String(file)).toLongLong(); };
-    const QByteArray status = readSys(m_batteryDir + QStringLiteral("/status"));
+    QByteArray status = readSys(m_batteryDir + QStringLiteral("/status"));
+    // Some fuel gauges (sweet's qcom_qg) do not know: the charger does.
+    if (status.isEmpty() || status == "Unknown") {
+        const QDir ps(Paths::resolve(QStringLiteral("/sys/class/power_supply")));
+        for (const QString &e : ps.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::System)) {
+            const QString dir = ps.filePath(e);
+            if (readSys(dir + QStringLiteral("/type")) != "Battery" && readSys(dir + QStringLiteral("/online")) == "1") {
+                const QByteArray s = readSys(dir + QStringLiteral("/status"));
+                if (s == "Charging" || s == "Full")
+                    status = s;
+            }
+        }
+    }
     QJsonObject b{
         {QStringLiteral("level"), int(num("capacity"))},
         {QStringLiteral("charging"), status == "Charging" || status == "Full"},

@@ -62,9 +62,13 @@ static void watchdog_pet(void)
         watchdog_init();
         last_pet = now;
     }
-    if (watchdog_fd >= 0 && (now - last_pet >= 2000)) {
+    /* One feed only. On Qualcomm's watchdog a second write to the reset register
+     * right after the first cancels it: tried on the phone, one write resets the
+     * counter 60 times out of 60, two in a row once. Feeding with an ioctl and a
+     * write together left it unfed for 29 s every few minutes, and it reset a
+     * healthy phone. The loop wakes every 2 s at most, so it feeds on every wake. */
+    if (watchdog_fd >= 0 && (now - last_pet >= 1500)) {
         ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0);
-        write(watchdog_fd, "\0", 1);
         last_pet = now;
     }
 }
