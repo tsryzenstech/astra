@@ -1,56 +1,46 @@
 #!/system/bin/sh
 # SPDX-License-Identifier: Apache-2.0
 #
-# Diagnostics of a phone whose screen stays black: runs only when the kernel
-# command line has astra.diag (userdata-diag.img), in place of the normal boot.
-#
-# Runs each test of the list below once, from the least to the most likely to
-# take the phone down. Each one is written in the journal before it starts, so
-# when a test restarts the phone the next boot goes on with the following one.
-# Everything stays in /data/diag and on a USB drive named ASTRADIAG, with a root
-# shell on the USB serial port.
+# Developer boot: the normal system, plus what it takes to see it from a computer.
+# Runs when the kernel command line has astra.diag (userdata-diag.img): a root shell
+# on the USB serial port, and the kernel log kept in /data/diag and synced every 2 s,
+# so that even a total freeze leaves its last messages behind.
 
 D=/data/diag
-mkdir -p "$D" 2>/dev/null && touch "$D/.w" 2>/dev/null || { D=/run/diag; mkdir -p "$D"; }
-J=$D/journal.txt
-touch "$J"
-RUN=/run/astra
+mkdir -p "$D"
 G=/sys/kernel/config/usb_gadget/diag
-IMG=$D/.drive.img
-MNT=/run/diag-drive
 export PATH=/system/bin:/vendor/bin
 export HOME=/data/system
-
-# A kernel panic restarts the phone by itself, and the journal goes on.
-echo 1 > /proc/sys/kernel/panic_on_oops
-echo 5 > /proc/sys/kernel/panic
-echo 1 > /proc/sys/kernel/softlockup_panic 2>/dev/null
-echo 1 > /proc/sys/kernel/hung_task_panic 2>/dev/null
-mkdir -p /sys/kernel/debug
-mount -t debugfs none /sys/kernel/debug 2>/dev/null
-mount -t pstore pstore /sys/fs/pstore 2>/dev/null
-
-# ---- this boot ---------------------------------------------------------------
 
 BOOTS=$(($(cat "$D/boots" 2>/dev/null || echo 0) + 1))
 echo "$BOOTS" > "$D/boots"
 B=$D/boot-$BOOTS
 mkdir -p "$B"
+mount -t pstore pstore /sys/fs/pstore 2>/dev/null
 for f in /sys/fs/pstore/*; do
     # Removed once saved: what the next boot finds comes from this one.
     [ -f "$f" ] && cat "$f" > "$B/previous-${f##*/}.txt" && rm -f "$f"
 done
-echo "BOOT $BOOTS" >> "$J"
-sync
+mkdir -p /sys/kernel/debug
+mount -t debugfs none /sys/kernel/debug 2>/dev/null
 
-# ---- USB: the drive and a shell ----------------------------------------------
+# The kernel log, with the system's own messages, from the start of this boot.
+cat /dev/kmsg > "$B/kmsg.txt" &
+(
+    while :; do
+        sleep 2
+        sync "$B/kmsg.txt"
+    done
+) &
+
+# ---- USB: a shell ------------------------------------------------------------
 
 usb_start() {
-    for m in libcomposite usb_f_acm usb_f_mass_storage; do
+    for m in libcomposite usb_f_acm; do
         modprobe "$m" 2>&1
     done
     mountpoint -q /sys/kernel/config || mount -t configfs none /sys/kernel/config
-    mkdir -p "$G/strings/0x409" "$G/configs/c.1/strings/0x409" "$G/functions/acm.GS0" "$G/functions/mass_storage.0"
+    mkdir -p "$G/strings/0x409" "$G/configs/c.1/strings/0x409" "$G/functions/acm.GS0"
     echo 0x1d6b > "$G/idVendor"
     echo 0x0104 > "$G/idProduct"
     # Interface Association: Windows then finds the serial port of a composite device.
@@ -58,14 +48,11 @@ usb_start() {
     echo 0x02 > "$G/bDeviceSubClass"
     echo 0x01 > "$G/bDeviceProtocol"
     echo astraOS > "$G/strings/0x409/manufacturer"
-    echo "astraOS diagnostics" > "$G/strings/0x409/product"
+    echo "astraOS developer boot" > "$G/strings/0x409/product"
     echo diag > "$G/strings/0x409/serialnumber"
     echo diag > "$G/configs/c.1/strings/0x409/configuration"
     echo 500 > "$G/configs/c.1/MaxPower"
-    echo 1 > "$G/functions/mass_storage.0/lun.0/removable"
-    echo 1 > "$G/functions/mass_storage.0/lun.0/ro"
     ln -s "$G/functions/acm.GS0" "$G/configs/c.1/" 2>/dev/null
-    ln -s "$G/functions/mass_storage.0" "$G/configs/c.1/" 2>/dev/null
     for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
         udc=$(ls /sys/class/udc 2>/dev/null | head -1)
         [ -n "$udc" ] && break
@@ -73,173 +60,13 @@ usb_start() {
     done
     echo "udc: ${udc:-none}"
     [ -n "$udc" ] && echo "$udc" > "$G/UDC"
-    cat "$G/UDC"
     ls -l /dev/ttyGS0
 }
 
-# The results as the computer sees them: taken away, rewritten, given back.
-publish() {
-    {
-        echo "astraOS diagnostics, boot $BOOTS, $(date)"
-        echo
-        cat "$J"
-    } > "$D/SUMMARY.txt"
-    sync
-    [ -d "$G/functions/mass_storage.0/lun.0" ] || return 0
-    L=$G/functions/mass_storage.0/lun.0
-    echo 1 > "$L/forced_eject" 2>/dev/null
-    if [ ! -f "$IMG" ]; then
-        dd if=/dev/zero of="$IMG" bs=1M count=96 2>/dev/null
-        mkfs.vfat -n ASTRADIAG "$IMG" > /dev/null 2>&1
+usb_start > "$B/usb.txt" 2>&1
+while :; do
+    if [ -e /dev/ttyGS0 ]; then
+        setsid sh -c 'exec sh -i < /dev/ttyGS0 > /dev/ttyGS0 2>&1'
     fi
-    mkdir -p "$MNT"
-    if mount -t vfat -o loop "$IMG" "$MNT"; then
-        cp -r "$D"/* "$MNT"/ 2>/dev/null
-        sync
-        umount "$MNT"
-    fi
-    echo "$IMG" > "$L/file"
-}
-
-{ usb_start; } > "$B/usb.txt" 2>&1
-(
-    while :; do
-        if [ -e /dev/ttyGS0 ]; then
-            setsid sh -c 'exec sh -i < /dev/ttyGS0 > /dev/ttyGS0 2>&1'
-        fi
-        sleep 2
-    done
-) &
-
-dmesg > "$B/dmesg-at-start.txt"
-publish
-# Time for the computer to see the phone, before anything that can restart it.
-sleep 20
-
-# ---- the state of the display ------------------------------------------------
-
-state() {
-    for f in /sys/class/drm/card*/status /sys/class/drm/card*/enabled /sys/class/drm/card*/dpms /sys/class/drm/card*/modes \
-             /sys/class/backlight/*/brightness /sys/class/backlight/*/actual_brightness /sys/class/backlight/*/max_brightness \
-             /sys/class/backlight/*/bl_power /sys/class/graphics/fb0/modes /sys/class/graphics/fb0/blank; do
-        [ -e "$f" ] && echo "$f: $(cat "$f" 2>&1 | tr '\n' ' ')"
-    done
-    echo "--- debugfs"
-    ls /sys/kernel/debug/dri/*/ 2>&1
-    for f in /sys/kernel/debug/dri/*/state /sys/kernel/debug/dri/*/name /sys/kernel/debug/dri/*/gpu; do
-        [ -e "$f" ] && { echo "--- $f"; timeout -s KILL 5 cat "$f" 2>&1 | head -150; }
-    done
-}
-
-info() {
-    uname -a
-    cat /proc/cmdline
-    ls -l /dev/dri /dev/fb* 2>&1
-    ls -l /sys/class/drm /sys/class/backlight 2>&1
-    echo "--- modules"
-    cat /proc/modules
-    echo "--- waiting for a driver"
-    cat /sys/kernel/debug/devices_deferred 2>&1
-    echo "--- mounts"
-    cat /proc/mounts
-    echo "--- memory"
-    free
-    state
-}
-
-# Dark for a reason as simple as this? Reads it, and turns it to the maximum.
-backlight() {
-    for b in /sys/class/backlight/*; do
-        [ -e "$b" ] || { echo "no backlight device"; return 1; }
-        echo "$b: brightness $(cat "$b/brightness"), actual $(cat "$b/actual_brightness"), max $(cat "$b/max_brightness"), bl_power $(cat "$b/bl_power")"
-        echo 0 > "$b/bl_power"
-        cat "$b/max_brightness" > "$b/brightness"
-        echo "now: brightness $(cat "$b/brightness"), actual $(cat "$b/actual_brightness"), bl_power $(cat "$b/bl_power")"
-    done
-}
-
-# ---- SysBoard, as the normal boot starts it ----------------------------------
-
-sysboard() {   # sysboard <refresh rate or 0> [software]
-    rm -f "$RUN/sysboard.starting"
-    mkdir -p /data/system "$RUN/display"
-    if [ "$1" != 0 ]; then
-        echo "{\"outputs\":[{\"name\":\"DSI1\",\"mode\":\"1080x2400@$1\"}]}" > /data/system/kms.json
-    else
-        rm -f /data/system/kms.json
-    fi
-    if [ "$2" = software ]; then
-        export MESA_LOADER_DRIVER_OVERRIDE=kms_swrast GALLIUM_DRIVER=llvmpipe
-    fi
-    XDG_RUNTIME_DIR=$RUN/display QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_INTEGRATION=eglfs_kms QT_QPA_EGLFS_KMS_ATOMIC=1 \
-        QT_QPA_EGLFS_HIDECURSOR=1 QT_IM_MODULE=astra timeout -s KILL 45 /system/bin/sysboard 2>&1 | head -c 2000000
-    unset MESA_LOADER_DRIVER_OVERRIDE GALLIUM_DRIVER
-    rm -f /data/system/kms.json "$RUN/sysboard.starting"
-}
-
-normal_boot() {
-    rm -f "$RUN/sysboard.starting"
-    /system/bin/astrad > "$D/astrad.txt" 2>&1 &
-    a=$!
-    sleep 3
-    XDG_RUNTIME_DIR=$RUN/display QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_INTEGRATION=eglfs_kms QT_QPA_EGLFS_KMS_ATOMIC=1 \
-        QT_QPA_EGLFS_HIDECURSOR=1 QT_IM_MODULE=astra timeout -s KILL 90 /system/bin/sysboard 2>&1 | head -c 2000000
-    kill "$a" 2>/dev/null
-}
-
-# ---- the journal -------------------------------------------------------------
-
-run() {   # run <name> <what shows on the screen> <seconds> <command...>
-    name=$1
-    screen=$2
-    secs=$3
-    shift 3
-    if grep -q "^START $name\$" "$J"; then
-        grep -q "^END $name " "$J" || echo "END $name did-not-finish: the phone restarted or froze during this test, see boot-$BOOTS" >> "$J"
-        return
-    fi
-    echo "START $name" >> "$J"
-    sync
-    dmesg -c > /dev/null
-    {
-        echo "== $name ($screen)"
-        "$@"
-    } > "$D/$name.txt" 2>&1 &
-    pid=$!
-    ( sleep "$secs"; kill -9 "$pid" 2>/dev/null ) &
-    killer=$!
-    wait "$pid"
-    rc=$?
-    kill "$killer" 2>/dev/null
-    dmesg -c > "$D/$name.dmesg.txt"
-    state > "$D/$name.state.txt" 2>&1
-    echo "END $name exit=$rc screen=$screen kernel-errors=$(grep -cEi 'error|fail|timeout|fault|underrun|oops' "$D/$name.dmesg.txt")" >> "$J"
-    publish
-    sleep 3
-}
-
-# Its own limit, so that a test that never returns does not keep the display
-# from the next one.
-dt() { timeout -s KILL 30 disptest "$@"; }
-
-run 01-info            "nothing"            60 info
-run 02-backlight       "nothing"            20 backlight
-run 03-gpu-no-display  "nothing"            60 dt gpu
-run 04-kms-legacy-60   "red"                40 dt kms legacy 60 ff0000
-run 05-kms-atomic-60   "green"              40 dt kms atomic 60 00ff00
-run 06-kms-atomic-120  "blue"               40 dt kms atomic 120 0000ff
-run 07-gl-legacy-60    "yellow"             40 dt gl legacy 60 ffff00
-run 08-gl-atomic-60    "magenta"            40 dt gl atomic 60 ff00ff
-run 09-gl-atomic-120   "cyan"               40 dt gl atomic 120 00ffff
-run 10-fb-plain        "white"              40 dt fb plain ffffff
-run 11-fb-force        "orange"             40 dt fb force ff8000
-run 12-sysboard-60     "astraOS, 60 Hz"     60 sysboard 60
-run 13-sysboard-120    "astraOS, 120 Hz"    60 sysboard 0
-run 14-sysboard-sw     "astraOS, no GPU"    90 sysboard 60 software
-run 15-normal-boot     "astraOS with astrad" 110 normal_boot
-
-grep -q '^DONE' "$J" || echo "DONE at boot $BOOTS" >> "$J"
-dmesg > "$B/dmesg-at-end.txt"
-publish
-# Stays up: the shell and the drive remain for the computer.
-while :; do sleep 3600; done
+    sleep 2
+done

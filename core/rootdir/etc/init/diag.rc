@@ -1,5 +1,5 @@
-# Diagnostics: with astra.diag on the kernel command line, init runs "on diag"
-# instead of "on boot", so nothing else touches the display.
+# Developer boot: with astra.diag on the kernel command line, init runs "on diag"
+# after "on boot": a USB shell and a kernel log that survives a freeze.
 on diag
     start astra-diag
 
