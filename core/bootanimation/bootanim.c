@@ -333,18 +333,6 @@ static int fb_open(struct surface *s)
     return 0;
 }
 
-/* A command-mode panel (sweet's) keeps its own image and only gets a new one
- * when asked: writes to the framebuffer stay invisible without this. */
-static void fb_refresh(struct surface *s)
-{
-    struct fb_var_screeninfo var;
-    if (ioctl(s->fb_fd, FBIOGET_VSCREENINFO, &var) < 0)
-        return;
-    var.activate = FB_ACTIVATE_NOW | FB_ACTIVATE_FORCE;
-    if (ioctl(s->fb_fd, FBIOPUT_VSCREENINFO, &var) < 0)
-        fprintf(stderr, "bootanim: framebuffer refresh failed: %s\n", strerror(errno));
-}
-
 /* ---- main ------------------------------------------------------------- */
 
 static int dump(const struct config *cfg, const struct image *logo, const char *out, int w, int h)
@@ -417,8 +405,6 @@ int main(int argc, char **argv)
     render(&s, &cfg, &logo, 1.0f);
     if (use_drm)
         drm_present(&s, 1);
-    else
-        fb_refresh(&s);
 
     int ctl = open_control();
     while (!stop_requested) {

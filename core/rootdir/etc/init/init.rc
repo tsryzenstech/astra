@@ -24,8 +24,7 @@ on early-init
     hostname astra
 
 on init
-    # A driver's oops must not restart the phone.
-    write /proc/sys/kernel/panic_on_oops 0
+    write /proc/sys/kernel/panic_on_oops 1
     write /proc/sys/kernel/kptr_restrict 2
     write /proc/sys/vm/overcommit_memory 1
     start ueventd
@@ -39,7 +38,7 @@ on init
     chown system graphics /dev/dri/renderD128
     chmod 0666 /dev/fb0
     chown system graphics /dev/fb0
-    start bootanim
+    # Only SysBoard draws on the display: it shows the boot logo itself.
 
 on fs
     mount_all /vendor/etc/fstab

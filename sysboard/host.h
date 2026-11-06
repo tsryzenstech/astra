@@ -26,6 +26,7 @@ class SysBoardHost : public QObject
     Q_PROPERTY(bool fullscreen READ fullscreen CONSTANT)
     Q_PROPERTY(bool development READ development CONSTANT)
     Q_PROPERTY(QUrl wallpaper READ wallpaper CONSTANT)
+    Q_PROPERTY(QUrl bootLogo READ bootLogo CONSTANT)
     Q_PROPERTY(bool screenOn READ screenOn NOTIFY screenOnChanged)
     Q_PROPERTY(bool virtualKeyboard READ virtualKeyboard CONSTANT)
     // The input method bridge (visible, hints, commit(), backspace(), enter(), hide()).
@@ -40,6 +41,7 @@ public:
     bool fullscreen() const;
     bool development() const;
     QUrl wallpaper() const;
+    QUrl bootLogo() const;
     bool screenOn() const { return m_screenOn; }
     bool virtualKeyboard() const; // is the astraOS input method loaded?
     QObject *keyboard() const;
@@ -48,6 +50,8 @@ public:
     static void stopBootAnimation();
 
     Q_INVOKABLE void compositorReady(QQuickWindow *window);
+    // The shell finished loading behind the boot logo.
+    Q_INVOKABLE void shellLoaded();
     Q_INVOKABLE void setScreenOn(bool on);
     // Saves what is on screen as a PNG.
     Q_INVOKABLE bool saveScreenshot(const QString &path);

@@ -155,6 +155,11 @@ QUrl SysBoardHost::wallpaper() const
         QStringLiteral("ro.system.wallpaper"), QStringLiteral("/system/media/wallpapers/default_wallpaper.png"))));
 }
 
+QUrl SysBoardHost::bootLogo() const
+{
+    return QUrl::fromLocalFile(Paths::resolve(QStringLiteral("/system/media/bootanimation/logo.png")));
+}
+
 bool SysBoardHost::virtualKeyboard() const
 {
     return keyboard() != nullptr;
@@ -185,10 +190,6 @@ void SysBoardHost::stopBootAnimation()
 void SysBoardHost::compositorReady(QQuickWindow *window)
 {
     m_window = window;
-    // First frame on screen: the GPU path works (see main.cpp).
-    connect(window, &QQuickWindow::frameSwapped, this, [] {
-        QFile::remove(Paths::runtimeDir() + QStringLiteral("/sysboard.starting"));
-    }, Qt::ConnectionType(Qt::QueuedConnection | Qt::SingleShotConnection));
     // The input method follows the focus window (nested development
     // displays may not activate it by themselves).
     window->requestActivate();
@@ -206,6 +207,14 @@ void SysBoardHost::compositorReady(QQuickWindow *window)
                                      {QStringLiteral("scale"), qEnvironmentVariable("QT_SCALE_FACTOR")}});
     if (development())
         startDevAutomation();
+}
+
+void SysBoardHost::shellLoaded()
+{
+    // First frame with the whole shell: the GPU path works (see main.cpp).
+    connect(m_window, &QQuickWindow::frameSwapped, this, [] {
+        QFile::remove(Paths::runtimeDir() + QStringLiteral("/sysboard.starting"));
+    }, Qt::ConnectionType(Qt::QueuedConnection | Qt::SingleShotConnection));
 }
 
 void SysBoardHost::setScreenOn(bool on)
