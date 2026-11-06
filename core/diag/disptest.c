@@ -6,6 +6,7 @@
  *   disptest kms legacy|atomic HZ RGB   a CPU-filled buffer, page flips for 8 s
  *   disptest gl  legacy|atomic HZ RGB   the same through the GPU (as Qt does)
  *   disptest fb  plain|force RGB        writes to /dev/fb0
+ *   disptest reinit                     initialises the panel once more (boot)
  *
  * Exit status 0 means every call succeeded: it says nothing about what the
  * panel shows, which only a person can see.
@@ -261,6 +262,32 @@ static int test_kms(int atomic, int hz, uint32_t color)
     return output_report(&o, now() - start);
 }
 
+/*
+ * A panel whose first initialisation, as the kernel starts, leaves it dark: a
+ * modeset to another rate powers it down and up again, and closing the device
+ * gives the display back to the kernel at its own rate, which is the one in use
+ * from then on.
+ */
+static int panel_reinit(void)
+{
+    struct output o;
+    int ret = -1;
+    /* The display driver may still be probing. */
+    for (int tries = 0; tries < 50 && ret < 0; tries++) {
+        ret = access("/dev/dri/card0", F_OK) == 0 ? output_open(&o, 1, 60) : -1;
+        if (ret < 0)
+            usleep(100000);
+    }
+    if (ret < 0)
+        return 1;
+    uint32_t fb = dumb_buffer(&o, 0);
+    if (!fb || output_show(&o, fb) < 0)
+        return 1;
+    for (int i = 0; i < 6; i++)
+        output_flip(&o, fb);
+    return output_report(&o, 0.1);
+}
+
 /* ---- through the GPU --------------------------------------------------- */
 
 static const char VERTEX[] =
@@ -450,6 +477,8 @@ int main(int argc, char **argv)
     setvbuf(stdout, NULL, _IOLBF, 0);
     if (argc == 2 && !strcmp(argv[1], "gpu"))
         return test_gpu();
+    if (argc == 2 && !strcmp(argv[1], "reinit"))
+        return panel_reinit();
     if (argc == 4 && !strcmp(argv[1], "fb"))
         return test_fb(!strcmp(argv[2], "force"), (uint32_t)strtoul(argv[3], NULL, 16));
     if (argc == 5 && (!strcmp(argv[1], "kms") || !strcmp(argv[1], "gl"))) {
@@ -457,6 +486,6 @@ int main(int argc, char **argv)
         uint32_t color = (uint32_t)strtoul(argv[4], NULL, 16);
         return !strcmp(argv[1], "kms") ? test_kms(atomic, hz, color) : test_gl(atomic, hz, color);
     }
-    fprintf(stderr, "usage: disptest gpu | kms legacy|atomic HZ RGB | gl legacy|atomic HZ RGB | fb plain|force RGB\n");
+    fprintf(stderr, "usage: disptest gpu | reinit | kms legacy|atomic HZ RGB | gl legacy|atomic HZ RGB | fb plain|force RGB\n");
     return 2;
 }
