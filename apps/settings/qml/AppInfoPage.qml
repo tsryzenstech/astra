@@ -75,14 +75,16 @@ Page {
             model: [
                 { id: "open", icon: "arrow-up", label: qsTr("Open") },
                 { id: "stop", icon: "close", label: qsTr("Force stop") },
-                { id: "uninstall", icon: "trash", label: qsTr("Uninstall"), danger: true }
+                page.info.updated === true
+                    ? { id: "uninstall", icon: "reset", label: qsTr("Uninstall updates"), danger: true }
+                    : { id: "uninstall", icon: "trash", label: qsTr("Uninstall"), danger: true }
             ]
             delegate: Card {
                 required property var modelData
                 width: 104
                 height: 76
                 padding: 10
-                pressable: modelData.id !== "uninstall" || page.info.removable === true
+                pressable: modelData.id !== "uninstall" || page.info.removable === true || page.info.updated === true
                 opacity: pressable ? 1 : 0.4
                 Column {
                     width: parent.width
@@ -105,6 +107,14 @@ Page {
                     } else if (modelData.id === "stop") {
                         page.confirm(qsTr("Force stop %1?").arg(page.info.name), qsTr("If you force stop an app, it may misbehave."),
                                      qsTr("Force stop"), () => System.call("activity.stop", { package: page.packageName }, null))
+                    } else if (page.info.updated === true) {
+                        page.confirm(qsTr("Uninstall updates?"), qsTr("%1 goes back to the version that came with the system. Its data is kept.").arg(page.info.name),
+                                     qsTr("Uninstall updates"), () => Packages.uninstall(page.packageName, (ok, error) => {
+                                         if (ok)
+                                             page.stack.pop()
+                                         else
+                                             page.message = error
+                                     }))
                     } else {
                         page.confirm(qsTr("Uninstall %1?").arg(page.info.name), qsTr("The app and all of its data will be removed from this phone."),
                                      qsTr("Uninstall"), () => Packages.uninstall(page.packageName, (ok, error) => {
@@ -120,7 +130,7 @@ Page {
     }
 
     Text {
-        visible: page.info.system === true || page.message !== ""
+        visible: (page.info.system === true && page.info.updated !== true) || page.message !== ""
         width: parent.width
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap

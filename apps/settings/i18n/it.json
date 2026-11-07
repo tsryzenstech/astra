@@ -1,5 +1,6 @@
 {
     "%1 free": "%1 liberi",
+    "%1 goes back to the version that came with the system. Its data is kept.": "%1 torna alla versione fornita con il sistema. I suoi dati restano.",
     "%1 of %2 used": "%1 di %2 usati",
     "%1 seconds": "%1 secondi",
     "%n apps installed": {
@@ -382,6 +383,8 @@
     "USB debugging": "Debug USB",
     "Uninstall": "Disinstalla",
     "Uninstall %1?": "Disinstallare %1?",
+    "Uninstall updates": "Disinstalla aggiornamenti",
+    "Uninstall updates?": "Disinstallare gli aggiornamenti?",
     "Up time": "Tempo di attività",
     "Updates from": "Aggiornamenti da",
     "Use mobile data abroad. Charges may apply.": "Usa i dati mobili all'estero. Potrebbero essere applicati costi.",

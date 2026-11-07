@@ -1,0 +1,31 @@
+# Publishes astraOS's system apps on Market (tools/market/publish.py) on every
+# change to them, so phones update them from there without a new system image.
+# Each app gets the version the system image gives it from the same commit; a
+# version Market already has is left as it is.
+#
+# Needs the ASTRA_CLOUD_TOKEN secret (an admin session token of astra cloud) and
+# optionally the ASTRA_CLOUD_URL variable; without the token the apps are only packed.
+name: apps
+on:
+  push:
+    branches: [main]
+    paths: ["apps/**", "tools/apkgtool/**", "tools/market/**", ".github/workflows/apps.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: market-apps
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    env:
+      ASTRA_CLOUD_URL: ${{ vars.ASTRA_CLOUD_URL || 'http://34.155.86.153' }}
+      ASTRA_CLOUD_TOKEN: ${{ secrets.ASTRA_CLOUD_TOKEN }}
+    steps:
+      # The whole history: each app's revision is the number of commits that touched it.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Publish the system apps
+        run: python3 tools/market/publish.py | tee -a "$GITHUB_STEP_SUMMARY"

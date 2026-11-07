@@ -118,7 +118,15 @@ def collect_files(root):
     return files
 
 
-def pack(app_dir, out_path):
+def build_version(manifest, build):
+    """The version of a system app built from revision `build` (the commits that
+    touched it): versionCode * 10000 + build, version "<version>.<build>". The
+    system image and Market get the same numbers from the same commit."""
+    manifest["versionCode"] = int(manifest["versionCode"]) * 10000 + build
+    manifest["version"] = f'{manifest["version"]}.{build}'
+
+
+def pack(app_dir, out_path, build=None):
     manifest_path = os.path.join(app_dir, "app.json")
     try:
         with open(manifest_path, "r", encoding="utf-8") as f:
@@ -126,6 +134,8 @@ def pack(app_dir, out_path):
     except (OSError, json.JSONDecodeError) as e:
         raise ApkgError(f"cannot read {manifest_path}: {e}")
     validate_manifest(manifest, app_dir)
+    if build is not None:
+        build_version(manifest, build)
     manifest_bytes = json.dumps(manifest, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
     index = bytearray()
@@ -238,6 +248,7 @@ def main(argv=None):
     p = sub.add_parser("pack", help="build a package from an app directory")
     p.add_argument("app_dir")
     p.add_argument("-o", "--output", required=True)
+    p.add_argument("--build", type=int, help="revision of a system app (see build_version)")
     for name in ("info", "list", "verify"):
         sub.add_parser(name).add_argument("package")
     u = sub.add_parser("unpack", help="extract a package")
@@ -247,7 +258,7 @@ def main(argv=None):
 
     try:
         if args.cmd == "pack":
-            manifest, count, size = pack(args.app_dir, args.output)
+            manifest, count, size = pack(args.app_dir, args.output, args.build)
             print(f"{manifest['package']} {manifest['version']}: {count} files, {size} bytes -> {args.output}")
             return 0
         pkg = Package(args.package)

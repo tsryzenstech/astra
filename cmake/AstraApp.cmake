@@ -12,11 +12,25 @@ function(astra_add_app dir)
     string(JSON label GET ${manifest} name)
     string(REPLACE " " "" label "${label}")
 
+    # The app's revision: the commits that touched its folder. Market gets the
+    # same version of the same commit (tools/market/publish.py), so a phone is
+    # offered an update of a system app only when it really changed.
+    execute_process(
+        COMMAND git rev-list --count HEAD -- .
+        WORKING_DIRECTORY ${src}
+        OUTPUT_VARIABLE revision
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE git_result
+        ERROR_QUIET)
+    if(NOT git_result EQUAL 0 OR revision STREQUAL "")
+        set(revision 0)
+    endif()
+
     file(GLOB_RECURSE inputs CONFIGURE_DEPENDS ${src}/*)
     set(out ${CMAKE_CURRENT_BINARY_DIR}/${package}.apkg)
     add_custom_command(
         OUTPUT ${out}
-        COMMAND ${Python3_EXECUTABLE} ${ASTRA_APKGTOOL} pack ${src} -o ${out}
+        COMMAND ${Python3_EXECUTABLE} ${ASTRA_APKGTOOL} pack ${src} -o ${out} --build ${revision}
         DEPENDS ${inputs} ${ASTRA_APKGTOOL}
         COMMENT "Packing ${package}.apkg"
         VERBATIM)

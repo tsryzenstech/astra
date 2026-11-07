@@ -82,6 +82,21 @@ void PackageManager::scan()
             seenSystem.insert(pkg);
             const QJsonObject existing = m_packages.value(pkg);
             const QString checksum = QString::fromLatin1(apkg.checksum().toHex());
+            // A system app updated from Market keeps its update until the
+            // system image brings the same or a newer version.
+            if (existing.value(K("updated")).toBool()) {
+                const int image = apkg.manifest().value(K("versionCode")).toInt();
+                const int current = existing.value(K("manifest")).toObject().value(K("versionCode")).toInt();
+                if (current > image && QFile::exists(existing.value(K("source")).toString()) &&
+                    QDir(existing.value(K("codePath")).toString()).exists()) {
+                    QJsonObject kept = existing;
+                    kept.insert(K("systemSource"), path);
+                    kept.insert(K("privileged"), root.privileged);
+                    m_packages.insert(pkg, kept);
+                    continue;
+                }
+                QFile::remove(Paths::dataApp() + QLatin1Char('/') + pkg + QStringLiteral("/base.apkg"));
+            }
             if (existing.value(K("checksum")).toString() == checksum &&
                 existing.value(K("privileged")).toBool() == root.privileged &&
                 QDir(existing.value(K("codePath")).toString()).exists())
@@ -143,9 +158,20 @@ bool PackageManager::installFrom(const QString &apkgPath, bool system, bool priv
     const QJsonObject manifest = apkg.manifest();
     const QString pkg = manifest.value(K("package")).toString();
     const QJsonObject existing = m_packages.value(pkg);
-    if (!system && existing.value(K("system")).toBool()) {
-        *error = QStringLiteral("%1 is a system package").arg(pkg);
-        return false;
+    // System apps are also on Market: a newer version from there (or from the
+    // system itself, ADU) replaces the image's until the image has a newer one.
+    // Nothing else may replace a system app: it would get its rights.
+    const bool systemUpdate = !system && existing.value(K("system")).toBool();
+    if (systemUpdate) {
+        if (installer != QLatin1String("com.astra.market") && installer != QLatin1String("system")) {
+            *error = QStringLiteral("%1 is a system package: it is updated from Market").arg(pkg);
+            return false;
+        }
+        if (manifest.value(K("versionCode")).toInt() <= existing.value(K("manifest")).toObject().value(K("versionCode")).toInt()) {
+            *error = QStringLiteral("this version of %1 is already installed").arg(pkg);
+            return false;
+        }
+        privileged = existing.value(K("privileged")).toBool();
     }
     if (!existing.isEmpty() && manifest.value(K("versionCode")).toInt() <
                                    existing.value(K("manifest")).toObject().value(K("versionCode")).toInt() && !system) {
@@ -192,7 +218,10 @@ bool PackageManager::installFrom(const QString &apkgPath, bool system, bool priv
         {K("source"), system ? apkgPath : appDir + QStringLiteral("/base.apkg")},
         {K("codePath"), codePath},
         {K("checksum"), QString::fromLatin1(apkg.checksum().toHex())},
-        {K("system"), system},
+        {K("system"), system || systemUpdate},
+        {K("updated"), systemUpdate},
+        {K("systemSource"), systemUpdate ? existing.value(K("systemSource")).toString(existing.value(K("source")).toString())
+                                         : QString()},
         {K("privileged"), privileged},
         {K("installer"), installer},
         {K("runtime"), runtime},
@@ -280,6 +309,7 @@ QJsonObject PackageManager::info(const QString &package) const
         {K("privileged"), r.value(K("privileged"))},
         {K("installer"), r.value(K("installer"))},
         {K("removable"), !r.value(K("system")).toBool()},
+        {K("updated"), r.value(K("updated")).toBool()},
         {K("permissions"), QJsonArray::fromStringList(permissionsOf(package))},
         {K("requested"), QJsonArray::fromStringList(requestedOf(r))},
         {K("widgets"), widgets},
@@ -550,7 +580,24 @@ QJsonValue PackageManager::handle(const QString &call, const QJsonObject &params
     if (call == QLatin1String("uninstall")) {
         caller.require(QLatin1String(permissions::MANAGE_PACKAGES));
         requireKnown(pkg);
-        if (m_packages.value(pkg).value(K("system")).toBool())
+        const QJsonObject record = m_packages.value(pkg);
+        if (record.value(K("updated")).toBool()) {
+            // "Uninstall updates": back to the version in the system image.
+            QString error;
+            const QString image = record.value(K("systemSource")).toString();
+            QJsonObject reset = record;
+            reset.insert(K("updated"), false);
+            reset.insert(K("system"), false); // installFrom replaces it as the image's
+            m_packages.insert(pkg, reset);
+            if (!installFrom(image, true, record.value(K("privileged")).toBool(), K("root"), &error)) {
+                m_packages.insert(pkg, record);
+                throw RpcError{protocol::Failed, error};
+            }
+            QFile::remove(Paths::dataApp() + QLatin1Char('/') + pkg + QStringLiteral("/base.apkg"));
+            save();
+            return true;
+        }
+        if (record.value(K("system")).toBool())
             throw RpcError{protocol::PermissionDenied, QStringLiteral("System apps can't be uninstalled")};
         uninstall(pkg);
         return true;
