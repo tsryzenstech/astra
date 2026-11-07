@@ -115,6 +115,8 @@ Item {
                             iconSize: 62
                             source: app.modelData.iconUrl || ""
                             label: app.modelData.name || ""
+                            badge: root.home ? root.home.badgeOf(app.modelData.package) : 0
+                            androidApp: !!app.modelData.android
                             pressed: area.pressed
                         }
                         MouseArea {

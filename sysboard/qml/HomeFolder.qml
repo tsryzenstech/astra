@@ -13,6 +13,7 @@ Item {
     property var apps: []
     property bool big: false
     property bool pressed: false
+    property int badge: 0   // the notifications of the apps inside
 
     readonly property var infos: (Packages.count >= 0 ? apps : []).map(p => Packages.get(p) || ({}))
 
@@ -86,5 +87,11 @@ Item {
         color: "white"
         style: Text.Raised
         styleColor: Qt.rgba(0, 0, 0, 0.25)
+    }
+
+    NotificationBadge {
+        iconSize: tile.width
+        count: root.badge
+        z: 2
     }
 }

@@ -14,6 +14,8 @@ Item {
     property bool pressed: false
     property bool jiggle: false
     property bool hidden: false
+    property int badge: 0          // notifications of the app
+    property bool androidApp: false // installed through MyDroid: green badge
 
     width: iconSize
     height: iconSize
@@ -36,6 +38,11 @@ Item {
             color: "black"
             opacity: root.pressed ? 0.28 : 0
             Behavior on opacity { NumberAnimation { duration: 120 } }
+        }
+        NotificationBadge {
+            iconSize: root.iconSize
+            count: root.badge
+            android: root.androidApp
         }
 
         // Rearranging: a gentle wobble with a random phase per icon.

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick
+import QtQml
 import Astra.Core
 import Astra.Controls
 import Astra.Animation
@@ -29,6 +30,34 @@ Item {
     property var appLayer: null
     // 0..1 while the bottom edge is pulled on home: the page shrinks a little.
     property real recentsPull: 0
+
+    // ---- notification badges -----------------------------------------------
+    // { package: count } of the notifications that wait to be seen (an ongoing
+    // one, like a download in progress, is not one).
+    property var badges: ({})
+    function countBadges() {
+        const counts = {}
+        for (let i = 0; i < badgeSource.count; i++) {
+            const n = badgeSource.objectAt(i)
+            if (n && !n.ongoing && n.packageName)
+                counts[n.packageName] = (counts[n.packageName] || 0) + 1
+        }
+        badges = counts
+    }
+    function badgeOf(pkg) { return badges[pkg] || 0 }
+    function folderBadge(apps) { return apps.reduce((sum, p) => sum + badgeOf(p), 0) }
+    function isAndroidApp(pkg) { return Packages.count >= 0 && !!(Packages.get(pkg) || {}).android }
+    Instantiator {
+        id: badgeSource
+        model: Notifications
+        delegate: QtObject {
+            required property string packageName
+            required property bool ongoing
+            onOngoingChanged: Qt.callLater(home.countBadges)
+        }
+        onObjectAdded: Qt.callLater(home.countBadges)
+        onObjectRemoved: Qt.callLater(home.countBadges)
+    }
 
     // ---- geometry (reference: 393 x 852 logical px) ----------------------
     readonly property real sidePadding: 10
@@ -548,6 +577,8 @@ Item {
                     source: cell.icon
                     label: cell.name
                     showLabel: !cell.inDock
+                    badge: home.badgeOf(cell.pkg)
+                    androidApp: home.isAndroidApp(cell.pkg)
                     pressed: touch.pressedIndex === cell.index && !touch.paging && !touch.dragging
                     hidden: focusMenu.index === cell.index && focusMenu.visible || cell.pkg === home.hiddenPackage
                             || (home.appLayer !== null && (home.appLayer.revision, home.appLayer.progress, home.appLayer.isMorphing(cell.pkg)))
@@ -557,6 +588,7 @@ Item {
                     anchors.fill: parent
                     name: cell.name
                     apps: cell.kind === "folder" ? JSON.parse(cell.apps) : []
+                    badge: cell.kind === "folder" ? home.folderBadge(apps) : 0
                     big: cell.big
                     pressed: touch.pressedIndex === cell.index && !touch.paging && !touch.dragging
                 }
