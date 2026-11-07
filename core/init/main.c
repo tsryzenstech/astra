@@ -13,6 +13,7 @@
  */
 #define _GNU_SOURCE
 #include "fstab.h"
+#include "ota.h"
 #include "lp.h"
 #include "rc.h"
 #include "rescue.h"
@@ -131,6 +132,9 @@ static int first_stage_main(void)
     if (find_block_by_partname("super", super_dev, sizeof(super_dev), 20000) < 0)
         fatal_reboot("the \"super\" partition was not found (is the UFS driver built in?)");
     INFO("super is %s", super_dev);
+    /* An update staged by the running system is written now, while nothing
+     * from super is in use (see ota.h). */
+    ota_apply_pending(super_dev);
     int mapped = lp_map_super(super_dev);
     if (mapped <= 0)
         fatal_reboot("no logical partition could be mapped from super (flash super.img again)");

@@ -5,9 +5,30 @@ import Astra.Controls
 import Astra.Animation
 
 // Tips: swipe through what astraOS can do; some tips open the right place.
+// { page: "changelog" } (the notification after each update) opens what is new
+// in the installed version.
 Rectangle {
     id: app
     color: Theme.background
+
+    property var changelog: ({})
+    property bool showChangelog: false
+
+    function route(args) {
+        if (args && args.page === "changelog")
+            app.openChangelog()
+    }
+    function openChangelog() {
+        Updates.call("changelog", {}, function(result) {
+            app.changelog = result || {}
+            app.showChangelog = true
+        })
+    }
+    Component.onCompleted: route(Application.args)
+    Connections {
+        target: Application
+        function onIntent(args) { app.route(args) }
+    }
 
     readonly property var tips: [
         { icon: "recents", colors: ["#7B2FF7", "#2F80FF"], title: qsTr("Recent apps"),
@@ -28,6 +49,15 @@ Rectangle {
         { icon: "code", colors: ["#111111", "#3A3A44"], title: qsTr("For developers"),
           text: qsTr("Tap Architecture seven times in About > More Settings to turn on Developer Options and USB debugging with ADU.") }
     ]
+
+    IconButton {
+        anchors.right: parent.right
+        anchors.rightMargin: 20
+        y: Theme.statusBarHeight + 22
+        iconName: "sparkles"
+        size: 40
+        onClicked: app.openChangelog()
+    }
 
     Text {
         x: 20
@@ -113,6 +143,109 @@ Rectangle {
                 radius: 4
                 color: index === list.currentIndex ? Theme.accent : Theme.switchOff
                 Behavior on width { SpringNumberAnimation { preset: Motion.bouncy } }
+            }
+        }
+    }
+
+    // What's new in the installed version (the device's release notes).
+    Rectangle {
+        id: whatsNew
+        anchors.fill: parent
+        color: Theme.background
+        visible: opacity > 0
+        opacity: app.showChangelog ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 180 } }
+        MouseArea { anchors.fill: parent } // keeps touches from the tips below
+
+        readonly property var notes: app.changelog.notes || []
+
+        IconButton {
+            x: 16
+            y: Theme.statusBarHeight + 14
+            iconName: "chevron-left"
+            size: 40
+            onClicked: app.showChangelog = false
+        }
+        Flickable {
+            anchors.fill: parent
+            anchors.topMargin: Theme.statusBarHeight + 64
+            contentHeight: body.height + 60
+            clip: true
+            Column {
+                id: body
+                x: 20
+                width: parent.width - 40
+                spacing: 14
+                Rectangle {
+                    width: parent.width
+                    height: head.height + 44
+                    radius: Theme.sheetRadius
+                    gradient: Gradient {
+                        GradientStop { position: 0; color: "#FF2D8E" }
+                        GradientStop { position: 1; color: "#7B2FF7" }
+                    }
+                    Column {
+                        id: head
+                        x: 22
+                        y: 22
+                        width: parent.width - 44
+                        spacing: 6
+                        Icon { name: "sparkles"; size: 34 }
+                        Text {
+                            width: parent.width
+                            text: qsTr("What's new")
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 15
+                            font.weight: Font.DemiBold
+                            color: Qt.rgba(1, 1, 1, 0.85)
+                        }
+                        Text {
+                            width: parent.width
+                            wrapMode: Text.Wrap
+                            text: "astraOS " + (app.changelog.version || System.version) +
+                                  (app.changelog.codename ? " “" + app.changelog.codename + "”" : "")
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 30
+                            font.weight: Font.Bold
+                            color: "white"
+                        }
+                        Text {
+                            visible: !!app.changelog.time
+                            text: app.changelog.time ? Qt.locale().toString(new Date(app.changelog.time * 1000), "d MMMM yyyy") +
+                                  (app.changelog.channel === "prerelease" ? " • " + qsTr("Pre-release") : "") : ""
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.bodySize
+                            color: Qt.rgba(1, 1, 1, 0.9)
+                        }
+                    }
+                }
+                Text {
+                    visible: whatsNew.notes.length === 0
+                    width: parent.width
+                    wrapMode: Text.Wrap
+                    text: qsTr("This version has no list of changes.")
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.bodySize
+                    color: Theme.textSecondary
+                }
+                Repeater {
+                    model: whatsNew.notes
+                    delegate: Row {
+                        required property string modelData
+                        width: body.width
+                        spacing: 12
+                        Rectangle { y: 8; width: 7; height: 7; radius: 3.5; color: Theme.accent }
+                        Text {
+                            width: parent.width - 19
+                            wrapMode: Text.Wrap
+                            text: modelData
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.bodySize
+                            color: Theme.text
+                            lineHeight: 1.15
+                        }
+                    }
+                }
             }
         }
     }

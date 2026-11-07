@@ -3,10 +3,11 @@
 `version.json` at the root of the repository is the single source of truth:
 
 ```json
-{ "major": 26, "minor": 0, "channel": "stable", "codename": "Blossom", "api_level": 1 }
+{ "major": 27, "minor": 0, "channel": "stable", "codename": "Candyland", "api_level": 1 }
 ```
 
 astraOS **26.0** is the first version after the development builds (0.1d).
+astraOS **27.0 “Candyland”** is the current version.
 A new version raises `minor` (26.0 → 26.1) or `major` (26.x → 27.0).
 
 | Channel | Letter | Meaning |
@@ -22,7 +23,7 @@ reads (`ro.astra.version`, `ro.astra.channel`, `ro.astra.codename`,
 
 * **Build number** – commits on the branch (`git rev-list --count HEAD`); it only
   grows, so it orders builds of the same channel.
-* **Build ID** – `ASTRA.<version>.<yyyymmdd>.<build number>`, e.g. `ASTRA.26.0.20261031.3`.
+* **Build ID** – `ASTRA.<version>.<yyyymmdd>.<build number>`, e.g. `ASTRA.27.0.20261107.3`.
 * **Version suffix** – `-DASTRA_VERSION_SUFFIX=-rev3` adds to `ro.astra.version`
   (`26.0-rev3`): the device repositories pass it for pre-release builds.
 
@@ -45,15 +46,41 @@ pre-release into a release on GitHub (Edit › uncheck "Set as a pre-release").
 
 ## OTA
 
-The update service (Settings › Software Update) reads
-`<ro.astra.ota.url>/<device>/<channel>.json`:
+Phones update from the GitHub releases of their device repository: the
+repository is `OTA_REPOSITORY` in the device's `board.conf` (the build writes it
+as `ro.astra.ota.repo`), so a fork that builds for a phone sets its own and its
+phones update from its releases.
+
+| Channel | Offers | Phones on it |
+|---|---|---|
+| **stable** | releases (manual builds) | those installed from a release, and anyone who picks it |
+| **prerelease** | releases and pre-releases (the automatic "delta" builds) | those installed from a pre-release, and anyone who picks it |
+
+The phone starts on its build's channel (`ro.astra.ota.channel`); Settings ›
+Software Update changes it. Each device build publishes, next to its zip:
+
+* `astraOS-<tag>-<device>-super.img.gz`, the new `super` partition (sparse),
+* `astraOS-<tag>-<device>-esp.fat.gz`, the new EFI partition (kernel, ramdisk, device tree),
+* `ota.json`, which describes them:
 
 ```json
-{ "version": "26.0", "codename": "Blossom", "build": 42,
-  "url": "https://…/astraOS-26.0-sweet.zip", "sha256": "…", "size": 812345678,
-  "notes": "What changed" }
+{ "format": 1, "device": "sweet", "tag": "27.0-rev2", "version": "27.0-rev2",
+  "codename": "Candyland", "channel": "prerelease", "time": 1762531200,
+  "notes": ["What changed", "..."], "astra": "<commit>", "device_commit": "<commit>",
+  "files": { "super": { "name": "…", "size": 0, "sha256": "…", "raw_size": 0, "raw_sha256": "…" },
+             "esp": { "…": "…" } } }
 ```
 
-A build is offered when its `build` is greater than the phone's
-`ro.astra.build.number`. The package is downloaded to `/data/ota` and verified;
-installing it needs the astraOS recovery (planned).
+A release is newer when its `time` is later than the phone's
+(`ro.astra.ota.time`). The update service (astrad, `update.*`) looks a minute
+after the start and twice a day, and notifies when one is available. It
+downloads both files to `/data/ota`, checks them, unpacks them into
+`/data/ota/apply` and checks them again; "Install and restart" restarts the
+phone, and the first stage of init writes them before it mounts anything from
+`super` (`core/init/ota.c`), then restarts into the new system. An interrupted
+write starts again on the next start (three attempts).
+
+`notes` is the list of commits of astra and of the device repository since the
+previous build of the same channel (`scripts/release-notes.py` in the device
+repository). The build keeps its own in `/vendor/etc/astra-release.json`: after
+each new version the phone shows a notification that opens Tips on "What's new".

@@ -53,7 +53,7 @@ Page {
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: (page.info.version || System.version) + " “" + (page.info.codename || "Blossom") + "”"
+            text: (page.info.version || System.version) + " “" + (page.info.codename || "Candyland") + "”"
             font.family: Theme.fontFamily
             font.pixelSize: 21
             font.weight: Font.Medium

@@ -2,6 +2,7 @@ add_executable(astra-init
     main.c
     fstab.c
     lp.c
+    ota.c
     rc.c
     rescue.c
     service.c

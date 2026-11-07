@@ -152,7 +152,7 @@ int main(int argc, char **argv)
     LocationService location(&server, &settings, network.wifi(), network.cellular());
     AlarmService alarms(&server, &notifications);
     DisplayService display(&settings);
-    UpdateService update(&server, &settings);
+    UpdateService update(&server, &settings, &notifications);
     DeveloperService developer(&server, &settings, &lock);
     CalendarService calendar(&server, &notifications);
     CloudyService cloudy(&server);

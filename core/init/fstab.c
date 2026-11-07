@@ -164,6 +164,13 @@ static int map_astra_data(const char *dev, char *out, size_t outlen)
     return lp_partition_path("astra-data", out, outlen);
 }
 
+int fstab_astra_data(const char *userdata, char *out, size_t outlen)
+{
+    if (!has_astra_esp(userdata))
+        return -1;
+    return map_astra_data(userdata, out, outlen);
+}
+
 static int resolve_source(const struct fstab_entry *e, char *out, size_t outlen)
 {
     if (e->logical)
