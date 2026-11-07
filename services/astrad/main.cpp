@@ -70,6 +70,7 @@ void applyVolume(SettingsService &settings)
 {
     if (astra::Paths::isDevelopmentRoot())
         return;
+    qputenv("PIPEWIRE_RUNTIME_DIR", "/run/astra/audio");
     const double volume = qBound(0.0, settings.value(QStringLiteral("audio.volume")).toDouble(0.6), 1.0);
     const bool muted = !settings.value(QStringLiteral("controls.sound")).toBool(true);
     const QString wpctl = QStandardPaths::findExecutable(QStringLiteral("wpctl"), {QStringLiteral("/system/bin"), QStringLiteral("/usr/bin")});

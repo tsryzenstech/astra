@@ -4,7 +4,7 @@ import Astra.Controls
 import Astra.Animation
 
 // Tall Control Center slider (brightness, volume). Drag anywhere on it;
-// the fill grows from the bottom.
+// the fill grows from the bottom, from nothing to the whole slider.
 Rectangle {
     id: root
 
@@ -12,16 +12,23 @@ Rectangle {
     property real value: 0.5
     signal moved(real value)
 
+    // While dragging it shows the finger, and the value again afterwards, so a
+    // change from elsewhere (the volume keys) still moves it.
+    property real dragValue: 0
+    readonly property real shown: Math.max(0, Math.min(1, area.pressed ? dragValue : value))
+
     radius: width / 2
     color: Theme.glassButton
     scale: area.pressed ? 1.04 : 1
     Behavior on scale { SpringNumberAnimation { preset: Motion.bouncy } }
 
-    // The fill is a pill of its own, so it stays round at every level.
+    // A pill of its own, so it stays round at every level: below its own width
+    // it is a circle that shrinks to nothing.
     Rectangle {
         anchors.bottom: parent.bottom
-        width: parent.width
-        height: parent.width + Math.max(0, Math.min(1, root.value)) * (parent.height - parent.width)
+        anchors.horizontalCenter: parent.horizontalCenter
+        height: root.shown * parent.height
+        width: Math.min(parent.width, height)
         color: Qt.rgba(1, 1, 1, 0.92)
         radius: width / 2
     }
@@ -32,7 +39,7 @@ Rectangle {
         anchors.bottomMargin: 18
         name: root.iconName
         size: 30
-        color: root.value > 0.22 ? "#2B2B2B" : "white"
+        color: root.shown > 0.22 ? "#2B2B2B" : "white"
     }
 
     MouseArea {
@@ -43,12 +50,12 @@ Rectangle {
         property real startValue
         onPressed: (m) => {
             startY = m.y
-            startValue = root.value
+            startValue = root.shown
+            root.dragValue = root.shown
         }
         onPositionChanged: (m) => {
-            const v = Math.max(0, Math.min(1, startValue + (startY - m.y) / height))
-            root.value = v
-            root.moved(v)
+            root.dragValue = Math.max(0, Math.min(1, startValue + (startY - m.y) / height))
+            root.moved(root.dragValue)
         }
     }
 }

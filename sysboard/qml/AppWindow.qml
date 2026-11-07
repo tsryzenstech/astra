@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick
+import QtQuick.Window
 import Astra.Core
 import QtQuick.Effects
 import QtWayland.Compositor
@@ -99,9 +100,13 @@ Item {
     // The app gets the space above the on-screen keyboard.
     readonly property real keyboardInset: !inBackground ? host.keyboardInset : 0
     onKeyboardInsetChanged: resize()
+    // In the surface's units, which are the panel's pixels: the app scales itself
+    // with QT_SCALE_FACTOR, and takes a size in our units for a window 1/scale as
+    // big, drawn in the top left corner.
     function resize() {
         if (toplevel)
-            toplevel.sendFullscreen(Qt.size(win.width, win.height - keyboardInset))
+            toplevel.sendFullscreen(Qt.size(Math.round(win.width * Screen.devicePixelRatio),
+                                            Math.round((win.height - keyboardInset) * Screen.devicePixelRatio)))
     }
     // Remembers the current frame for Recents.
     function capture() {

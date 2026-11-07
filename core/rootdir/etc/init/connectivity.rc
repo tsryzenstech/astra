@@ -36,3 +36,17 @@ service bluetoothd /system/bin/sh /system/etc/connectivity/launch.sh bluetoothd
 
 service modemmanager /system/bin/sh /system/etc/connectivity/launch.sh modemmanager
     class main
+
+# Audio: PipeWire and WirePlumber, and its PulseAudio server, which is what Qt
+# Multimedia talks to. hexagonrpcd answers the ADSP's sensor process.
+service hexagonrpcd /system/bin/sh /system/etc/connectivity/launch.sh hexagonrpcd
+    class core
+
+service pipewire /system/bin/sh /system/etc/connectivity/launch.sh pipewire
+    class main
+
+service wireplumber /system/bin/sh /system/etc/connectivity/launch.sh wireplumber
+    class main
+
+service pipewire-pulse /system/bin/sh /system/etc/connectivity/launch.sh pipewire-pulse
+    class main

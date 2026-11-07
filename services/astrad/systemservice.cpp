@@ -84,6 +84,7 @@ SystemService::SystemService(Server *server, SettingsService *settings, Notifica
     , m_settings(settings)
     , m_notifications(notifications)
     , m_packages(packages)
+    , m_time(server, settings)
 {
     applyTimezone(m_settings->value(K("system.timezone")).toString());
 }
@@ -182,6 +183,19 @@ QJsonValue SystemService::handle(const QString &call, const QJsonObject &params,
         m_server->broadcast(K("system.timezone"), tz);
         return true;
     }
+    if (call == QLatin1String("syncTime")) {
+        caller.require(QLatin1String(permissions::MANAGE_SETTINGS));
+        PendingReply reply = caller.defer();
+        m_time.sync([reply](bool ok, const QString &message) {
+            if (ok)
+                reply.resolve(double(QDateTime::currentMSecsSinceEpoch()));
+            else
+                reply.reject(protocol::Failed, message);
+        });
+        return Deferred;
+    }
+    if (call == QLatin1String("lastTimeSync"))
+        return double(m_time.lastSync());
     if (call == QLatin1String("setDeviceName")) {
         caller.require(QLatin1String(permissions::MANAGE_SETTINGS));
         m_settings->setValue(K("system.device_name"), params.value(K("name")).toString().trimmed().left(40));

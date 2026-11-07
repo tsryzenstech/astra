@@ -107,6 +107,7 @@ int main(int argc, char **argv)
         // each start, a different few icons never appeared, while the same QML
         // alone drew them. It also takes the shell 20 s to load instead of 4.
         setDefaultEnv("QSG_RENDER_LOOP", "basic");
+        setDefaultEnv("PULSE_SERVER", "unix:/run/astra/audio/pulse/native");
         setDefaultEnv("XDG_RUNTIME_DIR", QFile::encodeName(Paths::displayDir()));
         // Display size (Settings > Display): the device density times the
         // user's UI size; resolution and refresh rate from astrad's kms.json.

@@ -27,6 +27,7 @@ qt_add_executable(astrad
     server.cpp server.h
     settingsservice.cpp settingsservice.h
     systemservice.cpp systemservice.h
+    timesync.cpp timesync.h
     updateservice.cpp updateservice.h
     weatherservice.cpp weatherservice.h
     network/backends.h

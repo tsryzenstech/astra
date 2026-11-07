@@ -93,8 +93,9 @@ Item {
             opacity: 0.85
         }
         CellularGlyph {
-            visible: root.detailed ? !root.airplane : (!root.airplane && !!root.cell.available && !!root.cell.simPresent)
-            opacity: root.cell.registered ? 1 : 0.4
+            // Always there outside airplane mode: empty bars say there is no signal.
+            visible: !root.airplane
+            opacity: root.cell.registered ? 1 : 0.7
             anchors.verticalCenter: parent.verticalCenter
             barHeight: 11
             color: root.tint

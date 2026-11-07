@@ -31,8 +31,38 @@ Page {
         }
     }
 
+    // "", "syncing", "ok" or the error
+    property string syncState: ""
+    property double lastSync: 0
+    Component.onCompleted: System.call("system.lastTimeSync", {}, function(t) { page.lastSync = t || 0 })
+
     ListGroup {
-        footer: qsTr("The time is set automatically from the network.")
+        footer: page.syncState && page.syncState !== "syncing" && page.syncState !== "ok" ? page.syncState
+              : page.lastSync > 0 ? qsTr("Last synchronised: %1").arg(Qt.locale().toString(new Date(page.lastSync), "d MMMM yyyy HH:mm"))
+              : qsTr("Not synchronised yet. It needs a connection.")
+        SwitchRow { text: qsTr("Set automatically"); key: "system.auto_time"; fallback: true }
+        ListItem {
+            text: qsTr("Synchronise now")
+            value: page.syncState === "syncing" ? qsTr("Working…") : page.syncState === "ok" ? qsTr("Done") : ""
+            separator: false
+            onClicked: {
+                if (page.syncState === "syncing")
+                    return
+                page.syncState = "syncing"
+                System.call("system.syncTime", {}, function(t, error) {
+                    if (error) {
+                        page.syncState = String(error.message || error)
+                    } else {
+                        page.syncState = "ok"
+                        page.lastSync = t
+                        page.now = new Date()
+                    }
+                })
+            }
+        }
+    }
+
+    ListGroup {
         ListItem {
             text: qsTr("Time zone")
             value: (Settings.values["system.timezone"] || "UTC").replace(/_/g, " ")

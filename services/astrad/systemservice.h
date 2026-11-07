@@ -2,6 +2,7 @@
 #pragma once
 
 #include "server.h"
+#include "timesync.h"
 
 #include <QHash>
 
@@ -31,6 +32,7 @@ private:
     SettingsService *m_settings;
     NotificationService *m_notifications;
     PackageManager *m_packages;
+    TimeSync m_time;
     bool m_bootCompleted = false;
     QHash<int, PendingReply> m_screenshots;
     int m_nextScreenshot = 1;

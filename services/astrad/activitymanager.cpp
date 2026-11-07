@@ -164,6 +164,8 @@ void ActivityManager::start(const QString &package, const QJsonObject &args)
         env.insert(QStringLiteral("TZ"), tz);
     if (!m_scaleFactor.isEmpty())
         env.insert(QStringLiteral("QT_SCALE_FACTOR"), m_scaleFactor);
+    if (!Paths::isDevelopmentRoot())
+        env.insert(QStringLiteral("PULSE_SERVER"), QStringLiteral("unix:/run/astra/audio/pulse/native"));
     const double animationScale = m_settings->value(QStringLiteral("developer.animation_scale")).toDouble(1.0);
     const bool reduceMotion = m_settings->value(QStringLiteral("accessibility.reduce_motion")).toBool() || m_batterySaving;
     env.insert(QStringLiteral("ASTRA_ANIMATION_SCALE"), QString::number(reduceMotion ? 0.0 : animationScale));

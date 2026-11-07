@@ -24,6 +24,9 @@ Item {
 
     // Must match the catalog in Settings > Cards.
     readonly property var defaultTiles: ["location", "sound", "game", "hotspot", "focus", "scanner", "work", "dnd"]
+    // As text: Settings.values changes with any setting, and a new list would make
+    // the grid again and drop every tile in. Moving a slider saves a setting.
+    readonly property string tileIds: JSON.stringify(Settings.values["controls.tiles"] || defaultTiles)
     readonly property var cell: Network.state.cellular || {}
     readonly property var tileCatalog: ({
         location: { icon: "location", checked: () => !!Settings.values["controls.location"], run: () => root.toggleSetting("controls.location") },
@@ -196,8 +199,7 @@ Item {
 
         // Toggle grid: eight controls chosen in Settings > Cards.
         Repeater {
-            model: (Settings.values["controls.tiles"] || root.defaultTiles).slice(0, 8)
-                   .map(id => root.tileCatalog[id]).filter(t => !!t)
+            model: JSON.parse(root.tileIds).slice(0, 8).map(id => root.tileCatalog[id]).filter(t => !!t)
             delegate: PanelEntrance {
                 required property var modelData
                 required property int index

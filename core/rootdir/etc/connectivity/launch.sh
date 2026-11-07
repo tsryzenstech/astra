@@ -7,6 +7,7 @@
 # restarted in a loop.
 #
 #   launch.sh prepare | dbus | iwd | bluetoothd | modemmanager | rmtfs | pd-mapper | tqftpserv
+#             pipewire | wireplumber | pipewire-pulse | hexagonrpcd
 
 find_bin() {
     for p in "$@"; do
@@ -69,8 +70,26 @@ tqftpserv)
     bin=$(find_bin /system/bin/tqftpserv) || missing tqftpserv
     exec "$bin"
     ;;
+pipewire|wireplumber|pipewire-pulse)
+    # All three share one directory for their sockets, which apps connect to.
+    bin=$(find_bin "/system/bin/$1") || missing "$1"
+    mkdir -p /run/astra/audio/pulse /data/system/audio
+    chmod 0755 /run/astra/audio /run/astra/audio/pulse
+    export XDG_RUNTIME_DIR=/run/astra/audio PIPEWIRE_RUNTIME_DIR=/run/astra/audio
+    export PULSE_RUNTIME_PATH=/run/astra/audio/pulse HOME=/data/system/audio
+    exec "$bin"
+    ;;
+hexagonrpcd)
+    # The ADSP's sensor process asks the system for its files. Without an answer
+    # it stalls, and the ADSP's watchdog takes the whole ADSP down every 40 s.
+    [ -e /dev/fastrpc-adsp ] || missing "the ADSP"
+    bin=$(find_bin /system/bin/hexagonrpcd) || missing hexagonrpcd
+    root=$(ls -d /vendor/share/qcom/*/*/* 2>/dev/null | head -n 1)
+    [ -n "$root" ] || missing "the DSP's files"
+    exec "$bin" -f /dev/fastrpc-adsp -d adsp -s -R "$root"
+    ;;
 *)
-    echo "usage: $0 prepare|dbus|iwd|bluetoothd|modemmanager|rmtfs|pd-mapper|tqftpserv" >&2
+    echo "usage: $0 prepare|dbus|iwd|bluetoothd|modemmanager|rmtfs|pd-mapper|tqftpserv|pipewire|wireplumber|pipewire-pulse|hexagonrpcd" >&2
     exit 2
     ;;
 esac
