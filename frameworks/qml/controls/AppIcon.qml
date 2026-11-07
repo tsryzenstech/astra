@@ -1,42 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick
-import QtQuick.Effects
+import QtQuick.Window
+import Astra.Core
 
-// Square app artwork clipped to the astraOS icon shape.
+// Square app artwork in the astraOS icon shape.
 Item {
     id: root
 
     property url source
     property real size: 60
     property bool round: false // circular badge (notifications)
-    readonly property real radius: round ? size / 2 : size * Theme.iconRadiusRatio
+    readonly property real radiusRatio: round ? 0.5 : Theme.iconRadiusRatio
+    readonly property real radius: size * radiusRatio
+    // In steps, so that an icon growing into an app does not draw it again each frame.
+    readonly property int pixels: {
+        const wanted = size * Screen.devicePixelRatio
+        return wanted <= 128 ? 128 : wanted <= 256 ? 256 : 512
+    }
 
     implicitWidth: size
     implicitHeight: size
 
     Image {
-        id: image
         anchors.fill: parent
-        source: root.source
-        sourceSize: Qt.size(root.size * 2, root.size * 2)
+        source: IconImages.rounded(root.source, root.radiusRatio)
+        sourceSize: Qt.size(root.pixels, root.pixels)
         smooth: true
-        visible: false
-    }
-
-    Rectangle {
-        id: mask
-        anchors.fill: parent
-        radius: root.radius
-        visible: false
-        layer.enabled: true
-    }
-
-    MultiEffect {
-        anchors.fill: parent
-        source: image
-        maskEnabled: true
-        maskSource: mask
-        maskThresholdMin: 0.5
-        maskSpreadAtMin: 1.0
     }
 }

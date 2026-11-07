@@ -77,6 +77,8 @@ pipewire|wireplumber|pipewire-pulse)
     chmod 0755 /run/astra/audio /run/astra/audio/pulse
     export XDG_RUNTIME_DIR=/run/astra/audio PIPEWIRE_RUNTIME_DIR=/run/astra/audio
     export PULSE_RUNTIME_PATH=/run/astra/audio/pulse HOME=/data/system/audio
+    # The sockets are for apps too, each with its own user.
+    umask 000
     exec "$bin"
     ;;
 hexagonrpcd)

@@ -9,6 +9,7 @@ qt_add_qml_module(astracore
     SOURCES
         common.cpp common.h
         files.cpp files.h
+        iconimages.cpp iconimages.h
         imagetools.cpp imagetools.h
         mail.cpp mail.h
         media.cpp media.h
@@ -19,5 +20,5 @@ qt_add_qml_module(astracore
         settings.cpp settings.h
         system.cpp system.h
 )
-target_link_libraries(astracore PRIVATE astra Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml)
+target_link_libraries(astracore PRIVATE astra Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick)
 astra_install_qml_module(astracore Astra/Core)
