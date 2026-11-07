@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick
+import QtQuick.Effects
 import Astra.Core
 import Astra.Controls
 import Astra.Animation
@@ -38,13 +39,42 @@ Item {
             height: 52
             radius: 26
             color: root.accent
+            // A NumberAnimation, not an Animator: Animators ignore "paused"
+            // and the record kept turning with the music stopped.
+            NumberAnimation on rotation {
+                from: 0
+                to: 360
+                duration: 9000
+                loops: Animation.Infinite
+                running: root.visible && MediaController.active
+                paused: running && !root.session.playing
+            }
             Image {
-                anchors.centerIn: parent
-                width: 22
-                height: 22
+                id: cover
+                anchors.fill: parent
                 source: root.session.artwork || ""
+                sourceSize: Qt.size(104, 104)
                 fillMode: Image.PreserveAspectCrop
-                visible: status === Image.Ready
+                visible: false
+            }
+            Rectangle { id: coverMask; anchors.fill: parent; radius: width / 2; visible: false; layer.enabled: true }
+            MultiEffect {
+                anchors.fill: parent
+                visible: cover.status === Image.Ready
+                source: cover
+                maskEnabled: true
+                maskSource: coverMask
+                maskThresholdMin: 0.5
+                maskSpreadAtMin: 1.0
+            }
+            Rectangle {
+                anchors.centerIn: parent
+                width: 9
+                height: 9
+                radius: 4.5
+                color: "#0B0B0B"
+                border.color: "#5A5A5A"
+                border.width: 1
             }
         }
 
@@ -68,7 +98,7 @@ Item {
             Text {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
-                text: root.session.artist || root.session.appName || ""
+                text: root.session.artist || root.session.album || ""
                 elide: Text.ElideRight
                 font.family: Theme.fontFamily
                 font.pixelSize: 11

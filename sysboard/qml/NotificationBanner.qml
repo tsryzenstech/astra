@@ -154,7 +154,7 @@ Item {
                 } else if (!moved && root.current) {
                     const n = root.current
                     root.hide()
-                    root.shell.launch(n.packageName, { notification: n.notificationId }, null)
+                    root.shell.launch(n.packageName, Object.assign({ notification: n.notificationId }, n.args || {}), null)
                 } else {
                     pull.animateTo(0, 0)
                     hideTimer.restart()

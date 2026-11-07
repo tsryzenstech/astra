@@ -4,6 +4,8 @@ import Astra.Controls
 import Astra.Animation
 
 // One notification. Tap opens the app, the chevron expands the full text.
+// Ongoing notifications (a download) show a progress bar and can't be
+// swiped away: the app ends them.
 Rectangle {
     id: root
 
@@ -12,6 +14,9 @@ Rectangle {
     property string title
     property string body
     property date time
+    property bool ongoing: false
+    property real progress: -2      // 0..1, -1 unknown, -2 no bar
+    readonly property bool hasProgress: progress >= -1
     property bool expanded: false
     signal openRequested()
     signal dismissRequested()
@@ -27,7 +32,8 @@ Rectangle {
         function onSettled() { if (root.dismissing) root.dismissRequested() }
     }
 
-    height: expanded ? Math.max(89, details.y + details.height + 18) : 89
+    readonly property real baseHeight: hasProgress ? Math.max(89, bar.y + bar.height + 16) : 89
+    height: expanded ? Math.max(baseHeight, details.y + details.height + 18) : baseHeight
     Behavior on height { SpringNumberAnimation { preset: Motion.snappy } }
     radius: expanded ? 34 : 44.5
     color: Qt.rgba(0, 0, 0, 0.45)
@@ -79,10 +85,46 @@ Rectangle {
         }
     }
 
+    // Progress: a filled bar, or a sliding segment when the size is unknown.
+    Rectangle {
+        id: bar
+        visible: root.hasProgress
+        x: 80
+        y: texts.y + texts.height + 8
+        width: parent.width - x - 48
+        height: 5
+        radius: 2.5
+        color: Qt.rgba(1, 1, 1, 0.22)
+        clip: true
+        Rectangle {
+            visible: root.progress >= 0
+            width: parent.width * Math.max(0, Math.min(1, root.progress))
+            height: parent.height
+            radius: parent.radius
+            color: "white"
+            Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        }
+        Rectangle {
+            id: sweep
+            visible: root.progress === -1
+            width: parent.width * 0.3
+            height: parent.height
+            radius: parent.radius
+            color: "white"
+            NumberAnimation on x {
+                running: sweep.visible && root.visible
+                from: -bar.width * 0.3
+                to: bar.width
+                duration: 1100
+                loops: Animation.Infinite
+            }
+        }
+    }
+
     Column {
         id: details
         x: 80
-        y: texts.y + texts.height + 8
+        y: (root.hasProgress ? bar.y + bar.height : texts.y + texts.height) + 8
         width: parent.width - x - 24
         spacing: 10
         visible: root.expanded
@@ -101,7 +143,8 @@ Rectangle {
         Row {
             spacing: 8
             Repeater {
-                model: [{ label: qsTr("Open"), action: "open" }, { label: qsTr("Dismiss"), action: "dismiss" }]
+                model: root.ongoing ? [{ label: qsTr("Open"), action: "open" }]
+                                    : [{ label: qsTr("Open"), action: "open" }, { label: qsTr("Dismiss"), action: "dismiss" }]
                 delegate: Rectangle {
                     required property var modelData
                     width: label.implicitWidth + 26
@@ -141,8 +184,8 @@ Rectangle {
         }
         onPositionChanged: (m) => {
             velocity.addPoint(m.x, m.y)
-            const dx = m.x - startX
-            if (!dragging && Math.abs(dx) > 12) {
+            const dx = root.ongoing ? Motion.rubberband(m.x - startX, 60) : m.x - startX
+            if (!dragging && Math.abs(m.x - startX) > 12) {
                 dragging = true
                 preventStealing = true
             }
@@ -151,7 +194,7 @@ Rectangle {
         }
         onReleased: {
             const vx = velocity.velocity().x
-            const away = Math.abs(swipe.value) > root.width * 0.35 || Math.abs(vx) > 700
+            const away = !root.ongoing && (Math.abs(swipe.value) > root.width * 0.35 || Math.abs(vx) > 700)
             if (dragging && away) {
                 const side = (Math.abs(vx) > 700 ? vx : swipe.value) > 0 ? 1 : -1
                 root.dismissing = true

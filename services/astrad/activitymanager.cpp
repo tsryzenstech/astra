@@ -13,6 +13,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLoggingCategory>
+#include <QMimeDatabase>
 #include <QProcess>
 #include <QTimer>
 
@@ -78,6 +79,57 @@ void ActivityManager::restart(const QString &package)
     r.restarting = true;
     m_server->broadcast(QStringLiteral("activity.restarting"), QJsonObject{{QStringLiteral("package"), package}});
     r.process->terminate();
+}
+
+// Whether an app may hand these launch arguments to another app: an "open"
+// or "share" of files (or a URL / text) of a type the target declares in
+// its app.json ("opens" / "share"), as ShareSheet does.
+static bool declaresIntent(const QJsonObject &target, const QJsonObject &args)
+{
+    QString action = args.value(QLatin1String("action")).toString();
+    // A bare { url } (a link opened in Planet) is an "open" too.
+    if (action.isEmpty() && (args.contains(QLatin1String("url")) || args.contains(QLatin1String("files"))))
+        action = QStringLiteral("open");
+    if (action != QLatin1String("open") && action != QLatin1String("share"))
+        return false;
+    const QJsonArray accepted = target.value(action == QLatin1String("open") ? QLatin1String("opens") : QLatin1String("share")).toArray();
+    if (accepted.isEmpty())
+        return false;
+    static QMimeDatabase db;
+    auto matches = [&accepted](const QMimeType &type, const QString &name) {
+        QStringList names{name};
+        if (type.isValid()) {
+            names << type.name() << type.aliases();
+            for (const QString &parent : type.allAncestors())
+                if (parent != QLatin1String("application/octet-stream"))
+                    names << parent << db.mimeTypeForName(parent).aliases();
+        }
+        for (const QJsonValue &v : accepted) {
+            const QString pattern = v.toString();
+            if (pattern == QLatin1String("*/*"))
+                return true;
+            for (const QString &n : std::as_const(names))
+                if (pattern == n || (pattern.endsWith(QLatin1String("/*")) && n.startsWith(pattern.chopped(1))))
+                    return true;
+        }
+        return false;
+    };
+    const QJsonArray files = args.value(QLatin1String("files")).toArray();
+    for (const QJsonValue &f : files) {
+        const QString path = f.toString();
+        const QMimeType type = path.endsWith(QLatin1String(".apkg"), Qt::CaseInsensitive)
+                                   ? db.mimeTypeForName(QStringLiteral("application/x-astra-apkg"))
+                                   : db.mimeTypeForFile(path);
+        if (!matches(type, type.isValid() ? type.name() : QStringLiteral("application/x-astra-apkg")))
+            return false;
+    }
+    if (!files.isEmpty())
+        return true;
+    if (args.contains(QLatin1String("url")))
+        return matches(db.mimeTypeForName(QStringLiteral("text/uri-list")), QStringLiteral("text/uri-list"));
+    if (args.contains(QLatin1String("text")))
+        return matches(db.mimeTypeForName(QStringLiteral("text/plain")), QStringLiteral("text/plain"));
+    return false;
 }
 
 void ActivityManager::grantAccess(const QString &package, gid_t gid)
@@ -219,12 +271,14 @@ QJsonValue ActivityManager::handle(const QString &call, const QJsonObject &param
 {
     const QString pkg = params.value(QLatin1String("package")).toString();
     if (call == QLatin1String("start")) {
-        // Apps may only start themselves or ask the system for other apps
-        // through SysBoard; privileged apps (Settings) may start anything.
-        if (!caller.isSystem() && caller.package != pkg && !caller.can(QLatin1String(permissions::MANAGE_PACKAGES)))
-            throw RpcError{protocol::PermissionDenied, QStringLiteral("cannot start other apps")};
+        // Apps may start themselves, or another app to open or share files
+        // of a type it declares ("Open with", the share sheet); privileged
+        // apps (Settings) may start anything.
         if (!m_packages->contains(pkg))
             throw RpcError{protocol::NotFound, QStringLiteral("no package %1").arg(pkg)};
+        if (!caller.isSystem() && caller.package != pkg && !caller.can(QLatin1String(permissions::MANAGE_PACKAGES)) &&
+            !declaresIntent(m_packages->info(pkg), params.value(QLatin1String("args")).toObject()))
+            throw RpcError{protocol::PermissionDenied, QStringLiteral("cannot start other apps")};
         if (m_waylandDisplay.isEmpty())
             throw RpcError{protocol::Failed, QStringLiteral("display not ready")};
         start(pkg, params.value(QLatin1String("args")).toObject());

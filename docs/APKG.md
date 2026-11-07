@@ -80,6 +80,9 @@ Trailer (40 bytes)
 | `background` | no | splash colour while the app starts |
 | `permissions` | no | see [IPC.md](IPC.md#permissions) |
 | `widgets` | no | lock screen widgets, see [APPS.md](APPS.md#lock-screen-widgets) |
+| `category` | no | store category, e.g. `"Utilities"`. `"Music"` is also what lets the app's `MediaSession` reach the lock screen player and Control Center (other apps' sessions are ignored there) |
+| `opens` | no | file types the app opens from Files › Open with, e.g. `["audio/*"]`; matches subtypes and aliases (`audio/ogg` also covers `audio/x-vorbis+ogg`). The app gets `{ action: "open", files: [paths] }` as launch arguments |
+| `share` | no | file types the app receives from the share sheet, same form as `opens` |
 
 ## Installation
 

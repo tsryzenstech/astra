@@ -39,10 +39,14 @@ Rectangle {
             fillMode: Image.PreserveAspectCrop
             visible: MediaController.active && status === Image.Ready
         }
-        AppIcon {
+        // No cover: a music note, not the app's icon.
+        Rectangle {
             visible: MediaController.active && !art.visible
-            size: 44
-            source: root.session.iconUrl || ""
+            width: 44
+            height: 44
+            radius: 10
+            color: root.session.accent ? root.session.accent : Qt.rgba(1, 1, 1, 0.18)
+            Icon { anchors.centerIn: parent; name: "music"; size: 24 }
         }
         Icon {
             visible: !MediaController.active
@@ -65,7 +69,7 @@ Rectangle {
             }
             Text {
                 width: parent.width
-                text: MediaController.active ? (root.session.artist || root.session.appName) : "Tune"
+                text: MediaController.active ? (root.session.artist || root.session.album || "") : ""
                 elide: Text.ElideRight
                 font.family: Theme.fontFamily
                 font.pixelSize: 15

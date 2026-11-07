@@ -86,7 +86,7 @@ Item {
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: MediaController.active ? (root.session.artist || root.session.appName || "") : ""
+            text: MediaController.active ? (root.session.artist || root.session.album || "") : ""
             elide: Text.ElideRight
             font.family: Theme.fontFamily
             font.pixelSize: Theme.bodySize

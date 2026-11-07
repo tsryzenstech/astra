@@ -5,8 +5,13 @@
 #include <astra/client.h>
 
 #include <QBuffer>
+#include <QCoreApplication>
 #include <QImage>
 #include <QJsonObject>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QPointer>
 #include <QUrl>
 
 namespace astra::qml {
@@ -76,20 +81,72 @@ MediaSession::~MediaSession()
 
 void MediaSession::setArtworkImage(const QVariant &image)
 {
-    QImage img;
-    if (image.canConvert<QImage>())
-        img = image.value<QImage>();
-    else
-        img = ImageTools::load(image.toString());
+    const int request = ++m_artworkRequest;
+    if (image.metaType().id() == QMetaType::QImage) {
+        applyArtwork(image.value<QImage>());
+        return;
+    }
+    const QString source = image.toString();
+    const QUrl url(source);
+    if (url.scheme() == QLatin1String("http") || url.scheme() == QLatin1String("https")) {
+        static QNetworkAccessManager *network = new QNetworkAccessManager(qApp);
+        QNetworkRequest r(url);
+        r.setTransferTimeout(15000);
+        QNetworkReply *reply = network->get(r);
+        QPointer<MediaSession> self(this);
+        connect(reply, &QNetworkReply::finished, reply, [self, reply, request] {
+            reply->deleteLater();
+            // Only the latest cover counts: songs change faster than downloads.
+            if (!self || request != self->m_artworkRequest)
+                return;
+            self->applyArtwork(reply->error() == QNetworkReply::NoError ? QImage::fromData(reply->readAll()) : QImage());
+        });
+        return;
+    }
+    applyArtwork(source.isEmpty() ? QImage() : ImageTools::load(source));
+}
+
+// Rows that are black from edge to edge, at the top and the bottom.
+static QImage trimBars(const QImage &src)
+{
+    const QImage img = src.convertToFormat(QImage::Format_RGB32);
+    auto dark = [&img](int y) {
+        const QRgb *line = reinterpret_cast<const QRgb *>(img.constScanLine(y));
+        for (int x = 0; x < img.width(); x += 3)
+            if (qGray(line[x]) > 24)
+                return false;
+        return true;
+    };
+    int top = 0, bottom = img.height() - 1;
+    while (top < img.height() / 4 && dark(top))
+        ++top;
+    while (bottom > img.height() * 3 / 4 && dark(bottom))
+        --bottom;
+    if (top == 0 && bottom == img.height() - 1)
+        return src;
+    return img.copy(0, top, img.width(), bottom - top + 1);
+}
+
+void MediaSession::applyArtwork(QImage img)
+{
     if (img.isNull()) {
         m_artwork.clear();
     } else {
+        // Video thumbnails: black bars above and below a 16:9 frame, which
+        // holds a square cover in the middle.
+        if (img.width() > img.height() * 1.05)
+            img = trimBars(img);
+        if (img.width() > img.height() * 1.1) {
+            const int side = img.height();
+            img = img.copy((img.width() - side) / 2, 0, side, side);
+        }
         img = img.scaled(384, 384, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         QByteArray png;
         QBuffer buffer(&png);
         buffer.open(QIODevice::WriteOnly);
-        img.save(&buffer, "PNG");
-        m_artwork = QStringLiteral("data:image/png;base64,") + QString::fromLatin1(png.toBase64());
+        // JPEG: a photo-like cover as PNG can pass astrad's 512 KB limit.
+        img.convertToFormat(QImage::Format_RGB32).save(&buffer, "JPG", 90);
+        m_artwork = QStringLiteral("data:image/jpeg;base64,") + QString::fromLatin1(png.toBase64());
         m_accent = ImageTools::dominantColorOf(img);
     }
     Q_EMIT changed();

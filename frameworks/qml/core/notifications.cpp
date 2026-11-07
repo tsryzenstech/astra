@@ -27,6 +27,26 @@ NotificationModel::NotificationModel(QObject *parent)
             endInsertRows();
             Q_EMIT countChanged();
             Q_EMIT posted(n.value(QLatin1String("id")).toInt());
+        } else if (name == QLatin1String("notifications.updated")) {
+            const QJsonObject n = data.toObject();
+            const int id = n.value(QLatin1String("id")).toInt();
+            for (int i = 0; i < m_items.size(); ++i) {
+                if (m_items.at(i).value(QLatin1String("id")).toInt() != id)
+                    continue;
+                if (n.value(QLatin1String("alert")).toBool() && i > 0) {
+                    // Back to the top, like a new notification.
+                    beginMoveRows({}, i, i, {}, 0);
+                    m_items.move(i, 0);
+                    endMoveRows();
+                    i = 0;
+                }
+                m_items[i] = n;
+                Q_EMIT dataChanged(index(i), index(i));
+                break;
+            }
+            Q_EMIT updated(id);
+            if (n.value(QLatin1String("alert")).toBool())
+                Q_EMIT posted(id);
         } else if (name == QLatin1String("notifications.removed")) {
             removeId(data.toObject().value(QLatin1String("id")).toInt());
         } else if (name == QLatin1String("notifications.cleared")) {
@@ -83,6 +103,9 @@ QVariant NotificationModel::data(const QModelIndex &index, int role) const
     case TitleRole: return n.value(QLatin1String("title")).toString();
     case BodyRole: return n.value(QLatin1String("body")).toString();
     case TimeRole: return QDateTime::fromMSecsSinceEpoch(qint64(n.value(QLatin1String("time")).toDouble()));
+    case OngoingRole: return n.value(QLatin1String("ongoing")).toBool();
+    case ProgressRole: return n.contains(QLatin1String("progress")) ? n.value(QLatin1String("progress")).toDouble() : -2.0; // -2: no bar
+    case ArgsRole: return n.value(QLatin1String("args")).toObject().toVariantMap();
     }
     return {};
 }
@@ -106,6 +129,7 @@ QHash<int, QByteArray> NotificationModel::roleNames() const
     return {
         {IdRole, "notificationId"}, {PackageRole, "packageName"}, {AppNameRole, "appName"}, {IconRole, "icon"},
         {TitleRole, "title"},       {BodyRole, "body"},           {TimeRole, "time"},
+        {OngoingRole, "ongoing"},   {ProgressRole, "progress"}, {ArgsRole, "args"},
     };
 }
 
@@ -116,6 +140,19 @@ void NotificationModel::post(const QString &title, const QString &body, const QS
         params.insert(QStringLiteral("package"), package);
     Client::instance()->call(QStringLiteral("notifications.post"), params,
                              [this, callback](const QJsonValue &r, const QString &e) { invokeCallback(this, callback, r, e); });
+}
+
+void NotificationModel::notify(const QVariantMap &options, const QJSValue &callback)
+{
+    Client::instance()->call(QStringLiteral("notifications.post"), QJsonObject::fromVariantMap(options),
+                             [this, callback](const QJsonValue &r, const QString &e) { invokeCallback(this, callback, r, e); });
+}
+
+void NotificationModel::update(int id, const QVariantMap &changes)
+{
+    QJsonObject params = QJsonObject::fromVariantMap(changes);
+    params.insert(QStringLiteral("id"), id);
+    Client::instance()->call(QStringLiteral("notifications.update"), params);
 }
 
 void NotificationModel::dismiss(int id)

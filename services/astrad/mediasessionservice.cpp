@@ -23,6 +23,11 @@ MediaSessionService::MediaSessionService(Server *server, PackageManager *package
     });
 }
 
+bool MediaSessionService::isMusicApp(const QJsonObject &info)
+{
+    return info.value(QLatin1String("category")).toString().compare(QLatin1String("music"), Qt::CaseInsensitive) == 0;
+}
+
 QJsonValue MediaSessionService::active() const
 {
     // Prefer what is playing right now, then whatever changed last.
@@ -54,6 +59,14 @@ QJsonValue MediaSessionService::handle(const QString &call, const QJsonObject &p
         if (caller.package.isEmpty())
             throw RpcError{protocol::InvalidParams, QStringLiteral("only apps own media sessions")};
         const QJsonObject info = m_packages->info(caller.package);
+        // The system player (lock screen, Control Center) is for music apps
+        // only: they say so with "category": "music" in app.json. A browser
+        // playing a video does not take over the lock screen. Developer
+        // tools (Settings > Testing) may publish to try the player.
+        if (!isMusicApp(info) && !caller.can(QLatin1String(permissions::DEVELOPER))) {
+            release(caller.package);
+            return false;
+        }
         QJsonObject s;
         for (const char *key : {"title", "artist", "album", "artwork", "duration", "position", "playing", "accent"})
             if (params.contains(QLatin1String(key)))

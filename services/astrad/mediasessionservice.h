@@ -11,7 +11,8 @@ class PackageManager;
 
 // Media sessions: apps playing audio publish what they play (title, artist,
 // artwork, position...). SysBoard shows the active session on the lock
-// screen and in Control Center and sends transport commands back.
+// screen and in Control Center and sends transport commands back. Only
+// music apps ("category": "music") get there.
 class MediaSessionService : public Service
 {
     Q_OBJECT
@@ -20,6 +21,8 @@ public:
 
     QJsonValue handle(const QString &call, const QJsonObject &params, const Caller &caller) override;
     void release(const QString &package);
+    // "category": "music" in app.json: the only apps the system player shows.
+    static bool isMusicApp(const QJsonObject &info);
 
 private:
     QJsonValue active() const;

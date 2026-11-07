@@ -5,6 +5,7 @@
 #include <astra/client.h>
 
 #include <QJsonArray>
+#include <QMimeDatabase>
 
 namespace astra::qml {
 
@@ -163,6 +164,21 @@ void PackageModel::uninstall(const QString &package, const QJSValue &callback)
 
 QVariantList PackageModel::targets(const QString &mimeType, const QString &kind) const
 {
+    // A file's type and everything it is a kind of: audio/x-vorbis+ogg is
+    // also audio/ogg, audio/x-wav is audio/wav, so an app that opens
+    // "audio/ogg" or "audio/*" gets both.
+    static QMimeDatabase db;
+    const QMimeType type = db.mimeTypeForName(mimeType);
+    QStringList names{mimeType};
+    if (type.isValid()) {
+        names << type.name() << type.aliases() << type.allAncestors();
+        for (const QString &parent : type.allAncestors())
+            names << db.mimeTypeForName(parent).aliases();
+    }
+    names.removeDuplicates();
+    // Every type is a kind of octet stream; only a real one matches it.
+    if (mimeType != QLatin1String("application/octet-stream"))
+        names.removeAll(QStringLiteral("application/octet-stream"));
     QVariantList out;
     const QString self = qEnvironmentVariable("ASTRA_PACKAGE");
     for (const QJsonObject &p : m_items) {
@@ -170,8 +186,14 @@ QVariantList PackageModel::targets(const QString &mimeType, const QString &kind)
             continue;
         for (const QJsonValue &v : p.value(kind == QLatin1String("open") ? QLatin1String("opens") : QLatin1String("share")).toArray()) {
             const QString pattern = v.toString();
-            const bool match = pattern == QLatin1String("*/*") || pattern == mimeType ||
-                               (pattern.endsWith(QLatin1String("/*")) && mimeType.startsWith(pattern.chopped(1)));
+            bool match = pattern == QLatin1String("*/*");
+            for (const QString &name : std::as_const(names)) {
+                if (match)
+                    break;
+                match = pattern == name ||
+                        (pattern.endsWith(QLatin1String("/*")) &&
+                         name.startsWith(pattern.chopped(1)));
+            }
             if (match) {
                 out.append(toMap(p));
                 break;

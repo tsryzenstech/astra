@@ -29,7 +29,7 @@ apps (SysBoard, daemons) are *system* callers.
 | `system.power {action}` | POWER | `reboot`, `poweroff`, `bootloader`, `recovery`, `restart-sysboard` (through init) |
 | `packages.list`, `packages.get {package}`, `packages.widgets` | any | installed packages |
 | `packages.install {path}`, `packages.uninstall {package}` | MANAGE_PACKAGES | system packages ("installed by root") cannot be removed |
-| `activity.start {package, args}` | system, own package, MANAGE_PACKAGES | launch or deliver an intent |
+| `activity.start {package, args}` | system, own package, MANAGE_PACKAGES; any app for `args.action` `open`/`share` of files (or `url`/`text`) of a type the target declares in `opens`/`share` | launch or deliver an intent |
 | `activity.stop`, `activity.running`, `activity.registerDisplay` | system / own | |
 | `notifications.post {title, body, package?}` | any (package: MANAGE_NOTIFICATIONS) | |
 | `notifications.list`, `notifications.dismiss {id}` | own / MANAGE_NOTIFICATIONS | |

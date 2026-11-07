@@ -25,9 +25,56 @@ NotificationService::NotificationService(Server *server, PackageManager *package
     , m_path(Paths::dataSystem() + QStringLiteral("/notifications.json"))
 {
     const QJsonObject stored = loadJson(m_path);
-    m_items = stored.value(QLatin1String("items")).toArray();
     m_nextId = qMax(1, stored.value(QLatin1String("nextId")).toInt());
+    // Ongoing notifications (a download, a recording) describe work that
+    // died with the previous boot.
+    for (const QJsonValue &v : stored.value(QLatin1String("items")).toArray())
+        if (!v.toObject().value(QLatin1String("ongoing")).toBool())
+            m_items.append(v);
     connect(packages, &PackageManager::packageRemoved, this, &NotificationService::removePackage);
+    // ... and with the app that runs it.
+    connect(server, &Server::clientDisconnected, this, [this](const Caller &c) {
+        if (!c.package.isEmpty())
+            removeOngoing(c.package);
+    });
+}
+
+void NotificationService::removeOngoing(const QString &package)
+{
+    bool changed = false;
+    for (int i = m_items.size() - 1; i >= 0; --i) {
+        const QJsonObject n = m_items.at(i).toObject();
+        if (n.value(QLatin1String("package")).toString() == package && n.value(QLatin1String("ongoing")).toBool()) {
+            m_items.removeAt(i);
+            changed = true;
+            m_server->broadcast(QStringLiteral("notifications.removed"), QJsonObject{{QStringLiteral("id"), n.value(QLatin1String("id"))}});
+        }
+    }
+    if (changed)
+        save();
+}
+
+// Ongoing notifications cannot be dismissed by the user: they last until
+// the app updates them into a normal one, removes them or exits.
+// "progress" is 0..1, or -1 for work of unknown length.
+void NotificationService::applyOptions(QJsonObject &n, const QJsonObject &params)
+{
+    if (!params.value(QLatin1String("title")).toString().isEmpty())
+        n.insert(QStringLiteral("title"), params.value(QLatin1String("title")).toString().left(kMaxText));
+    if (params.contains(QLatin1String("body")))
+        n.insert(QStringLiteral("body"), params.value(QLatin1String("body")).toString().left(kMaxText));
+    if (params.contains(QLatin1String("ongoing")))
+        n.insert(QStringLiteral("ongoing"), params.value(QLatin1String("ongoing")).toBool());
+    if (params.contains(QLatin1String("progress"))) {
+        const QJsonValue p = params.value(QLatin1String("progress"));
+        if (!p.isDouble())
+            n.remove(QStringLiteral("progress"));
+        else
+            n.insert(QStringLiteral("progress"), p.toDouble() < 0 ? -1.0 : qBound(0.0, p.toDouble(), 1.0));
+    }
+    // Launch arguments for the app when the notification is opened.
+    if (params.value(QLatin1String("args")).isObject())
+        n.insert(QStringLiteral("args"), params.value(QLatin1String("args")));
 }
 
 void NotificationService::save()
@@ -46,15 +93,16 @@ QJsonObject NotificationService::decorate(const QJsonObject &n) const
     return out;
 }
 
-int NotificationService::post(const QString &package, const QString &title, const QString &body)
+int NotificationService::post(const QString &package, const QString &title, const QString &body, const QJsonObject &options)
 {
-    const QJsonObject n{
+    QJsonObject n{
         {QStringLiteral("id"), m_nextId++},
         {QStringLiteral("package"), package},
         {QStringLiteral("title"), title.left(kMaxText)},
         {QStringLiteral("body"), body.left(kMaxText)},
         {QStringLiteral("time"), double(QDateTime::currentMSecsSinceEpoch())},
     };
+    applyOptions(n, options);
     m_items.prepend(n);
     while (m_items.size() > kMaxNotifications)
         m_items.removeLast();
@@ -93,7 +141,33 @@ QJsonValue NotificationService::handle(const QString &call, const QJsonObject &p
         const QString title = params.value(QLatin1String("title")).toString();
         if (title.isEmpty())
             throw RpcError{protocol::InvalidParams, QStringLiteral("title is required")};
-        return post(package, title, params.value(QLatin1String("body")).toString());
+        return post(package, title, params.value(QLatin1String("body")).toString(), params);
+    }
+    if (call == QLatin1String("update")) {
+        // { id, title?, body?, ongoing?, progress?, args?, alert? }: alert
+        // shows the banner again (e.g. "Download complete").
+        const int id = params.value(QLatin1String("id")).toInt();
+        for (int i = 0; i < m_items.size(); ++i) {
+            QJsonObject n = m_items.at(i).toObject();
+            if (n.value(QLatin1String("id")).toInt() != id)
+                continue;
+            if (!manager && n.value(QLatin1String("package")).toString() != caller.package)
+                throw RpcError{protocol::PermissionDenied, QStringLiteral("not your notification")};
+            applyOptions(n, params);
+            const bool alert = params.value(QLatin1String("alert")).toBool();
+            if (alert)
+                n.insert(QStringLiteral("time"), double(QDateTime::currentMSecsSinceEpoch()));
+            m_items.replace(i, n);
+            // Progress changes several times a second: only what lasts is saved.
+            if (!n.value(QLatin1String("ongoing")).toBool() || params.contains(QLatin1String("ongoing")))
+                save();
+            QJsonObject event = decorate(n);
+            if (alert)
+                event.insert(QStringLiteral("alert"), true);
+            m_server->broadcast(QStringLiteral("notifications.updated"), event);
+            return true;
+        }
+        return false;
     }
     if (call == QLatin1String("list")) {
         QJsonArray out;
@@ -110,8 +184,12 @@ QJsonValue NotificationService::handle(const QString &call, const QJsonObject &p
             const QJsonObject n = m_items.at(i).toObject();
             if (n.value(QLatin1String("id")).toInt() != id)
                 continue;
-            if (!manager && n.value(QLatin1String("package")).toString() != caller.package)
+            const bool own = n.value(QLatin1String("package")).toString() == caller.package;
+            if (!manager && !own)
                 throw RpcError{protocol::PermissionDenied, QStringLiteral("not your notification")};
+            // Only the app ends an ongoing notification.
+            if (!own && n.value(QLatin1String("ongoing")).toBool())
+                return false;
             m_items.removeAt(i);
             save();
             m_server->broadcast(QStringLiteral("notifications.removed"), QJsonObject{{QStringLiteral("id"), id}});
@@ -121,9 +199,15 @@ QJsonValue NotificationService::handle(const QString &call, const QJsonObject &p
     }
     if (call == QLatin1String("clear")) {
         caller.require(QLatin1String(permissions::MANAGE_NOTIFICATIONS));
-        m_items = {};
+        // Ongoing notifications stay.
+        for (int i = m_items.size() - 1; i >= 0; --i) {
+            const QJsonObject n = m_items.at(i).toObject();
+            if (n.value(QLatin1String("ongoing")).toBool())
+                continue;
+            m_items.removeAt(i);
+            m_server->broadcast(QStringLiteral("notifications.removed"), QJsonObject{{QStringLiteral("id"), n.value(QLatin1String("id"))}});
+        }
         save();
-        m_server->broadcast(QStringLiteral("notifications.cleared"), QJsonValue());
         return true;
     }
     throw RpcError{protocol::MethodNotFound, call};

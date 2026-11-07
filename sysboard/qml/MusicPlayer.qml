@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick
+import QtQuick.Effects
 import Astra.Core
 import Astra.Controls
 import Astra.Animation
@@ -66,14 +67,19 @@ Item {
         scale: 0.55 + 0.45 * open.value
         opacity: Math.min(1, open.value * 1.4)
 
+        // The record: the album cover fills it and turns with it while the
+        // music plays (the accent colour stands in when there is no cover).
         Item {
             anchors.fill: parent
-            RotationAnimator on rotation {
+            // A NumberAnimation, not an Animator: Animators ignore "paused"
+            // and the record kept turning with the music stopped.
+            NumberAnimation on rotation {
                 from: 0
                 to: 360
                 duration: 9000
                 loops: Animation.Infinite
-                running: root.visible && !!root.session.playing
+                running: root.visible && MediaController.active
+                paused: running && !root.session.playing
             }
 
             Rectangle {
@@ -86,12 +92,52 @@ Item {
                 }
             }
             Image {
-                anchors.centerIn: parent
-                width: parent.width * 0.4
-                height: width
+                id: cover
+                anchors.fill: parent
                 source: root.session.artwork || ""
+                sourceSize: Qt.size(512, 512)
                 fillMode: Image.PreserveAspectCrop
                 smooth: true
+                visible: false
+            }
+            Rectangle {
+                id: coverMask
+                anchors.fill: parent
+                radius: width / 2
+                visible: false
+                layer.enabled: true
+            }
+            MultiEffect {
+                anchors.fill: parent
+                visible: cover.status === Image.Ready
+                source: cover
+                maskEnabled: true
+                maskSource: coverMask
+                maskThresholdMin: 0.5
+                maskSpreadAtMin: 1.0
+            }
+            // Grooves and a soft sheen so it still reads as a record.
+            Repeater {
+                model: [0.96, 0.82, 0.66, 0.5]
+                delegate: Rectangle {
+                    required property real modelData
+                    anchors.centerIn: parent
+                    width: disc.width * modelData
+                    height: width
+                    radius: width / 2
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Qt.rgba(0, 0, 0, 0.16)
+                }
+            }
+            Rectangle {
+                anchors.fill: parent
+                radius: width / 2
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.10) }
+                    GradientStop { position: 0.5; color: "transparent" }
+                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.16) }
+                }
             }
             Rectangle {
                 anchors.centerIn: parent

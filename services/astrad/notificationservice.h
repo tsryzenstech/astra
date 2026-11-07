@@ -10,7 +10,8 @@ namespace astrad {
 class PackageManager;
 
 // Delivers notifications posted by apps to SysBoard's Notification Center.
-// Notifications persist across reboots until dismissed.
+// Notifications persist across reboots until dismissed. Ongoing ones (with
+// an optional progress bar) can't be dismissed and end with their app.
 class NotificationService : public Service
 {
     Q_OBJECT
@@ -20,11 +21,14 @@ public:
     QJsonValue handle(const QString &call, const QJsonObject &params, const Caller &caller) override;
 
     // Posts on behalf of a package (used by the system itself, e.g. Tips).
-    int post(const QString &package, const QString &title, const QString &body);
+    int post(const QString &package, const QString &title, const QString &body,
+             const QJsonObject &options = QJsonObject());
     void removePackage(const QString &package);
+    void removeOngoing(const QString &package);
 
 private:
     void save();
+    static void applyOptions(QJsonObject &n, const QJsonObject &params);
     QJsonObject decorate(const QJsonObject &n) const;
 
     Server *m_server;

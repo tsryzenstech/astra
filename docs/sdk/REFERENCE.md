@@ -12,14 +12,16 @@ import Astra.Controls   // the UI: every app is built from these
 
 ### AppIcon
 
-Square app artwork clipped to the astraOS icon shape.
+Square app artwork in the astraOS icon shape.
 
 | Property | Type | Default | |
 |---|---|---|---|
 | `source` | url | |  |
 | `size` | real | `60` |  |
 | `round` | bool | `false` | circular badge (notifications) |
-| `radius` | real (read-only) | |  |
+| `radiusRatio` | real (read-only) | `round ? 0.5 : Theme.iconRadiusRatio` |  |
+| `radius` | real (read-only) | `size * radiusRatio` |  |
+| `pixels` | int (read-only) | `{` |  |
 
 ### Button
 
@@ -68,6 +70,7 @@ A symbolic icon from the system icon set, optionally tinted. Icon { name: "setti
 | `size` | real | `24` |  |
 | `color` | color | `"white"` |  |
 | `tinted` | bool (read-only) | |  |
+| `file` | url (read-only) | |  |
 
 ### IconButton
 
@@ -362,6 +365,10 @@ File operations for apps (singleton "Files"), limited to the shared storage (/da
 | `int move(QVariantList paths, QString dir)` |  |
 | `bool writeText(QString path, QString text)` |  |
 
+### IconImages
+
+Icons drawn once, into an ordinary image: rounded to the icon shape, or tinted. Nothing to render later, so nothing to go missing: with a mask effect per icon, a different icon stayed blank on each start of the phone, and each one cost two offscreen layers for as long as it was on screen.
+
 ### ImageTools
 
 Image helpers for the system UI (singleton "ImageTools").
@@ -402,7 +409,7 @@ The active media session as seen by the system UI (singleton).
 
 ### MediaSession (type)
 
-Publishes what an app is playing: MediaSession { title: player.title; artist: ...; playing: ...; onCommand: (a) => ... }
+Publishes what an app is playing: MediaSession { title: player.title; artist: ...; playing: ...; onCommand: (a) => ... } The lock screen player and Control Center show it only for music apps ("category": "Music" in app.json): the song's title, artist and cover.
 
 | Function | |
 |---|---|
@@ -418,6 +425,8 @@ Live list of notifications (QML singleton "Notifications"). SysBoard sees everyt
 
 | Function | |
 |---|---|
+| `void notify(QVariantMap options, QJSValue callback = QJSValue())` |  |
+| `void update(int id, QVariantMap changes)` |  |
 | `void dismiss(int id)` |  |
 | `void clear()` |  |
 

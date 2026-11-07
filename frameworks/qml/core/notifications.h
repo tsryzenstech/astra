@@ -27,6 +27,9 @@ public:
         TitleRole,
         BodyRole,
         TimeRole,
+        OngoingRole,
+        ProgressRole,
+        ArgsRole,
     };
 
     explicit NotificationModel(QObject *parent = nullptr);
@@ -38,6 +41,14 @@ public:
 
     Q_INVOKABLE void post(const QString &title, const QString &body, const QString &package = QString(),
                           const QJSValue &callback = QJSValue());
+    // Full form: { title, body, ongoing, progress (0..1, -1 = unknown), args }.
+    // An ongoing notification can't be dismissed by the user and ends when
+    // the app updates it with ongoing: false, dismisses it or exits.
+    //   Notifications.notify({ title: "Downloading", ongoing: true, progress: 0 }, (id) => ...)
+    Q_INVOKABLE void notify(const QVariantMap &options, const QJSValue &callback = QJSValue());
+    // Changes a posted notification: { title, body, ongoing, progress, args, alert }
+    // (alert: true shows the banner again).
+    Q_INVOKABLE void update(int id, const QVariantMap &changes);
     Q_INVOKABLE void dismiss(int id);
     // { notificationId, packageName, appName, icon, title, body, time } or {} if gone
     Q_INVOKABLE QVariantMap get(int id) const;
@@ -46,6 +57,7 @@ public:
 Q_SIGNALS:
     void countChanged();
     void posted(int id);
+    void updated(int id);
 
 private:
     void reload();

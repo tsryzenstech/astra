@@ -69,6 +69,9 @@ Item {
                     required property string title
                     required property string body
                     required property date time
+                    required property bool ongoing
+                    required property real progress
+                    required property var args
 
                     panel: root.panel
                     order: Math.min(entry.index + 1, 6)
@@ -83,10 +86,13 @@ Item {
                         title: entry.title
                         body: entry.body
                         time: entry.time
+                        ongoing: entry.ongoing
+                        progress: entry.progress
                         onOpenRequested: {
-                            Notifications.dismiss(entry.notificationId)
+                            if (!entry.ongoing)
+                                Notifications.dismiss(entry.notificationId)
                             root.panel.close()
-                            root.shell.launch(entry.packageName, { notification: entry.notificationId }, null)
+                            root.shell.launch(entry.packageName, Object.assign({ notification: entry.notificationId }, entry.args || {}), null)
                         }
                         onDismissRequested: Notifications.dismiss(entry.notificationId)
                     }

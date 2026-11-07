@@ -37,6 +37,8 @@ private:
 
 // Publishes what an app is playing:
 //   MediaSession { title: player.title; artist: ...; playing: ...; onCommand: (a) => ... }
+// The lock screen player and Control Center show it only for music apps
+// ("category": "Music" in app.json): the song's title, artist and cover.
 class MediaSession : public QObject
 {
     Q_OBJECT
@@ -56,7 +58,10 @@ public:
     explicit MediaSession(QObject *parent = nullptr);
     ~MediaSession() override;
 
-    // Accepts a QImage (e.g. MediaMetaData.CoverArtImage) or an image URL.
+    // The album cover shown by the lock screen and Control Center. Accepts a
+    // QImage (e.g. MediaMetaData.CoverArtImage), a file/data: URL or an
+    // http(s) URL (downloaded here). Wide images (video thumbnails) are cut
+    // to a centred square; an empty value clears the cover.
     Q_INVOKABLE void setArtworkImage(const QVariant &image);
 
 Q_SIGNALS:
@@ -65,6 +70,7 @@ Q_SIGNALS:
 
 private:
     void publish();
+    void applyArtwork(QImage img);
 
     QString m_title, m_artist, m_album, m_artwork;
     QColor m_accent;
@@ -72,6 +78,7 @@ private:
     bool m_playing = false;
     bool m_active = true;
     QTimer m_debounce;
+    int m_artworkRequest = 0;
 };
 
 } // namespace astra::qml

@@ -183,7 +183,7 @@ Sheet {
                             : qsTr("Failed")
                     iconName: "download"
                     busy: d && !d.isFinished
-                    onClicked: if (finished) Packages.launch("com.astra.files", { action: "open", files: [modelData.path] })
+                    onClicked: if (finished) root.browser.openDownload(modelData)
                     IconButton {
                         visible: d && !d.isFinished
                         size: 34

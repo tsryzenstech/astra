@@ -205,17 +205,118 @@ Rectangle {
     readonly property alias profile: profile
     readonly property alias privateProfile: privateProfileItem
 
+    // ---- downloads --------------------------------------------------------------
+    // Files land in Download/ of the shared storage, where Files shows them.
+    // Writing there needs the Files permission: without it (yet) the file is
+    // fetched into Planet's private folder and moved once it is granted.
+    // While it runs an ongoing notification shows the progress; at the end
+    // it turns into a normal one.
+    property bool canSave: false
+    readonly property string downloadDir: Files.home + "/Download"
+    Component.onDestruction: {
+        for (const e of downloads)
+            if (e.item && !e.item.isFinished)
+                e.item.cancel()
+    }
+    function ensureDir(parent, name) {
+        const path = parent + "/" + name
+        if (!Files.info(path).dir)
+            Files.mkdir(parent, name)
+        return path
+    }
+    function sizeText(bytes) {
+        if (bytes >= 1e9) return (bytes / 1e9).toFixed(1) + " GB"
+        if (bytes >= 1e6) return (bytes / 1e6).toFixed(1) + " MB"
+        return Math.max(1, Math.round(bytes / 1e3)) + " KB"
+    }
     function startDownload(d) {
-        d.downloadDirectory = Files.home + "/Download"
+        // Decided right away: the request must be accepted in this handler.
+        const shared = canSave
+        const dir = shared ? ensureDir(Files.home, "Download") : ensureDir(Files.appData, "downloads")
+        d.downloadDirectory = dir
         d.accept()
-        const entry = { name: d.downloadFileName, path: d.downloadDirectory + "/" + d.downloadFileName, url: d.url.toString(), item: d }
+        const entry = { name: d.downloadFileName, path: d.downloadDirectory + "/" + d.downloadFileName, url: d.url.toString(),
+                        item: d, shared: shared, notification: 0 }
         downloads = [entry].concat(downloads)
         toast.show(qsTr("Downloading “%1”").arg(d.downloadFileName))
+
+        const notify = function() {
+            Permissions.request("astra.permission.NOTIFICATIONS", function(ok) {
+                if (!ok || d.isFinished) return
+                Notifications.notify({ title: d.downloadFileName, body: qsTr("Downloading…"), ongoing: true,
+                                       progress: d.totalBytes > 0 ? d.receivedBytes / d.totalBytes : -1, args: { downloads: true } },
+                                     function(id) { if (typeof id === "number") { entry.notification = id; if (d.isFinished) app.downloadFinished(entry) } })
+            })
+        }
+        if (shared) {
+            notify()
+        } else {
+            Permissions.request("astra.permission.MEDIA", function(ok) {
+                app.canSave = !!ok
+                if (ok && d.isFinished) app.downloadFinished(entry)
+                notify()
+            })
+        }
+
+        let last = 0
+        d.receivedBytesChanged.connect(function() {
+            const now = Date.now()
+            if (!entry.notification || now - last < 500) return
+            last = now
+            Notifications.update(entry.notification, {
+                progress: d.totalBytes > 0 ? d.receivedBytes / d.totalBytes : -1,
+                body: d.totalBytes > 0 ? qsTr("%1 of %2").arg(app.sizeText(d.receivedBytes)).arg(app.sizeText(d.totalBytes))
+                                       : app.sizeText(d.receivedBytes)
+            })
+        })
         d.isFinishedChanged.connect(function() {
-            if (d.isFinished && d.state === WebEngineDownloadRequest.DownloadCompleted)
-                toast.show(qsTr("“%1” is in Downloads").arg(d.downloadFileName))
+            if (d.isFinished) app.downloadFinished(entry)
             app.downloads = app.downloads.slice()
         })
+    }
+    // A finished download opens with the app the user picks.
+    function openDownload(entry) {
+        if (!entry.shared) {
+            toast.show(qsTr("Allow Files for Planet to move “%1” to Downloads").arg(entry.name))
+            return
+        }
+        library.close()
+        share.open([entry.path], Files.mimeType(entry.path), "open")
+    }
+    function downloadFinished(entry) {
+        const d = entry.item
+        const ok = d.state === WebEngineDownloadRequest.DownloadCompleted
+        if (ok && !entry.shared && canSave) {
+            // From Planet's private folder to Download/.
+            const dir = ensureDir(Files.home, "Download")
+            const before = Files.list(dir, true).map(e => e.name)
+            if (Files.move([entry.path], dir) === 1) {
+                // A file with the same name gets a new one: find it.
+                const added = Files.list(dir, true).filter(e => before.indexOf(e.name) < 0)
+                entry.name = added.length ? added[0].name : entry.name
+                entry.path = dir + "/" + entry.name
+                entry.shared = true
+            }
+        }
+        if (ok && !entry.done) {
+            entry.done = true
+            toast.show(entry.shared ? qsTr("“%1” is in Downloads").arg(entry.name)
+                                    : qsTr("Allow Files for Planet to move “%1” to Downloads").arg(entry.name))
+        }
+        if (!entry.notification) return
+        if (d.state === WebEngineDownloadRequest.DownloadCancelled) {
+            Notifications.dismiss(entry.notification)
+            entry.notification = 0
+            return
+        }
+        Notifications.update(entry.notification, {
+            ongoing: false,
+            progress: null,
+            title: ok ? qsTr("Download complete") : qsTr("Download failed"),
+            body: ok ? entry.name + (entry.shared ? " • " + qsTr("Files › Download") : "") : entry.name,
+            alert: true
+        })
+        app.downloads = app.downloads.slice()
     }
 
     // Camera, microphone and location for websites need the app's own
@@ -252,6 +353,11 @@ Rectangle {
     function handleArgs(args) {
         if (!args)
             return
+        if (args.downloads) {   // from a download notification
+            library.section = 3
+            library.open()
+            return
+        }
         let u = args.url || ""
         if (!u && args.files && args.files.length)
             u = "file://" + args.files[0]
@@ -270,6 +376,7 @@ Rectangle {
     Component.onCompleted: {
         load()
         handleArgs(Application.args)
+        Permissions.check("astra.permission.MEDIA", function(ok) { app.canSave = !!ok })
     }
     Connections {
         target: Application

@@ -20,9 +20,32 @@ Rectangle {
         function onIntent(args) {
             if (args.action === "share")
                 app.incoming = args.files || []
+            else if (args.action === "open")
+                app.reveal(args.files || [])
         }
     }
-    Component.onCompleted: Permissions.check("astra.permission.MEDIA", function(ok) { app.granted = !!ok })
+    Component.onCompleted: Permissions.check("astra.permission.MEDIA", function(ok) {
+        app.granted = !!ok
+        if (Application.args.action === "open")
+            app.reveal(Application.args.files || [])
+    })
+
+    // Other apps open a folder or a file here (Planet's downloads): show the
+    // folder, then open the file as if it had been tapped.
+    function reveal(paths) {
+        if (!paths.length) return
+        if (!granted) {
+            Permissions.request("astra.permission.MEDIA", function(ok) { app.granted = !!ok; if (ok) app.reveal(paths) })
+            return
+        }
+        if (!Files.allowed(paths[0])) return
+        const e = Files.info(paths[0])
+        if (!e.name) return
+        const dir = e.dir ? e.path : e.path.slice(0, e.path.lastIndexOf("/"))
+        pageStack.pop(null)
+        app.push(folderPage, { path: dir, title: dir === Files.home ? qsTr("On My Phone") : dir.slice(dir.lastIndexOf("/") + 1) })
+        if (!e.dir) app.openFile(e)
+    }
 
     function iconFor(e) {
         if (e.dir) return "folder"
