@@ -47,6 +47,27 @@ iwd)
     ;;
 bluetoothd)
     bin=$(find_bin /system/libexec/bluetooth/bluetoothd /system/lib/bluetooth/bluetoothd /system/bin/bluetoothd) || missing bluetoothd
+    # Started together with the bus it needs.
+    i=0
+    while [ ! -S /run/dbus/system_bus_socket ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+    # A controller without an address stays "unconfigured": BlueZ does not see it.
+    # On phones the bootloader would hand one over; ours does not. It stays the same
+    # across boots: the SoC's serial number, as a locally administered address.
+    btmgmt=$(find_bin /system/bin/btmgmt)
+    serial=$(cat /sys/devices/soc0/serial_number 2>/dev/null)
+    if [ -n "$btmgmt" ] && [ -n "$serial" ]; then
+        h=$(printf '%08x' "$serial")
+        address="02:00:$(echo "$h" | cut -c1-2):$(echo "$h" | cut -c3-4):$(echo "$h" | cut -c5-6):$(echo "$h" | cut -c7-8)"
+        (
+            i=0
+            while [ $i -lt 60 ]; do
+                timeout 3 "$btmgmt" --index 0 public-addr "$address" > /dev/null 2>&1
+                timeout 3 "$btmgmt" --index 0 info 2>/dev/null | grep -q "$address" && break
+                sleep 1
+                i=$((i + 1))
+            done
+        ) &
+    fi
     exec "$bin" -n
     ;;
 modemmanager)
@@ -88,7 +109,10 @@ hexagonrpcd)
     bin=$(find_bin /system/bin/hexagonrpcd) || missing hexagonrpcd
     root=$(ls -d /vendor/share/qcom/*/*/* 2>/dev/null | head -n 1)
     [ -n "$root" ] || missing "the DSP's files"
-    exec "$bin" -f /dev/fastrpc-adsp -d adsp -s -R "$root"
+    # Not to the kernel log, where init points services: tried on the phone, with
+    # the output there the sensor process still stalls, with it elsewhere it does
+    # not. It also writes a line for each file it may not write, by the thousand.
+    exec "$bin" -f /dev/fastrpc-adsp -d adsp -s -R "$root" > /dev/null 2>&1
     ;;
 *)
     echo "usage: $0 prepare|dbus|iwd|bluetoothd|modemmanager|rmtfs|pd-mapper|tqftpserv|pipewire|wireplumber|pipewire-pulse|hexagonrpcd" >&2
