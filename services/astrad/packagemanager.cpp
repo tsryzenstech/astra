@@ -233,6 +233,7 @@ bool PackageManager::installFrom(const QString &apkgPath, bool system, bool priv
     prepareDataDir(pkg, uid);
     qCInfo(lcPm) << (existing.isEmpty() ? "installed" : "updated") << pkg << "uid" << uid;
     m_server->broadcast(K("packages.changed"), info(pkg));
+    Q_EMIT packageInstalled(pkg);
     return true;
 }
 
@@ -310,6 +311,10 @@ QJsonObject PackageManager::info(const QString &package) const
         {K("installer"), r.value(K("installer"))},
         {K("removable"), !r.value(K("system")).toBool()},
         {K("updated"), r.value(K("updated")).toBool()},
+        // Native background programs (AppServices), and the Android app a MyDroid
+        // shortcut stands for ({ package } of it): the home screen badges it in green.
+        {K("services"), m.value(K("services")).toArray()},
+        {K("android"), m.value(K("android")).toObject().value(K("package")).toString()},
         {K("permissions"), QJsonArray::fromStringList(permissionsOf(package))},
         {K("requested"), QJsonArray::fromStringList(requestedOf(r))},
         {K("widgets"), widgets},

@@ -6,6 +6,7 @@
 // /dev/socket/astrad (see docs/IPC.md).
 
 #include "activitymanager.h"
+#include "appservices.h"
 #include "alarmservice.h"
 #include "accountservice.h"
 #include "calendarservice.h"
@@ -135,6 +136,7 @@ int main(int argc, char **argv)
     DialogService dialogs(&server, &packages);
     packages.setDialogs(&dialogs);
     ActivityManager activity(&server, &packages, &settings);
+    AppServices appServices(&server, &packages, &settings);
     NotificationService notifications(&server, &packages);
     LockSettingsService lock(&server);
     MediaSessionService media(&server, &packages);
@@ -195,6 +197,7 @@ int main(int argc, char **argv)
 
     server.registerService(QStringLiteral("packages"), &packages);
     server.registerService(QStringLiteral("activity"), &activity);
+    server.registerService(QStringLiteral("services"), &appServices);
     server.registerService(QStringLiteral("notifications"), &notifications);
     server.registerService(QStringLiteral("settings"), &settings);
     server.registerService(QStringLiteral("lock"), &lock);
@@ -217,5 +220,7 @@ int main(int argc, char **argv)
 
     if (!server.listen(Paths::astradSocket()))
         return 1;
+    // The apps' background services talk to astrad: once it listens.
+    appServices.startAll();
     return app.exec();
 }

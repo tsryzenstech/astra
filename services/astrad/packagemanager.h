@@ -58,6 +58,7 @@ public:
 
 Q_SIGNALS:
     void packageRemoved(const QString &package);
+    void packageInstalled(const QString &package);   // new or updated
     void permissionsChanged(const QString &package, bool groupsChanged);
     void dataCleared(const QString &package);
 
