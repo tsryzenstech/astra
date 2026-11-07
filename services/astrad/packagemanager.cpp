@@ -12,6 +12,7 @@
 
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <QFileInfo>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -234,6 +235,45 @@ bool PackageManager::installFrom(const QString &apkgPath, bool system, bool priv
     qCInfo(lcPm) << (existing.isEmpty() ? "installed" : "updated") << pkg << "uid" << uid;
     m_server->broadcast(K("packages.changed"), info(pkg));
     Q_EMIT packageInstalled(pkg);
+    return true;
+}
+
+bool PackageManager::installShortcut(const QJsonObject &given, const QString &icon, const QString &installer)
+{
+    const QString pkg = given.value(K("package")).toString();
+    const QJsonObject existing = m_packages.value(pkg);
+    if (pkg.isEmpty() || (!existing.isEmpty() && !existing.value(K("shortcut")).toBool()))
+        return false; // never over a real app
+    const QString codePath = Paths::dataApp() + QLatin1Char('/') + pkg + QStringLiteral("/code");
+    QDir().mkpath(codePath);
+    QJsonObject manifest = given;
+    manifest.insert(K("version"), given.value(K("version")).toString(QStringLiteral("1.0")));
+    manifest.insert(K("versionCode"), 1);
+    manifest.insert(K("launcher"), QJsonObject{{K("visible"), true}});
+    if (!icon.isEmpty() && QFile::exists(icon)) {
+        const QString target = codePath + QStringLiteral("/icon") + QLatin1Char('.') + QFileInfo(icon).suffix();
+        QFile::remove(target);
+        QFile::copy(icon, target);
+        manifest.insert(K("icon"), QFileInfo(target).fileName());
+    }
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    QJsonObject record{
+        {K("package"), pkg},
+        {K("manifest"), manifest},
+        {K("uid"), existing.isEmpty() ? int(allocateUid()) : existing.value(K("uid")).toInt()},
+        {K("source"), QString()},
+        {K("codePath"), codePath},
+        {K("checksum"), QString()},
+        {K("system"), false},
+        {K("shortcut"), true},
+        {K("installer"), installer},
+        {K("runtime"), QJsonObject()},
+        {K("firstInstall"), existing.isEmpty() ? now : existing.value(K("firstInstall")).toDouble()},
+        {K("lastUpdate"), now},
+    };
+    m_packages.insert(pkg, record);
+    save();
+    m_server->broadcast(K("packages.changed"), info(pkg));
     return true;
 }
 

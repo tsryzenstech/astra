@@ -1,0 +1,9 @@
+# MyDroid's Android environment (services/astrad/androidservice.h): Waydroid's
+# container, started and stopped by astrad when MyDroid turns Android on or off.
+
+on post-fs-data
+    mkdir /data/var/lib/waydroid 0755 root root
+
+service waydroid-container /system/bin/sh /system/etc/android/container.sh
+    class main
+    disabled

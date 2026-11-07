@@ -47,6 +47,10 @@ public:
     QStringList permissionsOf(const QString &package) const;
     QList<gid_t> groupsOf(const QString &package) const;
     uid_t uidOf(const QString &package) const;
+    // A launcher entry without a package file: an Android app MyDroid installed.
+    // manifest: {package, name, android: {package}}; icon: a picture file, copied.
+    bool installShortcut(const QJsonObject &manifest, const QString &icon, const QString &installer);
+    void removeShortcut(const QString &package) { if (m_packages.value(package).value(QStringLiteral("shortcut")).toBool()) uninstall(package); }
     QJsonArray widgets() const;
     bool isGranted(const QString &package, const QString &permission) const;
     QString displayName(const QString &package) const;

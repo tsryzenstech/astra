@@ -5,6 +5,8 @@
 
 #include <QHash>
 
+#include <functional>
+
 class QProcess;
 
 namespace astrad {
@@ -30,8 +32,14 @@ public:
     void restart(const QString &package);
     // Starts an app from a system service (alarms, incoming calls...).
     void startFromSystem(const QString &package, const QJsonObject &args);
+    // Android apps (MyDroid's home icons) start through the Android environment.
+    void setAndroidLauncher(std::function<void(const QString &)> launcher) { m_android = std::move(launcher); }
+    QString waylandDisplay() const { return m_waylandDisplay; }
     // Battery saver engaged (low battery): apps start without animations.
     void setBatterySaving(bool on) { m_batterySaving = on; }
+
+Q_SIGNALS:
+    void displayRegistered(const QString &socket);
 
 private:
     void start(const QString &package, const QJsonObject &args);
@@ -54,6 +62,7 @@ private:
     QString m_waylandDisplay;
     QString m_scaleFactor;
     bool m_batterySaving = false;
+    std::function<void(const QString &)> m_android;
 };
 
 } // namespace astrad

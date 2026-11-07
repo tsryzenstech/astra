@@ -24,6 +24,8 @@ public:
     int post(const QString &package, const QString &title, const QString &body,
              const QJsonObject &options = QJsonObject());
     void removePackage(const QString &package);
+    // Removes one notification (a system service ending what it posted).
+    bool dismissId(int id);
     void removeOngoing(const QString &package);
 
 private:

@@ -145,6 +145,16 @@ Item {
         w.destroy()
     }
 
+    // The package a window belongs to: its app_id, or for an Android app
+    // (MyDroid, app_id "waydroid.<android package>") its home icon's package.
+    function packageForAppId(appId) {
+        if (!appId.startsWith("waydroid."))
+            return appId
+        const android = appId.substring(9)
+        const entry = Packages.list().find(p => p.android === android)
+        return entry ? entry.package : appId
+    }
+
     // Wayland: a new toplevel. Its app_id (the package name) can arrive
     // after creation.
     function addToplevel(toplevel, xdgSurface) {
@@ -153,10 +163,11 @@ Item {
             if (attached || !toplevel.appId)
                 return
             attached = true
-            let w = windows[toplevel.appId]
+            const pkg = packageForAppId(toplevel.appId)
+            let w = windows[pkg]
             if (!w) {
                 // Started without the launcher: open from the centre.
-                w = windowFor(toplevel.appId, null)
+                w = windowFor(pkg, null)
                 bringToFront(w)
                 w.open()
             }

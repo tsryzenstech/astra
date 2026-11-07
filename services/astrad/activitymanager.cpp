@@ -182,6 +182,13 @@ void ActivityManager::start(const QString &package, const QJsonObject &args)
         return;
     }
     const QJsonObject info = m_packages->info(package);
+    const QString android = info.value(QLatin1String("android")).toString();
+    if (!android.isEmpty()) {
+        // Its window comes from the Android session (app_id "waydroid.<package>").
+        if (m_android)
+            m_android(android);
+        return;
+    }
     const uid_t uid = uid_t(info.value(QLatin1String("uid")).toInt());
     const bool asRoot = geteuid() == 0;
 
@@ -321,6 +328,7 @@ QJsonValue ActivityManager::handle(const QString &call, const QJsonObject &param
         caller.requireSystem();
         m_waylandDisplay = params.value(QLatin1String("socket")).toString();
         m_scaleFactor = params.value(QLatin1String("scale")).toVariant().toString();
+        Q_EMIT displayRegistered(m_waylandDisplay);
         qCInfo(lcAm) << "display registered at" << m_waylandDisplay << "scale" << m_scaleFactor;
         return true;
     }

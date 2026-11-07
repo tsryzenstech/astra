@@ -123,6 +123,19 @@ void NotificationService::removePackage(const QString &package)
     save();
 }
 
+bool NotificationService::dismissId(int id)
+{
+    for (int i = 0; i < m_items.size(); ++i) {
+        if (m_items.at(i).toObject().value(QLatin1String("id")).toInt() != id)
+            continue;
+        m_items.removeAt(i);
+        save();
+        m_server->broadcast(QStringLiteral("notifications.removed"), QJsonObject{{QStringLiteral("id"), id}});
+        return true;
+    }
+    return false;
+}
+
 QJsonValue NotificationService::handle(const QString &call, const QJsonObject &params, const Caller &caller)
 {
     const bool manager = caller.can(QLatin1String(permissions::MANAGE_NOTIFICATIONS));

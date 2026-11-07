@@ -7,6 +7,7 @@ endif()
 qt_add_executable(astrad
     accountservice.cpp accountservice.h
     activitymanager.cpp activitymanager.h
+    androidservice.cpp androidservice.h
     appservices.cpp appservices.h
     alarmservice.cpp alarmservice.h
     calendarservice.cpp calendarservice.h

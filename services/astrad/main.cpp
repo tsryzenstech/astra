@@ -6,6 +6,7 @@
 // /dev/socket/astrad (see docs/IPC.md).
 
 #include "activitymanager.h"
+#include "androidservice.h"
 #include "appservices.h"
 #include "alarmservice.h"
 #include "accountservice.h"
@@ -155,6 +156,9 @@ int main(int argc, char **argv)
     AlarmService alarms(&server, &notifications);
     DisplayService display(&settings);
     UpdateService update(&server, &settings, &notifications);
+    AndroidService android(&server, &packages, &notifications, &settings);
+    activity.setAndroidLauncher([&android](const QString &pkg) { android.launchApp(pkg); });
+    QObject::connect(&activity, &ActivityManager::displayRegistered, &android, &AndroidService::setDisplay);
     DeveloperService developer(&server, &settings, &lock);
     CalendarService calendar(&server, &notifications);
     CloudyService cloudy(&server);
@@ -198,6 +202,7 @@ int main(int argc, char **argv)
     server.registerService(QStringLiteral("packages"), &packages);
     server.registerService(QStringLiteral("activity"), &activity);
     server.registerService(QStringLiteral("services"), &appServices);
+    server.registerService(QStringLiteral("android"), &android);
     server.registerService(QStringLiteral("notifications"), &notifications);
     server.registerService(QStringLiteral("settings"), &settings);
     server.registerService(QStringLiteral("lock"), &lock);

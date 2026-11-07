@@ -1,0 +1,30 @@
+{
+    "package": "com.astra.mydroid",
+    "name": "MyDroid",
+    "names": {
+        "it": "MyDroid"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Run Android apps on astraOS: a modern Android in its own space, its apps on your home screen.",
+    "descriptions": {
+        "it": "Usa le app Android su astraOS: un Android moderno nel suo spazio, le sue app nella tua home."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "accent": "#30D158",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.INTERNET",
+        "astra.permission.MEDIA",
+        "astra.permission.NOTIFICATIONS"
+    ],
+    "opens": [
+        "application/vnd.android.package-archive"
+    ],
+    "widgets": []
+}
