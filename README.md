@@ -99,14 +99,6 @@ Tests:
 cmake -S . -B build -G Ninja && cmake --build build && ctest --test-dir build
 ```
 
-## Roadmap
-
-- Device bring-up on sweet (display, touch, GPU on the mainline kernel)
-- Wi-Fi and Bluetooth managers behind the existing Settings toggles
-- Real apps behind the placeholders, starting with Phone, Messages and Camera
-- Package signing for `.apkg`
-- Android compatibility layer
-
 ## License
 
 astraOS is released under the [Apache License 2.0](LICENSE). The Poppins
