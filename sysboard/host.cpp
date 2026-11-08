@@ -303,12 +303,38 @@ bool SysBoardHost::forwardTouch(QWaylandQuickItem *item, QTouchEvent *event)
     }
     event->accept();
     if (event->type() == QEvent::TouchCancel) {
+        if (QFile::exists(QStringLiteral("/run/astra/touch-debug")))
+            qInfo("touch: cancel from Qt");
         seat->sendTouchCancelEvent(surface->client());
         return true;
     }
-    if (item->property("astraTouchOnly").toBool()) {
+    // MyDroid's Android surface: how the pointer goes along with the touches is
+    // set in /run/astra/android-touch ("once", the default: the pointer enters
+    // at the first touch, as for any app; "none": no pointer; "follow": it
+    // moves with the finger), to find out on the phone what Android wants.
+    // /run/astra/touch-debug turns on a line per touch event in the log.
+    static QString androidMode = QStringLiteral("once");
+    static bool touchDebug = false;
+    if (event->type() == QEvent::TouchBegin) {
+        QFile mode(QStringLiteral("/run/astra/android-touch"));
+        androidMode = mode.open(QIODevice::ReadOnly) ? QString::fromLatin1(mode.readLine().trimmed()) : QStringLiteral("once");
+        touchDebug = QFile::exists(QStringLiteral("/run/astra/touch-debug"));
+    }
+    const bool android = item->property("astraTouchOnly").toBool();
+    if (touchDebug) {
+        QString states;
+        for (const QEventPoint &point : points)
+            states += QStringLiteral("%1:%2@%3,%4 ").arg(point.id()).arg(int(point.state()))
+                          .arg(int(item->mapToSurface(point.position()).x())).arg(int(item->mapToSurface(point.position()).y()));
+        qInfo("touch: %s %s android=%d mode=%s pointer=%d", event->type() == QEvent::TouchBegin ? "begin"
+              : event->type() == QEvent::TouchUpdate ? "update" : event->type() == QEvent::TouchEnd ? "end" : "other",
+              qPrintable(states), android, qPrintable(androidMode), seat->mouseFocus() == item->view());
+    }
+    if (android && androidMode == QLatin1String("none")) {
         if (seat->mouseFocus() == item->view())
             seat->setMouseFocus(nullptr);
+    } else if (android && androidMode == QLatin1String("follow")) {
+        seat->sendMouseMoveEvent(item->view(), item->mapToSurface(first), item->mapToScene(first));
     } else if (seat->mouseFocus() != item->view()) {
         seat->sendMouseMoveEvent(item->view(), item->mapToSurface(first), item->mapToScene(first));
     }
@@ -323,8 +349,11 @@ bool SysBoardHost::forwardTouch(QWaylandQuickItem *item, QTouchEvent *event)
         if (!item->property("astraTouchWatched").toBool()) {
             item->setProperty("astraTouchWatched", true);
             connect(item, &QWaylandQuickItem::inputEventsEnabledChanged, this, [item, seat] {
-                if (!item->inputEventsEnabled() && item->surface())
+                if (!item->inputEventsEnabled() && item->surface()) {
+                    if (QFile::exists(QStringLiteral("/run/astra/touch-debug")))
+                        qInfo("touch: cancel, input disabled");
                     seat->sendTouchCancelEvent(item->surface()->client());
+                }
             });
         }
         if (item->focusOnClick())
