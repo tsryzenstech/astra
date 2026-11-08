@@ -189,6 +189,7 @@ Item {
             if (attached || !toplevel.appId)
                 return
             attached = true
+            console.info("window:", toplevel.appId, "title:", toplevel.title)
             const pkg = packageForAppId(toplevel.appId)
             let w = windows[pkg]
             if (!w) {

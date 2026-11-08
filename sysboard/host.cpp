@@ -6,6 +6,8 @@
 #include <astra/paths.h>
 #include <astra/properties.h>
 
+#include <functional>
+
 #include <QDateTime>
 #include <QDir>
 #include <QElapsedTimer>
@@ -19,6 +21,7 @@
 #include <QJsonObject>
 #include <QPointingDevice>
 #include <QProcess>
+#include <QQuickItem>
 #include <QQuickWindow>
 #include <QThread>
 #include <QTimer>
@@ -309,31 +312,52 @@ bool SysBoardHost::forwardTouch(QWaylandQuickItem *item, QTouchEvent *event)
         return true;
     }
     // MyDroid's Android surface: how the pointer goes along with the touches is
-    // set in /run/astra/android-touch ("once", the default: the pointer enters
-    // at the first touch, as for any app; "none": no pointer; "follow": it
-    // moves with the finger), to find out on the phone what Android wants.
+    // set in /run/astra/android-touch for trying on the phone: the default is
+    // touches only (see below); "follow" moves the pointer with the finger.
     // /run/astra/touch-debug turns on a line per touch event in the log.
-    static QString androidMode = QStringLiteral("once");
+    static QString androidMode = QStringLiteral("touch");
     static bool touchDebug = false;
     if (event->type() == QEvent::TouchBegin) {
         QFile mode(QStringLiteral("/run/astra/android-touch"));
-        androidMode = mode.open(QIODevice::ReadOnly) ? QString::fromLatin1(mode.readLine().trimmed()) : QStringLiteral("once");
+        androidMode = mode.open(QIODevice::ReadOnly) ? QString::fromLatin1(mode.readLine().trimmed()) : QStringLiteral("touch");
         touchDebug = QFile::exists(QStringLiteral("/run/astra/touch-debug"));
     }
-    const bool android = item->property("astraTouchOnly").toBool();
+    // The Android surface, or one of its subsurfaces (Waydroid draws in several):
+    // the window that holds them is marked.
+    QQuickItem *androidWindow = nullptr;
+    for (QQuickItem *p = item; p && !androidWindow; p = p->parentItem())
+        if (p->property("astraTouchOnly").toBool())
+            androidWindow = p;
+    const bool android = androidWindow != nullptr;
     if (touchDebug) {
         QString states;
         for (const QEventPoint &point : points)
             states += QStringLiteral("%1:%2@%3,%4 ").arg(point.id()).arg(int(point.state()))
                           .arg(int(item->mapToSurface(point.position()).x())).arg(int(item->mapToSurface(point.position()).y()));
+        QFile cmd(QStringLiteral("/proc/%1/cmdline").arg(surface->client() ? surface->client()->processId() : 0));
+        const QByteArray client = cmd.open(QIODevice::ReadOnly) ? cmd.readAll().left(60).replace('\0', ' ') : QByteArray();
+        qInfo("touch: client %s", client.constData());
         qInfo("touch: %s %s android=%d mode=%s pointer=%d", event->type() == QEvent::TouchBegin ? "begin"
               : event->type() == QEvent::TouchUpdate ? "update" : event->type() == QEvent::TouchEnd ? "end" : "other",
               qPrintable(states), android, qPrintable(androidMode), seat->mouseFocus() == item->view());
     }
-    if (android && androidMode == QLatin1String("none")) {
-        if (seat->mouseFocus() == item->view())
-            seat->setMouseFocus(nullptr);
-    } else if (android && androidMode == QLatin1String("follow")) {
+    if (android && androidMode != QLatin1String("follow")) {
+        // Android takes touches only. Qt Quick sends a hover to the item under a
+        // touch, which the compositor passes on as a pointer motion: in the middle
+        // of a gesture, Android 13 takes it for another device and drops the
+        // gesture (tried: DOWN, HOVER_MOVE, UP, and no click). No hover for this
+        // item; a pointer already over it leaves once the finger is up.
+        if (event->type() == QEvent::TouchBegin) {
+            std::function<void(QQuickItem *)> noHover = [&noHover](QQuickItem *i) {
+                i->setAcceptHoverEvents(false);
+                for (QQuickItem *c : i->childItems())
+                    noHover(c);
+            };
+            noHover(androidWindow);
+        }
+        if (event->type() == QEvent::TouchEnd && seat->mouseFocus() == item->view())
+            QTimer::singleShot(0, item, [seat] { seat->setMouseFocus(nullptr); });
+    } else if (android) {
         seat->sendMouseMoveEvent(item->view(), item->mapToSurface(first), item->mapToScene(first));
     } else if (seat->mouseFocus() != item->view()) {
         seat->sendMouseMoveEvent(item->view(), item->mapToSurface(first), item->mapToScene(first));
