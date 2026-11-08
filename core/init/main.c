@@ -20,6 +20,9 @@
 #include "util.h"
 
 #include <errno.h>
+#include <netinet/in.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
 #include <fcntl.h>
 #include <linux/reboot.h>
 #include <poll.h>
@@ -180,6 +183,25 @@ static int first_stage_main(void)
 
 /* ---- second stage ----------------------------------------------------- */
 
+/* The loopback interface: 127.0.0.1 for the services that talk on the phone
+ * itself (an app and its background service, Android's container). Nothing
+ * else brings it up: without it, connections to 127.0.0.1 hang (tried). */
+static void loopback_up(void)
+{
+    int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (fd < 0)
+        return;
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, "lo", IFNAMSIZ - 1);
+    if (ioctl(fd, SIOCGIFFLAGS, &ifr) == 0 && !(ifr.ifr_flags & IFF_UP)) {
+        ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
+        if (ioctl(fd, SIOCSIFFLAGS, &ifr) < 0)
+            WARN("loopback: %s", strerror(errno));
+    }
+    close(fd);
+}
+
 static void do_reboot(const char *mode)
 {
     INFO("shutting down (%s)", mode);
@@ -266,6 +288,7 @@ static int second_stage_main(void)
     mount("tmpfs", "/run", "tmpfs", MS_NOSUID | MS_NODEV, "mode=0755");
     mount("tmpfs", "/tmp", "tmpfs", MS_NOSUID | MS_NODEV, "mode=1777");
     create_by_name_links();
+    loopback_up();
 
     init_setenv("PATH", "/system/bin:/vendor/bin:/product/bin");
     init_setenv("LANG", "en_US.UTF-8");

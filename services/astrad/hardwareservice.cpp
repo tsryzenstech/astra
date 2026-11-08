@@ -75,6 +75,7 @@ HardwareService::HardwareService(Server *server, SettingsService *settings, QObj
     setBrightness(m_settings->value(QStringLiteral("display.brightness")).toDouble(0.7));
 
     m_lastBattery = battery();
+    m_lastBattery.insert(QStringLiteral("level"), shownLevel(m_lastBattery));
     m_batteryTimer.setInterval(10000);
     connect(&m_batteryTimer, &QTimer::timeout, this, &HardwareService::pollBattery);
     m_batteryTimer.start();
@@ -124,9 +125,93 @@ QJsonObject HardwareService::battery() const
     return b;
 }
 
+namespace {
+// A Li-ion cell's charge from its voltage at rest (typical curve, 3.4-4.4 V):
+// a sanity check for the gauge, not a gauge.
+int levelFromVoltage(double volts)
+{
+    static const double v[] = {3.40, 3.60, 3.70, 3.75, 3.80, 3.87, 3.95, 4.03, 4.12, 4.20, 4.30};
+    static const int l[] = {3, 12, 25, 35, 45, 55, 65, 75, 85, 93, 100};
+    if (volts <= v[0])
+        return l[0];
+    for (int i = 1; i < 11; ++i)
+        if (volts <= v[i])
+            return l[i - 1] + int((volts - v[i - 1]) / (v[i] - v[i - 1]) * (l[i] - l[i - 1]));
+    return 100;
+}
+} // namespace
+
+int HardwareService::shownLevel(const QJsonObject &raw)
+{
+    int target = raw.value(QLatin1String("level")).toInt();
+    const bool charging = raw.value(QLatin1String("charging")).toBool();
+    const double volts = raw.value(QLatin1String("voltage")).toDouble();
+    if (raw.value(QLatin1String("status")).toString() == QLatin1String("Full"))
+        target = 100;
+    else if (volts > 2.5) {
+        // Charging lifts the voltage a little above the cell's.
+        const int byVoltage = levelFromVoltage(charging ? volts - 0.12 : volts);
+        if (target < 0 || target > 100 || qAbs(target - byVoltage) > 35) {
+            qCInfo(lcHw) << "battery: the gauge says" << target << "at" << volts << "V: showing" << byVoltage;
+            target = byVoltage;
+        }
+    }
+    target = qBound(0, target, 100);
+    if (m_shown < 0) {
+        m_shown = target;
+    } else if (charging) {
+        // Up while charging; down only when clearly lower.
+        if (target > m_shown)
+            m_shown += qMax(1, (target - m_shown) / 4);
+        else if (m_shown - target >= 10)
+            m_shown -= 1;
+    } else {
+        if (target < m_shown)
+            m_shown -= qMax(1, (m_shown - target) / 4);
+        else if (target - m_shown >= 10)
+            m_shown += 1;
+    }
+    return m_shown;
+}
+
+void HardwareService::tuneCharger()
+{
+    const QDir ps(Paths::resolve(QStringLiteral("/sys/class/power_supply")));
+    for (const QString &e : ps.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::System)) {
+        const QString dir = ps.filePath(e);
+        const QByteArray types = readSys(dir + QStringLiteral("/usb_type"));
+        if (types.isEmpty() || readSys(dir + QStringLiteral("/type")) != "USB")
+            continue;
+        if (readSys(dir + QStringLiteral("/online")) != "1") {
+            m_notHost = 0;
+            return;
+        }
+        const int open = types.indexOf('['), close = types.indexOf(']');
+        const QByteArray selected = open >= 0 && close > open ? types.mid(open + 1, close - open - 1) : QByteArray();
+        // A computer enumerates the phone (the USB device is "configured");
+        // a charger does not. CDP ports give 1.5 A anyway.
+        bool host = false;
+        const QDir udc(Paths::resolve(QStringLiteral("/sys/class/udc")));
+        for (const QString &u : udc.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::System))
+            if (readSys(udc.filePath(u) + QStringLiteral("/state")) == "configured")
+                host = true;
+        m_notHost = host || selected == "CDP" ? 0 : m_notHost + 1;
+        // Twenty seconds without a computer: a wall charger, which gives 1.5 A at
+        // 5 V by the USB charging rules (the IC lowers it if the charger cannot).
+        if (m_notHost >= 2 && readSys(dir + QStringLiteral("/current_max")).toLongLong() < 1500000) {
+            if (writeSys(dir + QStringLiteral("/current_max"), "1500000"))
+                qCInfo(lcHw) << "charger: not a computer (" << selected << "), charging at up to 1.5 A";
+        }
+        return;
+    }
+}
+
 void HardwareService::pollBattery()
 {
-    const QJsonObject b = battery();
+    tuneCharger();
+    QJsonObject b = battery();
+    b.insert(QStringLiteral("level"), shownLevel(b));
+    b.insert(QStringLiteral("gaugeLevel"), battery().value(QLatin1String("level")));
     if (b != m_lastBattery) {
         m_lastBattery = b;
         m_server->broadcast(QStringLiteral("hardware.battery"), b);

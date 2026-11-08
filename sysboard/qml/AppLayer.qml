@@ -59,7 +59,29 @@ Item {
         return out
     }
 
+    // Android (MyDroid) draws every Android app in one surface: the window
+    // belongs to the Android app opened last, and moves to the next one.
+    property string androidFront: ""
+    function isAndroid(pkg) { return !!(Packages.get(pkg) || {}).android }
+    function moveAndroidWindow(pkg) {
+        for (const key in windows) {
+            const w = windows[key]
+            if (key !== pkg && w.androidSurface) {
+                delete windows[key]
+                w.packageName = pkg
+                w.info = Packages.get(pkg)
+                windows[pkg] = w
+                revision++
+                return
+            }
+        }
+    }
+
     function launch(pkg, args, fromRect) {
+        if (isAndroid(pkg)) {
+            androidFront = pkg
+            moveAndroidWindow(pkg)
+        }
         const existing = windows[pkg]
         if (existing && existing === activeWindow && existing.progress > 0.5) {
             Packages.launch(pkg, args) // already in front: deliver the intent
@@ -148,11 +170,15 @@ Item {
     // The package a window belongs to: its app_id, or for an Android app
     // (MyDroid, app_id "waydroid.<android package>") its home icon's package.
     function packageForAppId(appId) {
-        if (!appId.startsWith("waydroid."))
+        if (!appId.toLowerCase().startsWith("waydroid"))
             return appId
-        const android = appId.substring(9)
-        const entry = Packages.list().find(p => p.android === android)
-        return entry ? entry.package : appId
+        if (appId.startsWith("waydroid.")) {
+            const entry = Packages.list().find(p => p.android === appId.substring(9))
+            if (entry)
+                return entry.package
+        }
+        // The whole Android screen: the Android app opened last, else MyDroid.
+        return androidFront || "com.astra.mydroid"
     }
 
     // Wayland: a new toplevel. Its app_id (the package name) can arrive
@@ -173,6 +199,7 @@ Item {
             }
             w.closePending = false
             w.doomed = false
+            w.androidSurface = toplevel.appId.toLowerCase().startsWith("waydroid")
             w.attach(toplevel, xdgSurface)
         }
         attach()

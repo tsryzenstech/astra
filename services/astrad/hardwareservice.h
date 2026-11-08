@@ -29,6 +29,12 @@ Q_SIGNALS:
 private:
     QJsonObject state() const;
     void pollBattery();
+    // The level shown: the fuel gauge's, checked against the voltage and moved
+    // a step at a time (a gauge without its battery's profile jumps).
+    int shownLevel(const QJsonObject &raw);
+    // Charging from a wall charger at the rate it can give (the charger IC
+    // starts at USB's 500 mA when it cannot tell what is plugged in).
+    void tuneCharger();
     void setBrightness(double value);
     void setTorch(bool on);
     void notify(const QString &key, const QJsonValue &value);
@@ -41,6 +47,8 @@ private:
     QString m_torch;
     QString m_batteryDir;
     double m_brightness = 0.7;
+    int m_shown = -1;          // level shown, -1 before the first reading
+    int m_notHost = 0;         // polls on a charger that is not a computer
     bool m_torchOn = false;
 };
 

@@ -22,9 +22,9 @@ class SettingsService;
 // Waydroid (packaged by Alpine) does the container: "waydroid init" downloads
 // the Android images to /data/var/lib/waydroid, init's waydroid-container
 // service runs the container (root), and the session (the Android user space
-// that draws on SysBoard, one window per app) runs as MyDroid's user. Each
+// that draws on SysBoard, in one full screen window) runs on its own session bus. Each
 // Android app gets a launcher entry ("android.<package>", PackageManager
-// shortcut) whose window SysBoard recognises by its app_id ("waydroid.<package>").
+// shortcut); SysBoard gives the Android window to the Android app opened last.
 // Android's notifications are shown as the app's astraOS notifications, so its
 // home badge counts them.
 //
@@ -76,6 +76,7 @@ private:
     SettingsService *m_settings;
     QProcess *m_setup = nullptr;
     QProcess *m_session = nullptr;
+    QProcess *m_bus = nullptr;      // the session bus of Waydroid's session and commands
     QTimer *m_poll;
     QString m_display;
     QString m_step;          // what is happening ("download", "starting"...)

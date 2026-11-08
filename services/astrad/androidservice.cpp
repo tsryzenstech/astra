@@ -125,26 +125,25 @@ QProcess *AndroidService::waydroid(const QStringList &args, bool asUser, std::fu
     p->setProcessChannelMode(QProcess::MergedChannels);
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert(K("PATH"), K("/system/bin"));
-    if (asUser && geteuid() == 0 && m_packages->contains(K(kMyDroid))) {
-        const uid_t uid = m_packages->uidOf(K(kMyDroid));
-        const QString home = userHome();
-        const QString runtime = Paths::resolve(QStringLiteral("/run/user/%1").arg(uid));
-        QDir().mkpath(runtime);
-        const QByteArray rd = QFile::encodeName(runtime);
-        if (chown(rd.constData(), uid, uid) != 0)
-            qCWarning(lcAndroid) << "cannot chown" << runtime;
+    // Waydroid's session and its commands find each other on a session bus of
+    // their own (astraOS has no desktop session bus), at a fixed address. They
+    // run as root: Waydroid asks the system for its user's name, and the apps'
+    // users are not in /etc/passwd (tried on the phone). Android itself stays
+    // in its container.
+    Q_UNUSED(asUser)
+    const QString home = userHome();
+    if (!home.isEmpty()) {
+        QDir().mkpath(home + QStringLiteral("/.local/share"));
         env.insert(K("HOME"), home);
-        env.insert(K("XDG_RUNTIME_DIR"), runtime);
         env.insert(K("XDG_DATA_HOME"), home + QStringLiteral("/.local/share"));
-        env.insert(K("WAYLAND_DISPLAY"), m_display);
-        env.insert(K("PULSE_SERVER"), K("unix:/run/astra/audio/pulse/native"));
-        const QList<gid_t> groups = m_packages->groupsOf(K(kMyDroid));
-        p->setChildProcessModifier([uid, groups] {
-            if (setgroups(size_t(groups.size()), groups.constData()) != 0 || setgid(uid) != 0 || setuid(uid) != 0)
-                _exit(126);
-        });
         p->setWorkingDirectory(home);
     }
+    QDir().mkpath(Paths::resolve(QStringLiteral("/run/waydroid/xdg")));
+    env.insert(K("XDG_RUNTIME_DIR"), Paths::resolve(QStringLiteral("/run/waydroid/xdg")));
+    env.insert(K("DBUS_SESSION_BUS_ADDRESS"), QStringLiteral("unix:path=") + Paths::resolve(QStringLiteral("/run/waydroid/session-bus")));
+    env.insert(K("WAYLAND_DISPLAY"), m_display);
+    // Where Waydroid finds the sound server it shares with Android.
+    env.insert(K("PULSE_RUNTIME_PATH"), K("/run/astra/audio/pulse"));
     p->setProcessEnvironment(env);
     connect(p, &QProcess::finished, this, [p, done](int code, QProcess::ExitStatus st) {
         const QString out = QString::fromUtf8(p->readAll());
@@ -189,7 +188,7 @@ void AndroidService::setup(const QString &variant)
         // Each Android app in its own window, which SysBoard shows like any app.
         QFile prop(waydroidData() + QStringLiteral("/waydroid_base.prop"));
         if (prop.open(QIODevice::Append))
-            prop.write("persist.waydroid.multi_windows=true\npersist.waydroid.cursor_on_subsurface=true\n");
+            prop.write("persist.waydroid.multi_windows=false\n");
         prop.close();
         m_progress = -1;
         start();
@@ -234,6 +233,36 @@ void AndroidService::startSession()
         return;
     if (m_display.isEmpty()) {
         QTimer::singleShot(3000, this, &AndroidService::startSession);
+        return;
+    }
+    // Android draws in one full screen surface: multi-window mode leaves each app
+    // in a small floating window, whatever size SysBoard asks for (tried).
+    QFile prop(waydroidData() + QStringLiteral("/waydroid_base.prop"));
+    if (prop.open(QIODevice::ReadOnly)) {
+        QByteArray text = prop.readAll();
+        prop.close();
+        if (text.contains("persist.waydroid.multi_windows=true") && prop.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            text.replace("persist.waydroid.multi_windows=true", "persist.waydroid.multi_windows=false");
+            prop.write(text);
+            prop.close();
+        }
+    }
+    // The session bus, once.
+    if (!m_bus) {
+        const QString socket = Paths::resolve(QStringLiteral("/run/waydroid/session-bus"));
+        QDir().mkpath(Paths::resolve(QStringLiteral("/run/waydroid")));
+        QFile::remove(socket);
+        m_bus = new QProcess(this);
+        m_bus->setProgram(Paths::resolve(QStringLiteral("/system/bin/dbus-daemon")));
+        m_bus->setArguments({K("--session"), QStringLiteral("--address=unix:path=") + socket, K("--nofork"), K("--nopidfile")});
+        m_bus->setStandardOutputFile(QProcess::nullDevice());
+        m_bus->setStandardErrorFile(QProcess::nullDevice());
+        connect(m_bus, &QProcess::finished, this, [this] {
+            m_bus->deleteLater();
+            m_bus = nullptr;
+        });
+        m_bus->start();
+        QTimer::singleShot(800, this, &AndroidService::startSession);
         return;
     }
     m_session = waydroid({K("session"), K("start")}, true, [this](int code, QString out) {
@@ -311,12 +340,6 @@ void AndroidService::installApk(const QString &path, std::function<void(QString)
         if (!QFile::copy(path, copy)) {
             done(K("The file could not be read"));
             return;
-        }
-        if (geteuid() == 0) {
-            const uid_t uid = m_packages->uidOf(K(kMyDroid));
-            const QByteArray c = QFile::encodeName(copy);
-            if (chown(c.constData(), uid, uid) != 0)
-                qCWarning(lcAndroid) << "cannot chown" << copy;
         }
         waydroid({K("app"), K("install"), copy}, true, [this, before, copy, done](int code, QString out) {
             QFile::remove(copy);

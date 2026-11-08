@@ -16,6 +16,7 @@ Item {
     id: win
 
     property string packageName
+    property bool androidSurface: false   // MyDroid's Android screen (AppLayer.moveAndroidWindow)
     property var info: ({})
     property var host // the AppLayer
     property rect fromRect: Qt.rect(0, 0, 0, 0)

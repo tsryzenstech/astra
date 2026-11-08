@@ -129,6 +129,6 @@
     "focus.game.apps": [],
     "hotspot.name": "",
     "keyboard.recent_emoji": [],
-    "display.aod": true,
+    "display.aod": false,
     "setup.done": false
 }
