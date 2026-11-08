@@ -87,6 +87,7 @@ private:
     int m_ticks = 0;
     bool m_refreshing = false;
     QString m_display;
+    QString m_setupTail;     // the end of waydroid init's output
     QString m_step;          // what is happening ("download", "starting"...)
     QString m_error;
     double m_progress = -1;

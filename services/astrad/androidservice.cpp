@@ -198,9 +198,11 @@ void AndroidService::setup(const QString &variant)
     m_progress = -1;
     changed();
     QDir().mkpath(waydroidData());
+    m_setupTail.clear();
     m_setup = waydroid({K("init"), K("-f"), K("-s"), variant == QLatin1String("gapps") ? K("GAPPS") : K("VANILLA")}, false,
                        [this](int code, QString out) {
         m_setup = nullptr;
+        out = m_setupTail + out;
         if (code != 0 || !installed()) {
             m_step.clear();
             m_error = out.trimmed().section(QLatin1Char('\n'), -3).trimmed();
@@ -219,23 +221,23 @@ void AndroidService::setup(const QString &variant)
         start();
     });
     // "[Downloading] 512.05 MB/850.00 MB ..." lines: the share done.
+    // Waydroid prints "[Downloading] 512.05 MB/850.00 MB ..." again and again: the
+    // last one counts (the system image, then the vendor one, each from 0).
     connect(m_setup, &QProcess::readyRead, this, [this] {
         if (!m_setup)
             return;
+        m_setupTail = (m_setupTail + QString::fromUtf8(m_setup->readAll())).right(8192);
         static const QRegularExpression re(QStringLiteral("([0-9.]+) ?MB ?/ ?([0-9.]+) ?MB"));
-        const QString out = QString::fromUtf8(m_setup->peek(1 << 16));
         QRegularExpressionMatch last;
-        for (auto it = re.globalMatch(out); it.hasNext();)
+        for (auto it = re.globalMatch(m_setupTail); it.hasNext();)
             last = it.next();
         if (last.hasMatch() && last.captured(2).toDouble() > 0) {
             const double progress = last.captured(1).toDouble() / last.captured(2).toDouble();
-            if (progress - m_progress > 0.01) {
+            if (qAbs(progress - m_progress) > 0.01) {
                 m_progress = progress;
                 changed();
             }
         }
-        if (m_setup->bytesAvailable() > (1 << 20))
-            m_setup->read(m_setup->bytesAvailable() - (1 << 16)); // keep the tail only
     });
 }
 
