@@ -17,7 +17,7 @@ Page {
     Row {
         width: parent.width
         spacing: 16
-        AppIcon { size: 118; source: page.entry.icon || "" }
+        StoreIcon { size: 118; source: page.entry.icon || "" }
         Column {
             width: parent.width - 134
             spacing: 4

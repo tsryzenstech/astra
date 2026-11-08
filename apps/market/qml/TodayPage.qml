@@ -113,7 +113,7 @@ Flickable {
                     required property var modelData
                     width: 92
                     spacing: 6
-                    AppIcon { anchors.horizontalCenter: parent.horizontalCenter; size: 84; source: modelData.icon || "" }
+                    StoreIcon { anchors.horizontalCenter: parent.horizontalCenter; size: 84; source: modelData.icon || "" }
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; text: modelData.name; font.family: Theme.fontFamily; font.pixelSize: Theme.footnoteSize; color: Theme.text }
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; text: modelData.category; font.family: Theme.fontFamily; font.pixelSize: 11; color: Theme.textSecondary }
                     TapHandler { onTapped: page.store.openPage(parent.modelData) }
@@ -143,7 +143,7 @@ Flickable {
             asynchronous: true
         }
         // Without a picture: the app icon, big, on the colour.
-        AppIcon {
+        StoreIcon {
             visible: !!card.first && (!card.story.image) && card.story.kind !== "list"
             anchors.centerIn: parent
             anchors.verticalCenterOffset: -20
@@ -186,7 +186,7 @@ Flickable {
                 x: 16
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 12
-                AppIcon { anchors.verticalCenter: parent.verticalCenter; size: 48; source: card.first ? card.first.icon : "" }
+                StoreIcon { anchors.verticalCenter: parent.verticalCenter; size: 48; source: card.first ? card.first.icon : "" }
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     width: card.width - 48 - 12 - 32 - 100

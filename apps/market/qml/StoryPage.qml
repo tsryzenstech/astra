@@ -17,7 +17,7 @@ Page {
         clip: true
         color: page.story.color
         Image { anchors.fill: parent; visible: page.story.image !== ""; source: page.story.image; fillMode: Image.PreserveAspectCrop }
-        AppIcon {
+        StoreIcon {
             visible: page.story.image === "" && page.story.apps.length > 0
             anchors.centerIn: parent
             size: 120

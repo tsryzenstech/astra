@@ -25,7 +25,7 @@ Item {
             font.weight: Font.Bold
             color: Theme.text
         }
-        AppIcon { anchors.verticalCenter: parent.verticalCenter; size: 60; source: row.entry.icon || "" }
+        StoreIcon { anchors.verticalCenter: parent.verticalCenter; size: 60; source: row.entry.icon || "" }
         Column {
             anchors.verticalCenter: parent.verticalCenter
             width: row.width - 60 - 12 - 96 - (row.rank > 0 ? 34 : 0)
