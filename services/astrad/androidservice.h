@@ -7,6 +7,7 @@
 #include <QJsonArray>
 #include <QSet>
 
+class QFileSystemWatcher;
 class QProcess;
 class QTimer;
 
@@ -64,6 +65,7 @@ private:
     void reset();
     void installApk(const QString &path, std::function<void(QString)> done);
     void refreshApps();
+    void listApps();
     void waitForApp(const QString &androidPackage);   // until Android lists it
     void syncShortcuts(const QJsonArray &apps);
     void pollNotifications();
@@ -79,6 +81,9 @@ private:
     QProcess *m_session = nullptr;
     QProcess *m_bus = nullptr;      // the session bus of Waydroid's session and commands
     QTimer *m_poll;
+    QFileSystemWatcher *m_launchers = nullptr;
+    int m_ticks = 0;
+    bool m_refreshing = false;
     QString m_display;
     QString m_step;          // what is happening ("download", "starting"...)
     QString m_error;

@@ -189,7 +189,7 @@ Rectangle {
             ListGroup {
                 visible: app.st.installed === true
                 title: qsTr("Android apps")
-                footer: app.apps.length ? qsTr("They are on your home screen with a green badge, which shows their notifications.") : ""
+                footer: qsTr("Every app installed in Android is on your home screen with a green badge, which shows its notifications: the APKs installed here, and the apps an app store such as Aurora Store installs (allow it in Android's settings when it asks).")
                 ListItem {
                     visible: app.apps.length === 0
                     text: qsTr("None yet: install an APK")

@@ -11,6 +11,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QJsonArray>
 #include <QLoggingCategory>
 #include <QProcess>
@@ -64,7 +65,20 @@ AndroidService::AndroidService(Server *server, PackageManager *packages, Notific
     , m_poll(new QTimer(this))
 {
     m_poll->setInterval(15000);
-    connect(m_poll, &QTimer::timeout, this, &AndroidService::pollNotifications);
+    connect(m_poll, &QTimer::timeout, this, [this] {
+        pollNotifications();
+        // And once a minute, the apps (installed from inside Android too).
+        if (++m_ticks % 4 == 0)
+            refreshApps();
+    });
+    // An app installed or removed inside Android: Waydroid adds or removes its
+    // launcher file. A moment later the list is read again.
+    m_launchers = new QFileSystemWatcher(this);
+    auto *settle = new QTimer(this);
+    settle->setSingleShot(true);
+    settle->setInterval(3000);
+    connect(settle, &QTimer::timeout, this, &AndroidService::refreshApps);
+    connect(m_launchers, &QFileSystemWatcher::directoryChanged, settle, qOverload<>(&QTimer::start));
     // An Android app's home icon removed (App Info > Uninstall): the app too.
     connect(packages, &PackageManager::packageRemoved, this, [this](const QString &pkg) {
         for (const QJsonValue &v : std::as_const(m_apps)) {
@@ -391,16 +405,44 @@ void AndroidService::waitForApp(const QString &pkg)
 }
 
 // The Android apps installed through MyDroid, with their home icons.
+// Every app the user installed in Android gets a home icon: the APKs installed
+// from MyDroid, and the apps those install in turn (an app store such as Aurora
+// Store, a browser's download): Android's third party packages.
 void AndroidService::refreshApps()
 {
-    if (!m_running)
+    if (!m_running || m_refreshing)
         return;
+    m_refreshing = true;
+    // A frozen container answers nothing: the shell gives up after a while and
+    // the last known list stays.
+    QProcess *shell = waydroid({K("shell"), K("--"), K("pm"), K("list"), K("packages"), K("-3")}, false,
+                               [this](int code, QString out) {
+        if (code == 0) {
+            QStringList third;
+            for (const QString &line : out.split(QLatin1Char('\n'))) {
+                const QString l = line.trimmed();
+                if (l.startsWith(QLatin1String("package:")))
+                    third << l.mid(8);
+            }
+            m_settings->setValue(K("android.thirdparty"), QJsonArray::fromStringList(third));
+        }
+        listApps();
+    });
+    QTimer::singleShot(20000, shell, [shell] { shell->kill(); });
+}
+
+void AndroidService::listApps()
+{
     waydroid({K("app"), K("list")}, true, [this](int code, QString out) {
+        m_refreshing = false;
         if (code != 0)
             return;
         QStringList tracked;
         for (const QJsonValue &v : m_settings->value(K("android.apps")).toArray())
             tracked << v.toString();
+        for (const QJsonValue &v : m_settings->value(K("android.thirdparty")).toArray())
+            if (!tracked.contains(v.toString()))
+                tracked << v.toString();
         QJsonArray apps;
         QString name;
         for (const QString &line : out.split(QLatin1Char('\n'))) {
@@ -417,6 +459,11 @@ void AndroidService::refreshApps()
         for (const QJsonValue &v : apps)
             present << v.toObject().value(K("package")).toString();
         m_settings->setValue(K("android.apps"), QJsonArray::fromStringList(present));
+        // New apps from now on: Waydroid writes a launcher file for each.
+        const QString launchers = userHome() + QStringLiteral("/.local/share/applications");
+        QDir().mkpath(launchers);
+        if (!m_launchers->directories().contains(launchers))
+            m_launchers->addPath(launchers);
         syncShortcuts(apps);
         m_apps = apps;
         changed();
