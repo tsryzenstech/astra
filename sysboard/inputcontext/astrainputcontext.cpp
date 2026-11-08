@@ -11,6 +11,7 @@
 #include "astrainputcontext.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QGuiApplication>
 #include <QInputMethodEvent>
 #include <QKeyEvent>
@@ -94,14 +95,6 @@ void KeyboardBridge::sendKey(int key, quint32 scanCode, const QString &text)
     QCoreApplication::sendEvent(m_focus, &release);
 }
 
-AstraInputContext::AstraInputContext()
-    : m_bridge(new KeyboardBridge)
-{
-    // SysBoard picks the bridge up from the application object.
-    if (QCoreApplication::instance())
-        QCoreApplication::instance()->setProperty("astraKeyboard", QVariant::fromValue<QObject *>(m_bridge));
-}
-
 // show() can arrive before setFocusObject(): ask the focus object itself.
 static bool acceptsInput(QObject *object)
 {
@@ -112,18 +105,60 @@ static bool acceptsInput(QObject *object)
     return q.value(Qt::ImEnabled).toBool();
 }
 
-void AstraInputContext::showInputPanel()
+AstraInputContext::AstraInputContext()
+    : m_bridge(new KeyboardBridge)
+{
+    // SysBoard picks the bridge up from the application object.
+    if (QCoreApplication::instance())
+        QCoreApplication::instance()->setProperty("astraKeyboard", QVariant::fromValue<QObject *>(m_bridge));
+    m_hide.setSingleShot(true);
+    m_hide.setInterval(300);
+    QObject::connect(&m_hide, &QTimer::timeout, m_bridge, [this] {
+        // Still no field: it really went away (a tap elsewhere, the app moved on).
+        if (!acceptsInput(QGuiApplication::focusObject())) {
+            m_bridge->setVisible(false);
+            emitInputPanelVisibleChanged();
+        }
+    });
+}
+
+bool AstraInputContext::touchedRecently(int ms)
+{
+    const qint64 last = QCoreApplication::instance() ? QCoreApplication::instance()->property("astraLastTouch").toLongLong() : 0;
+    return last > 0 && QDateTime::currentMSecsSinceEpoch() - last < ms;
+}
+
+void AstraInputContext::show()
 {
     QObject *focus = QGuiApplication::focusObject();
-    if (acceptsInput(focus)) {
-        m_bridge->setFocusObject(focus);
-        m_bridge->setVisible(true);
-    }
+    if (!acceptsInput(focus))
+        return;
+    m_hide.stop();
+    m_bridge->setFocusObject(focus);
+    if (!m_bridge->visible())
+        m_shownAt = QDateTime::currentMSecsSinceEpoch();
+    m_bridge->setVisible(true);
     emitInputPanelVisibleChanged();
+}
+
+void AstraInputContext::hideSoon()
+{
+    if (m_bridge->visible() && !m_hide.isActive())
+        m_hide.start();
+}
+
+void AstraInputContext::showInputPanel()
+{
+    show();
 }
 
 void AstraInputContext::hideInputPanel()
 {
+    // Part of the burst of the tap that opened it: ignored.
+    if (QDateTime::currentMSecsSinceEpoch() - m_shownAt < 600)
+        return;
+    // The app asked (a message sent, a search started): it goes, unless a
+    // field takes the input again right away.
     m_bridge->setVisible(false);
     emitInputPanelVisibleChanged();
 }
@@ -131,19 +166,27 @@ void AstraInputContext::hideInputPanel()
 void AstraInputContext::setFocusObject(QObject *object)
 {
     m_bridge->setFocusObject(object);
-    if (!acceptsInput(object)) {
-        m_bridge->setVisible(false);
-        emitInputPanelVisibleChanged();
+    if (acceptsInput(object)) {
+        m_hide.stop();
+        if (touchedRecently(1000))
+            show();
+    } else {
+        hideSoon();
     }
 }
 
 void AstraInputContext::update(Qt::InputMethodQueries queries)
 {
     if (queries & Qt::ImEnabled) {
-        // An app field gained or lost focus inside an already focused surface.
-        if (!acceptsInput(QGuiApplication::focusObject()))
-            m_bridge->setVisible(false);
-        emitInputPanelVisibleChanged();
+        // A field gained or lost the input inside the focused surface: one the
+        // user just touched opens the keyboard; none for a moment closes it.
+        if (acceptsInput(QGuiApplication::focusObject())) {
+            m_hide.stop();
+            if (!m_bridge->visible() && touchedRecently(1000))
+                show();
+        } else {
+            hideSoon();
+        }
     }
     m_bridge->refresh();
 }

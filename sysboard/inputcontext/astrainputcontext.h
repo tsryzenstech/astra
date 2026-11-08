@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QPointer>
+#include <QTimer>
 #include <qpa/qplatforminputcontext.h>
 #include <qpa/qplatforminputcontextplugin_p.h>
 
@@ -58,7 +59,18 @@ public:
     void update(Qt::InputMethodQueries queries) override;
 
 private:
+    // The keyboard follows what the field does, not each message about it: a
+    // tap sends a burst of enable / disable / show / hide while the focus moves
+    // from SysBoard to the app and to the field. It opens when a field the user
+    // just touched becomes active, and closes only when no field has been
+    // active for a moment, or the app asks for it after the burst.
+    void show();
+    void hideSoon();
+    static bool touchedRecently(int ms);
+
     KeyboardBridge *m_bridge;
+    QTimer m_hide;
+    qint64 m_shownAt = 0;
 };
 
 class AstraInputContextPlugin : public QPlatformInputContextPlugin

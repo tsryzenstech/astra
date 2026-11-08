@@ -311,6 +311,8 @@ bool SysBoardHost::forwardTouch(QWaylandQuickItem *item, QTouchEvent *event)
     for (const QEventPoint &point : points)
         seat->sendTouchPointEvent(surface, point.id(), item->mapToSurface(point.position()), Qt::TouchPointState(point.state()));
     seat->sendTouchFrameEvent(surface->client());
+    // The keyboard opens for a field the user just touched (astrainputcontext.cpp).
+    qApp->setProperty("astraLastTouch", QDateTime::currentMSecsSinceEpoch());
     if (event->type() == QEvent::TouchBegin) {
         // A gesture can take the input away from under a finger: the app must not
         // stay with a button held down. Qt keeps this list privately for its own path.

@@ -325,47 +325,68 @@ void AndroidService::reset()
     });
 }
 
-// Installs an APK; its app gets a home icon. The new package is what the
-// app list gains.
+// Installs an APK; its app gets a home icon. Its package name comes from the
+// APK itself (apkinfo.py); Android lists the app a while after installing it,
+// so the list is asked again until it is there.
 void AndroidService::installApk(const QString &path, std::function<void(QString)> done)
 {
     if (!m_running) {
         done(K("Turn Android on first"));
         return;
     }
-    waydroid({K("app"), K("list")}, true, [this, path, done](int, QString before) {
-        // The session user may not read the file where it is: a copy it can.
+    auto *info = new QProcess(this);
+    info->setProgram(Paths::resolve(QStringLiteral("/system/bin/python3")));
+    info->setArguments({K("-I"), Paths::resolve(QStringLiteral("/system/etc/android/apkinfo.py")), path});
+    connect(info, &QProcess::finished, this, [this, info, path, done](int, QProcess::ExitStatus) {
+        const QString pkg = QString::fromUtf8(info->readAllStandardOutput()).trimmed();
+        info->deleteLater();
+        // The session reads the file where it can: a copy in MyDroid's folder.
         const QString copy = userHome() + QStringLiteral("/cache/install.apk");
+        QDir().mkpath(userHome() + QStringLiteral("/cache"));
         QFile::remove(copy);
         if (!QFile::copy(path, copy)) {
             done(K("The file could not be read"));
             return;
         }
-        waydroid({K("app"), K("install"), copy}, true, [this, before, copy, done](int code, QString out) {
+        waydroid({K("app"), K("install"), copy}, true, [this, pkg, copy, done](int code, QString out) {
             QFile::remove(copy);
             if (code != 0) {
                 done(out.trimmed().isEmpty() ? K("Android could not install this app") : out.trimmed().section(QLatin1Char('\n'), -1));
                 return;
             }
-            // Android lists the new app after a moment.
-            QTimer::singleShot(3000, this, [this, before, done] {
-                waydroid({K("app"), K("list")}, true, [this, before, done](int, QString after) {
-                    static const QRegularExpression pkgRe(QStringLiteral("packageName: (\\S+)"));
-                    QStringList tracked;
-                    for (const QJsonValue &v : m_settings->value(K("android.apps")).toArray())
-                        tracked << v.toString();
-                    for (auto it = pkgRe.globalMatch(after); it.hasNext();) {
-                        const QString pkg = it.next().captured(1);
-                        if (!before.contains(QStringLiteral("packageName: ") + pkg + QLatin1Char('\n')) &&
-                            !before.endsWith(QStringLiteral("packageName: ") + pkg) && !tracked.contains(pkg))
-                            tracked << pkg;
-                    }
-                    m_settings->setValue(K("android.apps"), QJsonArray::fromStringList(tracked));
-                    refreshApps();
-                    done(QString());
-                });
-            });
+            if (pkg.isEmpty()) {
+                done(K("Installed, but its name could not be read: it has no home icon"));
+                return;
+            }
+            QStringList tracked;
+            for (const QJsonValue &v : m_settings->value(K("android.apps")).toArray())
+                tracked << v.toString();
+            if (!tracked.contains(pkg))
+                tracked << pkg;
+            m_settings->setValue(K("android.apps"), QJsonArray::fromStringList(tracked));
+            m_waiting.insert(pkg, 0);
+            done(QString());
+            QTimer::singleShot(2000, this, [this, pkg] { waitForApp(pkg); });
         });
+    });
+    info->start();
+}
+
+void AndroidService::waitForApp(const QString &pkg)
+{
+    waydroid({K("app"), K("list")}, true, [this, pkg](int, QString out) {
+        const bool listed = out.contains(QStringLiteral("packageName: ") + pkg + QLatin1Char('\n')) ||
+                            out.endsWith(QStringLiteral("packageName: ") + pkg);
+        const int tries = m_waiting.value(pkg) + 1;
+        if (listed || tries >= 30) {
+            m_waiting.remove(pkg);
+            if (!listed)
+                qCWarning(lcAndroid) << pkg << "installed but not listed by Android";
+            refreshApps();
+            return;
+        }
+        m_waiting.insert(pkg, tries);
+        QTimer::singleShot(3000, this, [this, pkg] { waitForApp(pkg); });
     });
 }
 
@@ -411,7 +432,9 @@ void AndroidService::syncShortcuts(const QJsonArray &apps)
         const QString shortcut = a.value(K("shortcut")).toString();
         wanted.insert(shortcut);
         const QString icon = icons + a.value(K("package")).toString() + QStringLiteral(".png");
-        if (m_packages->contains(shortcut) && m_packages->info(shortcut).value(K("name")) == a.value(K("name")))
+        const QJsonObject existing = m_packages->info(shortcut);
+        const bool hasIcon = QFileInfo(existing.value(K("icon")).toString()).isFile();
+        if (!existing.isEmpty() && existing.value(K("name")) == a.value(K("name")) && (hasIcon || !QFile::exists(icon)))
             continue;
         m_packages->installShortcut(QJsonObject{{K("package"), shortcut}, {K("name"), a.value(K("name"))},
                                                 {K("android"), QJsonObject{{K("package"), a.value(K("package"))}}},

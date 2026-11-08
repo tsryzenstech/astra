@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Publishes astraOS's system apps on Market, so phones update them from there.
+"""Publishes astraOS's own apps on Market: the system apps, so phones update
+them from there, and the ones only on Market (MARKET_ONLY).
 
 Each app in apps/CMakeLists.txt is packed as the system image packs it (same
 revision: the commits that touched its folder, see cmake/AstraApp.cmake) and
@@ -31,6 +32,10 @@ OUT = os.path.join(ROOT, "build", "market")
 def system_apps():
     text = open(os.path.join(ROOT, "apps", "CMakeLists.txt"), encoding="utf-8").read()
     return re.findall(r"^\s*astra_add_app\((\w+)", text, re.M)
+
+
+# astraOS's own apps that are on Market only, not in the system image.
+MARKET_ONLY = ["mydroid"]
 
 
 def revision(app_dir):
@@ -81,7 +86,7 @@ def publish(app, manifest, apkg_path):
 
 
 def main():
-    wanted = sys.argv[1:] or system_apps()
+    wanted = sys.argv[1:] or system_apps() + MARKET_ONLY
     upload = bool(os.environ.get("ASTRA_CLOUD_TOKEN")) and bool(os.environ.get("ASTRA_CLOUD_URL"))
     os.makedirs(OUT, exist_ok=True)
     failed = 0

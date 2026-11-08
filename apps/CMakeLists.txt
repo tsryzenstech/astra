@@ -24,4 +24,6 @@ astra_add_app(maps)
 astra_add_app(notes)
 astra_add_app(recorder)
 astra_add_app(astraid PRIVILEGED)
-astra_add_app(mydroid)
+
+# On Market only, not in the system image (tools/market/publish.py):
+#   mydroid   Android apps (the system's android service does the work)

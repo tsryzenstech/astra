@@ -13,7 +13,7 @@
     "main": "qml/Main.qml",
     "icon": "icon.svg",
     "background": "#000000",
-    "category": "system",
+    "category": "Utilities",
     "accent": "#30D158",
     "launcher": {
         "visible": true

@@ -64,6 +64,7 @@ private:
     void reset();
     void installApk(const QString &path, std::function<void(QString)> done);
     void refreshApps();
+    void waitForApp(const QString &androidPackage);   // until Android lists it
     void syncShortcuts(const QJsonArray &apps);
     void pollNotifications();
     // Runs a waydroid command; as MyDroid's user when asUser (session commands).
@@ -85,6 +86,7 @@ private:
     bool m_running = false;
     QJsonArray m_apps;       // [{package, name, shortcut}]
     QHash<QString, int> m_posted; // Android notification key -> astraOS notification id
+    QHash<QString, int> m_waiting; // just installed -> times Android was asked
 };
 
 } // namespace astrad
