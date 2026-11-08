@@ -99,21 +99,6 @@ Item {
                 }
             }
 
-            PanelEntrance {
-                panel: root.panel
-                order: Math.min(Notifications.count + 1, 7)
-                width: column.width
-                height: 89
-
-                SearchBar {
-                    anchors.fill: parent
-                    onActivated: (mode) => {
-                        root.panel.close()
-                        root.shell.launch("com.astra.planet", { mode: mode }, null)
-                    }
-                }
-            }
-
             Item {
                 width: column.width
                 height: 24
@@ -121,7 +106,7 @@ Item {
 
                 PanelEntrance {
                     panel: root.panel
-                    order: Math.min(Notifications.count + 2, 8)
+                    order: Math.min(Notifications.count + 1, 7)
                     anchors.right: parent.right
                     width: 52
                     height: 24

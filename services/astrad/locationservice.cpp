@@ -77,30 +77,49 @@ void LocationService::lookup(const QJsonObject &modem)
         finish(fix);
         return;
     }
-    QJsonObject body{{K("considerIp"), true}};
     const QJsonArray aps = m_wifi ? m_wifi->accessPoints() : QJsonArray();
+    QJsonObject body;
     if (aps.size() >= 2) // a single access point is not enough to place anyone
         body.insert(K("wifiAccessPoints"), aps);
     if (modem.contains(K("cell")))
         body.insert(K("cellTowers"), QJsonArray{modem.value(K("cell"))});
-    const QString source = aps.size() >= 2 ? K("wifi") : modem.contains(K("cell")) ? K("cell") : K("ip");
+    // The networks around first: the internet address only places the provider
+    // (often in another city), so it is asked for only when they are unknown.
+    query(body, body.isEmpty());
+}
 
+void LocationService::query(QJsonObject body, bool byAddress)
+{
+    const QString source = byAddress ? K("ip") : body.contains(K("wifiAccessPoints")) ? K("wifi") : K("cell");
+    body.insert(K("considerIp"), byAddress);
     QNetworkRequest req{QUrl(kBeaconDb)};
     req.setHeader(QNetworkRequest::ContentTypeHeader, K("application/json"));
     req.setHeader(QNetworkRequest::UserAgentHeader, K("astraOS-location/1.0 (+https://github.com/tsryzenstech/astra)"));
     req.setTransferTimeout(15000);
     QNetworkReply *reply = m_network.post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, source] {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, source, body, byAddress] {
         reply->deleteLater();
         const QJsonObject r = QJsonDocument::fromJson(reply->readAll()).object();
         const QJsonObject l = r.value(K("location")).toObject();
-        if (reply->error() != QNetworkReply::NoError || l.isEmpty()) {
-            qCInfo(lcLocation) << "no network fix:" << reply->errorString();
-            finish({});
+        if (reply->error() == QNetworkReply::NoError && !l.isEmpty()) {
+            m_retries = 0;
+            finish({{K("lat"), l.value(K("lat")).toDouble()}, {K("lon"), l.value(K("lng")).toDouble()},
+                    {K("accuracy"), r.value(K("accuracy")).toDouble()}, {K("source"), source},
+                    {K("approximate"), byAddress || r.value(K("accuracy")).toDouble() > 1000}});
             return;
         }
-        finish({{K("lat"), l.value(K("lat")).toDouble()}, {K("lon"), l.value(K("lng")).toDouble()},
-                {K("accuracy"), r.value(K("accuracy")).toDouble()}, {K("source"), source}});
+        // The networks around are not in the database: the address, said to be rough.
+        if (!byAddress && reply->error() == QNetworkReply::ContentNotFoundError) {
+            query(body, true);
+            return;
+        }
+        qCInfo(lcLocation) << "no network fix:" << reply->errorString();
+        finish({});
+        // Not online yet (the first minute after starting): again soon.
+        if (reply->error() != QNetworkReply::ContentNotFoundError && m_retries < 6) {
+            m_retries++;
+            QTimer::singleShot(10000 * m_retries, this, &LocationService::refresh);
+        }
     });
 }
 

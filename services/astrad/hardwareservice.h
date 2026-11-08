@@ -36,6 +36,7 @@ private:
     // starts at USB's 500 mA when it cannot tell what is plugged in).
     void tuneCharger();
     void setBrightness(double value);
+    void writeBrightness();
     void setTorch(bool on);
     void notify(const QString &key, const QJsonValue &value);
 
@@ -47,6 +48,9 @@ private:
     QString m_torch;
     QString m_batteryDir;
     double m_brightness = 0.7;
+    QTimer m_brightnessTimer;       // the last write: the next one waits for it
+    bool m_brightnessPending = false;
+    int m_writtenBrightness = -1;
     double m_soc = -1;         // the charge counted, %, -1 before the first reading
     int m_capacityMah = 4000;
     qint64 m_lastCount = 0;    // when the charge was last counted

@@ -39,7 +39,15 @@ Rectangle {
         Location.call("get", { maxAge: 20, watch: !!follow }, function(fix, error) {
             if (!fix) { if (!follow) toast.show(error || qsTr("Location not available")); return }
             app.me = fix
-            if (!follow) map.moveTo(fix.lat, fix.lon, Math.max(map.zoom, 15))
+            // As close as the fix is precise: a position from the internet
+            // address is a city, not a street.
+            const acc = fix.accuracy || 0
+            const zoom = acc > 20000 ? 10 : acc > 5000 ? 12 : acc > 1000 ? 14 : 16
+            if (!follow) {
+                map.moveTo(fix.lat, fix.lon, zoom)
+                if (fix.approximate)
+                    toast.show(qsTr("Approximate location (about %1 km)").arg(Math.max(1, Math.round(acc / 1000))))
+            }
         })
     }
     Connections {

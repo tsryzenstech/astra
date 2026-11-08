@@ -74,6 +74,14 @@ HardwareService::HardwareService(Server *server, SettingsService *settings, QObj
     // Restore persisted state and unblank panel.
     if (!m_backlight.isEmpty())
         writeSys(m_backlight + QStringLiteral("/bl_power"), "0");
+    m_brightnessTimer.setInterval(150);
+    m_brightnessTimer.setSingleShot(true);
+    connect(&m_brightnessTimer, &QTimer::timeout, this, [this] {
+        if (m_brightnessPending) {
+            writeBrightness();
+            m_brightnessTimer.start();
+        }
+    });
     setBrightness(m_settings->value(QStringLiteral("display.brightness")).toDouble(0.7));
 
     // The battery's capacity (the gauge does not know it): the device says.
@@ -281,13 +289,33 @@ void HardwareService::notify(const QString &key, const QJsonValue &value)
 void HardwareService::setBrightness(double value)
 {
     m_brightness = qBound(0.02, value, 1.0);
-    if (!m_backlight.isEmpty()) {
-        const int max = readSys(m_backlight + QStringLiteral("/max_brightness")).toInt();
-        if (max > 0 && !writeSys(m_backlight + QStringLiteral("/brightness"), QByteArray::number(qRound(m_brightness * max))))
-            qCWarning(lcHw) << "cannot write backlight";
+    // The panel takes each change as a command sent while the picture streams:
+    // a slider dragged sends dozens a second, which can leave the picture in
+    // blocks. Changes are gathered and written at most every 150 ms, the last
+    // one always.
+    if (!m_brightnessTimer.isActive()) {
+        writeBrightness();
+        m_brightnessTimer.start();
+    } else {
+        m_brightnessPending = true;
     }
     m_settings->setValue(QStringLiteral("display.brightness"), m_brightness);
     notify(QStringLiteral("brightness"), m_brightness);
+}
+
+void HardwareService::writeBrightness()
+{
+    m_brightnessPending = false;
+    if (m_backlight.isEmpty())
+        return;
+    const int max = readSys(m_backlight + QStringLiteral("/max_brightness")).toInt();
+    const int level = qRound(m_brightness * max);
+    if (max <= 0 || level == m_writtenBrightness)
+        return;
+    if (writeSys(m_backlight + QStringLiteral("/brightness"), QByteArray::number(level)))
+        m_writtenBrightness = level;
+    else
+        qCWarning(lcHw) << "cannot write backlight";
 }
 
 void HardwareService::setTorch(bool on)

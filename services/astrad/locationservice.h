@@ -36,6 +36,7 @@ public:
 private:
     void refresh();
     void lookup(const QJsonObject &modem);
+    void query(QJsonObject body, bool byAddress);
     void finish(const QJsonObject &fix);
 
     Server *m_server;
@@ -45,6 +46,7 @@ private:
     QNetworkAccessManager m_network;
     QJsonObject m_fix;
     bool m_busy = false;
+    int m_retries = 0;
     QList<std::function<void(const QJsonObject &)>> m_waiting;
     QTimer m_watch;          // refreshes while apps follow the location
     qint64 m_watchUntil = 0;
