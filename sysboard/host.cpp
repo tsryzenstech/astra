@@ -306,8 +306,12 @@ bool SysBoardHost::forwardTouch(QWaylandQuickItem *item, QTouchEvent *event)
         seat->sendTouchCancelEvent(surface->client());
         return true;
     }
-    if (seat->mouseFocus() != item->view())
+    if (item->property("astraTouchOnly").toBool()) {
+        if (seat->mouseFocus() == item->view())
+            seat->setMouseFocus(nullptr);
+    } else if (seat->mouseFocus() != item->view()) {
         seat->sendMouseMoveEvent(item->view(), item->mapToSurface(first), item->mapToScene(first));
+    }
     for (const QEventPoint &point : points)
         seat->sendTouchPointEvent(surface, point.id(), item->mapToSurface(point.position()), Qt::TouchPointState(point.state()));
     seat->sendTouchFrameEvent(surface->client());

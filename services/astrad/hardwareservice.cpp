@@ -7,7 +7,9 @@
 #include <astra/properties.h>
 #include <astra/protocol.h>
 
+#include <QDateTime>
 #include <QDir>
+#include <QJsonDocument>
 #include <QFile>
 #include <QLoggingCategory>
 
@@ -74,6 +76,8 @@ HardwareService::HardwareService(Server *server, SettingsService *settings, QObj
         writeSys(m_backlight + QStringLiteral("/bl_power"), "0");
     setBrightness(m_settings->value(QStringLiteral("display.brightness")).toDouble(0.7));
 
+    // The battery's capacity (the gauge does not know it): the device says.
+    m_capacityMah = qMax(1000, Properties::getInt(QStringLiteral("ro.vendor.battery.capacity_mah"), 4000));
     m_lastBattery = battery();
     m_lastBattery.insert(QStringLiteral("level"), shownLevel(m_lastBattery));
     m_batteryTimer.setInterval(10000);
@@ -126,52 +130,90 @@ QJsonObject HardwareService::battery() const
 }
 
 namespace {
-// A Li-ion cell's charge from its voltage at rest (typical curve, 3.4-4.4 V):
-// a sanity check for the gauge, not a gauge.
-int levelFromVoltage(double volts)
+// A Li-ion cell's charge from its voltage at rest, for cells charged to 4.4 V
+// (typical curve). The gauge of mainline Linux maps the voltage linearly from
+// 3.4 to 4.4 V instead: 100 % while charging lifts the voltage, a few % under load.
+double socFromVoltage(double volts)
 {
-    static const double v[] = {3.40, 3.60, 3.70, 3.75, 3.80, 3.87, 3.95, 4.03, 4.12, 4.20, 4.30};
-    static const int l[] = {3, 12, 25, 35, 45, 55, 65, 75, 85, 93, 100};
+    static const double v[] = {3.40, 3.55, 3.65, 3.70, 3.73, 3.76, 3.79, 3.83, 3.87, 3.92, 3.97, 4.03, 4.10, 4.18, 4.26, 4.35};
+    static const double l[] = {0, 3, 8, 15, 22, 30, 38, 46, 54, 62, 70, 78, 86, 92, 96, 100};
+    const int n = int(sizeof(v) / sizeof(v[0]));
     if (volts <= v[0])
-        return l[0];
-    for (int i = 1; i < 11; ++i)
+        return 0;
+    for (int i = 1; i < n; ++i)
         if (volts <= v[i])
-            return l[i - 1] + int((volts - v[i - 1]) / (v[i] - v[i - 1]) * (l[i] - l[i - 1]));
+            return l[i - 1] + (volts - v[i - 1]) / (v[i] - v[i - 1]) * (l[i] - l[i - 1]);
     return 100;
+}
+// The cell's resistance: the voltage at rest is the one measured minus I x R.
+constexpr double kResistanceOhm = 0.12;
+QString stateFile()
+{
+    return Paths::dataSystem() + QStringLiteral("/battery.json");
 }
 } // namespace
 
+// The level shown is counted, not read: the charge going in and out of the
+// battery (the gauge measures the current well), on the battery's capacity,
+// corrected by the voltage when the battery rests and kept across restarts.
 int HardwareService::shownLevel(const QJsonObject &raw)
 {
-    int target = raw.value(QLatin1String("level")).toInt();
-    const bool charging = raw.value(QLatin1String("charging")).toBool();
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
     const double volts = raw.value(QLatin1String("voltage")).toDouble();
-    if (raw.value(QLatin1String("status")).toString() == QLatin1String("Full"))
-        target = 100;
-    else if (volts > 2.5) {
-        // Charging lifts the voltage a little above the cell's.
-        const int byVoltage = levelFromVoltage(charging ? volts - 0.12 : volts);
-        if (target < 0 || target > 100 || qAbs(target - byVoltage) > 35) {
-            qCInfo(lcHw) << "battery: the gauge says" << target << "at" << volts << "V: showing" << byVoltage;
-            target = byVoltage;
+    const double mA = raw.value(QLatin1String("current")).toDouble();   // + into the battery
+    const bool charging = raw.value(QLatin1String("charging")).toBool();
+    const bool full = raw.value(QLatin1String("status")).toString() == QLatin1String("Full");
+    if (volts < 2.5) // no reading: the gauge's own figure
+        return qBound(0, raw.value(QLatin1String("level")).toInt(), 100);
+    const double rest = socFromVoltage(volts - mA / 1000.0 * kResistanceOhm);
+
+    if (m_soc < 0) {
+        // At start: what was counted before, unless the battery says otherwise
+        // (charged or used while the phone was off).
+        m_soc = rest;
+        QFile f(stateFile());
+        if (f.open(QIODevice::ReadOnly)) {
+            const double saved = QJsonDocument::fromJson(f.readAll()).object().value(QLatin1String("soc")).toDouble(-1);
+            if (saved >= 0 && qAbs(saved - rest) < 15)
+                m_soc = saved;
         }
+        qCInfo(lcHw) << "battery: starting at" << m_soc << "% (" << volts << "V," << mA << "mA)";
+    } else if (m_lastCount > 0) {
+        const double hours = double(now - m_lastCount) / 3600000.0;
+        if (hours > 0 && hours < 0.1) // a long gap (suspend, a stall): not counted
+            m_soc += mA * hours / m_capacityMah * 100.0;
     }
-    target = qBound(0, target, 100);
-    if (m_shown < 0) {
-        m_shown = target;
-    } else if (charging) {
-        // Up while charging; down only when clearly lower.
-        if (target > m_shown)
-            m_shown += qMax(1, (target - m_shown) / 4);
-        else if (m_shown - target >= 10)
-            m_shown -= 1;
+    m_lastCount = now;
+
+    // At rest (little current for a few minutes) the voltage tells the charge:
+    // the count is pulled towards it, a little at a time.
+    if (qAbs(mA) < 40) {
+        if (m_restSince == 0)
+            m_restSince = now;
+        else if (now - m_restSince > 5 * 60 * 1000)
+            m_soc += (rest - m_soc) * 0.05;
     } else {
-        if (target < m_shown)
-            m_shown -= qMax(1, (m_shown - target) / 4);
-        else if (target - m_shown >= 10)
-            m_shown += 1;
+        m_restSince = 0;
     }
-    return m_shown;
+    // The ends.
+    if (full || (charging && volts >= 4.37 && mA >= 0 && mA < 150))
+        m_soc = 100;
+    else if (charging)
+        m_soc = qMin(m_soc, 99.0);
+    if (!charging && volts < 3.45)
+        m_soc = qMin(m_soc, 3.0);
+    // Far from what the voltage says (a battery swapped, a bad start): trust it.
+    if (!charging && qAbs(mA) < 300 && qAbs(rest - m_soc) > 30)
+        m_soc = rest;
+    m_soc = qBound(0.0, m_soc, 100.0);
+
+    if (now - m_lastSave > 60 * 1000) {
+        m_lastSave = now;
+        QFile f(stateFile());
+        if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            f.write(QJsonDocument(QJsonObject{{QStringLiteral("soc"), m_soc}, {QStringLiteral("time"), double(now)}}).toJson());
+    }
+    return int(m_soc + 0.5);
 }
 
 void HardwareService::tuneCharger()
@@ -184,6 +226,7 @@ void HardwareService::tuneCharger()
             continue;
         if (readSys(dir + QStringLiteral("/online")) != "1") {
             m_notHost = 0;
+            m_chargerTuned = false;
             return;
         }
         const int open = types.indexOf('['), close = types.indexOf(']');
@@ -198,7 +241,8 @@ void HardwareService::tuneCharger()
         m_notHost = host || selected == "CDP" ? 0 : m_notHost + 1;
         // Twenty seconds without a computer: a wall charger, which gives 1.5 A at
         // 5 V by the USB charging rules (the IC lowers it if the charger cannot).
-        if (m_notHost >= 2 && readSys(dir + QStringLiteral("/current_max")).toLongLong() < 1500000) {
+        if (m_notHost >= 2 && !m_chargerTuned) {
+            m_chargerTuned = true;
             if (writeSys(dir + QStringLiteral("/current_max"), "1500000"))
                 qCInfo(lcHw) << "charger: not a computer (" << selected << "), charging at up to 1.5 A";
         }

@@ -204,6 +204,10 @@ Item {
             ShellSurfaceItem {
                 id: surfaceItem
                 shellSurface: win.xdgSurface
+                // Android (MyDroid) takes touches only: with a pointer over it as
+                // well, Android 13 drops the touch gestures of the other device
+                // (tried: taps half the time, no scrolling).
+                property bool astraTouchOnly: win.androidSurface
                 autoCreatePopupItems: true
                 inputEventsEnabled: win.settledOpen
                 opacity: win.hasSurface ? 1 : 0

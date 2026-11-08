@@ -6,6 +6,7 @@
 #include "settingsservice.h"
 
 #include <astra/paths.h>
+#include <astra/properties.h>
 #include <astra/protocol.h>
 
 #include <QDir>
@@ -255,8 +256,24 @@ void AndroidService::startSession()
     if (prop.open(QIODevice::ReadOnly)) {
         QByteArray text = prop.readAll();
         prop.close();
-        if (text.contains("persist.waydroid.multi_windows=true") && prop.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        bool changedProps = false;
+        if (text.contains("persist.waydroid.multi_windows=true")) {
             text.replace("persist.waydroid.multi_windows=true", "persist.waydroid.multi_windows=false");
+            changedProps = true;
+        }
+        // The phone's density: Waydroid guesses a tablet's (180 on this phone:
+        // tiny apps laid out for a big screen, tried).
+        const QByteArray density = "ro.sf.lcd_density=" + Properties::get(K("ro.astra.android.density"), K("440")).toLatin1();
+        if (!text.contains(density)) {
+            QList<QByteArray> lines = text.split('\n');
+            lines.removeIf([](const QByteArray &l) { return l.startsWith("ro.sf.lcd_density="); });
+            text = lines.join('\n');
+            if (!text.endsWith('\n'))
+                text += '\n';
+            text += density + '\n';
+            changedProps = true;
+        }
+        if (changedProps && prop.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             prop.write(text);
             prop.close();
         }
