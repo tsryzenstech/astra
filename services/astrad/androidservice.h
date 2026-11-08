@@ -31,7 +31,9 @@ class SettingsService;
 //
 //   android.status                 {available, installed, running, busy, progress, step, error, variant, apps: [...]}
 //   android.setup  {variant}       download and prepare Android ("vanilla", or "gapps" with Google's services)
-//   android.start / android.stop   the environment
+//   android.start / android.stop / android.restart   the environment (it also
+//                                  starts by itself with the phone when MyDroid
+//                                  is installed and Android downloaded)
 //   android.install {path}         an APK from the phone's storage
 //   android.launch {package}       an Android app (what its home icon does)
 //   android.remove {package}       uninstall an Android app

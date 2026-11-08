@@ -88,9 +88,19 @@ AndroidService::AndroidService(Server *server, PackageManager *packages, Notific
                 waydroid({K("app"), K("remove"), a.value(K("package")).toString()}, true, [this](int, QString) { refreshApps(); });
         }
     });
-    // Android was on before the phone restarted: on again.
-    if (m_settings->value(K("android.enabled")).toBool() && installed())
+    // The Android subsystem is part of the system; MyDroid is its client. With
+    // MyDroid installed and Android downloaded, Android starts with the phone,
+    // and when MyDroid arrives; without MyDroid it stays off.
+    if (installed() && m_packages->contains(K(kMyDroid)))
         QTimer::singleShot(20000, this, &AndroidService::start);
+    connect(packages, &PackageManager::packageInstalled, this, [this](const QString &pkg) {
+        if (pkg == QLatin1String(kMyDroid) && installed() && !m_running && !m_session)
+            QTimer::singleShot(2000, this, &AndroidService::start);
+    });
+    connect(packages, &PackageManager::packageRemoved, this, [this](const QString &pkg) {
+        if (pkg == QLatin1String(kMyDroid) && (m_running || m_session))
+            stop();
+    });
 }
 
 AndroidService::~AndroidService()
@@ -599,6 +609,11 @@ QJsonValue AndroidService::handle(const QString &call, const QJsonObject &params
     }
     if (call == QLatin1String("stop")) {
         stop();
+        return true;
+    }
+    if (call == QLatin1String("restart")) {
+        stop();
+        QTimer::singleShot(8000, this, &AndroidService::start);
         return true;
     }
     if (call == QLatin1String("reset")) {
