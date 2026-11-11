@@ -13,6 +13,12 @@ Page {
     readonly property var bt: Network.state.bluetooth || {}
     readonly property var cell: Network.state.cellular || {}
 
+    // NFC is listed when the phone has it: astrad's nfc service says.
+    property var nfc: ({})
+    function refreshNfc() { System.call("nfc.state", {}, function(r, err) { if (!err && r) page.nfc = r }) }
+    Component.onCompleted: refreshNfc()
+    onVisibleChanged: if (visible) refreshNfc()
+
     function open(file, props) { stack.open(Qt.resolvedUrl(file), props || {}) }
 
     AccountCard { onClicked: page.open("AccountPage.qml") }
@@ -43,7 +49,7 @@ Page {
             subtitle: page.cell.simPresent ? (page.cell.operator || "") : (page.cell.available ? qsTr("No SIM card") : "")
             showSwitch: true
             chevron: true
-            separator: !!(Network.state.hotspot || {}).supported
+            separator: !!(Network.state.hotspot || {}).supported || page.nfc.available === true
             enabled: !!page.cell.available
             checked: !!page.cell.dataEnabled
             onToggled: (on) => Network.call("cellSetData", { on: on }, null)
@@ -54,8 +60,20 @@ Page {
             text: qsTr("Personal Hotspot")
             value: (Network.state.hotspot || {}).active ? qsTr("On") : qsTr("Off")
             chevron: true
-            separator: false
+            separator: page.nfc.available === true
+            height: visible ? implicitHeight : 0
             onClicked: page.open("HotspotPage.qml")
+        }
+        ListItem {
+            visible: page.nfc.available === true
+            height: visible ? implicitHeight : 0
+            text: qsTr("NFC")
+            showSwitch: true
+            chevron: true
+            separator: false
+            checked: Settings.values["controls.nfc"] === true
+            onToggled: (on) => Settings.setValue("controls.nfc", on)
+            onClicked: page.open("NfcPage.qml")
         }
     }
 

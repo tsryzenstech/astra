@@ -24,4 +24,10 @@ if(ASTRA_BUILD_UI)
     target_compile_definitions(tst_apkg PRIVATE
         SETTINGS_APKG="${CMAKE_BINARY_DIR}/apps/com.astra.settings.apkg")
     add_test(NAME apkg_reader COMMAND tst_apkg)
+
+    # astrad's NFC: messages, and tags of memory that answer as real ones do.
+    qt_add_executable(tst_nfc tst_nfc.cpp ${PROJECT_SOURCE_DIR}/services/astrad/nfc/ndef.cpp)
+    target_include_directories(tst_nfc PRIVATE ${PROJECT_SOURCE_DIR}/services/astrad)
+    target_link_libraries(tst_nfc PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME nfc COMMAND tst_nfc)
 endif()

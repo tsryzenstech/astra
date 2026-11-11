@@ -10,6 +10,7 @@ import Astra.Controls
 //   { page: "controlcenter" }              Cards (Control Center customization)
 //   { page: "privacy" } { page: "display" } { page: "about" } { page: "update" }
 //   { page: "developer" } { page: "language" } { page: "notifications" }
+//   { page: "nfc" }                        NFC (from the notification of a tag)
 Rectangle {
     id: app
     color: Theme.background
@@ -33,6 +34,11 @@ Rectangle {
         focus: "FocusPage.qml",
         hotspot: "HotspotPage.qml",
         location: "LocationPage.qml",
+        nfc: "NfcPage.qml",
+        storage: "StoragePage.qml",
+        apps: "AppsPage.qml",
+        datetime: "DateTimePage.qml",
+        accessibility: "AccessibilityPage.qml",
         account: "AccountPage.qml"
     })
 

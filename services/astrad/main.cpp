@@ -20,6 +20,7 @@
 #include "hardwareservice.h"
 #include "locksettingsservice.h"
 #include "mediasessionservice.h"
+#include "nfcservice.h"
 #include "network/networkservice.h"
 #include "notificationservice.h"
 #include "packagemanager.h"
@@ -156,6 +157,7 @@ int main(int argc, char **argv)
     AlarmService alarms(&server, &notifications);
     DisplayService display(&settings);
     UpdateService update(&server, &settings, &notifications);
+    NfcService nfc(&server, &settings, &notifications);
     AndroidService android(&server, &packages, &notifications, &settings);
     activity.setAndroidLauncher([&android](const QString &pkg) { android.launchApp(pkg); });
     QObject::connect(&activity, &ActivityManager::displayRegistered, &android, &AndroidService::setDisplay);
@@ -221,6 +223,7 @@ int main(int argc, char **argv)
     server.registerService(QStringLiteral("alarms"), &alarms);
     server.registerService(QStringLiteral("display"), &display);
     server.registerService(QStringLiteral("update"), &update);
+    server.registerService(QStringLiteral("nfc"), &nfc);
     server.registerService(QStringLiteral("developer"), &developer);
 
     if (!server.listen(Paths::astradSocket()))

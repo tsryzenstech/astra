@@ -23,6 +23,9 @@ qt_add_executable(astrad
     locksettingsservice.cpp locksettingsservice.h
     main.cpp
     mediasessionservice.cpp mediasessionservice.h
+    nfcservice.cpp nfcservice.h
+    nfc/ndef.cpp nfc/ndef.h
+    nfc/nfcadapter.cpp nfc/nfcadapter.h
     notificationservice.cpp notificationservice.h
     packagemanager.cpp packagemanager.h
     permissions.h

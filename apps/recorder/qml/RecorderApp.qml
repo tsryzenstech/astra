@@ -50,6 +50,11 @@ Rectangle {
         })
     })
 
+    // A phone whose microphone the system cannot use yet has no audio input:
+    // Recorder says so instead of recording silence.
+    MediaDevices { id: devices }
+    readonly property bool hasMicrophone: devices.audioInputs.length > 0
+
     CaptureSession {
         audioInput: AudioInput {}
         recorder: MediaRecorder {
@@ -85,8 +90,10 @@ Rectangle {
             EmptyState {
                 visible: app.recordings.length === 0
                 iconName: "mic"
-                title: app.granted ? qsTr("No Recordings") : qsTr("Recorder")
-                message: app.granted ? qsTr("Tap the record button to start.") : qsTr("Allow the microphone and Files in Settings › Apps › Recorder.")
+                title: !app.granted ? qsTr("Recorder") : app.hasMicrophone ? qsTr("No Recordings") : qsTr("No microphone")
+                message: !app.granted ? qsTr("Allow the microphone and Files in Settings › Apps › Recorder.")
+                       : app.hasMicrophone ? qsTr("Tap the record button to start.")
+                       : qsTr("astraOS cannot use this phone's microphone yet. Recordings copied to the phone play here.")
             }
             Text { visible: app.error !== ""; text: app.error; width: parent.width; wrapMode: Text.WordWrap; color: Theme.danger; font.family: Theme.fontFamily; font.pixelSize: Theme.footnoteSize }
             Repeater {
@@ -220,7 +227,7 @@ Rectangle {
                 color: "transparent"
                 border.width: 4
                 border.color: Theme.light ? "#C7C7CC" : "#8E8E93"
-                opacity: app.granted ? 1 : 0.4
+                opacity: app.granted && (app.hasMicrophone || app.recording) ? 1 : 0.4
                 Rectangle {
                     anchors.centerIn: parent
                     width: app.recording ? 28 : 56
@@ -232,7 +239,7 @@ Rectangle {
                 }
                 MouseArea {
                     anchors.fill: parent
-                    enabled: app.granted
+                    enabled: app.granted && (app.hasMicrophone || app.recording)
                     onClicked: {
                         player.stop()
                         app.recording ? app.stop() : app.start()

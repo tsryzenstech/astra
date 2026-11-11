@@ -22,9 +22,10 @@ Page {
         { id: "torch", icon: "flashlight", label: qsTr("Flashlight") },
         { id: "nightlight", icon: "night", label: qsTr("Night light") },
         { id: "data", icon: "signal", label: qsTr("Cellular Data") },
-        { id: "screenshot", icon: "image", label: qsTr("Screenshot") }
+        { id: "screenshot", icon: "image", label: qsTr("Screenshot") },
+        { id: "nfc", icon: "nfc", label: qsTr("NFC") }
     ]
-    readonly property var defaults: ["location", "sound", "game", "cast", "focus", "scanner", "work", "dnd"]
+    readonly property var defaults: ["location", "sound", "game", "hotspot", "focus", "scanner", "work", "dnd"]
     readonly property var tiles: Settings.values["controls.tiles"] || defaults
     readonly property var rest: catalog.filter(c => !tiles.includes(c.id))
     function info(id) { return catalog.find(c => c.id === id) }

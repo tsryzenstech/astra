@@ -11,6 +11,7 @@ wifi:x:1010:system
 media:x:1013:system
 media_rw:x:1023:system
 messagebus:x:1060:
+polkitd:x:1061:
 shell:x:2000:
 inet:x:3003:system
 net_admin:x:3005:system

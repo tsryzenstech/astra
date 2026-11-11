@@ -9,7 +9,7 @@ install(FILES etc/passwd etc/group DESTINATION ${ASTRA_ETC_DIR})
 install(DIRECTORY etc/init etc/fonts etc/udev DESTINATION ${ASTRA_ETC_DIR})
 install(PROGRAMS etc/connectivity/launch.sh DESTINATION ${ASTRA_ETC_DIR}/connectivity)
 install(PROGRAMS etc/android/container.sh etc/android/apkinfo.py DESTINATION ${ASTRA_ETC_DIR}/android)
-install(DIRECTORY etc/iwd DESTINATION ${ASTRA_ETC_DIR})
+install(DIRECTORY etc/iwd etc/wireplumber DESTINATION ${ASTRA_ETC_DIR})
 install(FILES etc/resolvconf.conf DESTINATION ${ASTRA_ETC_DIR})
 
 set(PREBUILT ${PROJECT_SOURCE_DIR}/prebuilt)

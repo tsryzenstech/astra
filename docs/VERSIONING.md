@@ -7,7 +7,7 @@
 ```
 
 astraOS **26.0** is the first version after the development builds (0.1d).
-astraOS **27.0 “Candyland”** is the current version.
+astraOS **27.1 “Candyland”** is the current version.
 A new version raises `minor` (26.0 → 26.1) or `major` (26.x → 27.0).
 
 | Channel | Letter | Meaning |

@@ -78,6 +78,7 @@
     ],
     "controls.location": true,
     "controls.sound": true,
+    "controls.nfc": false,
     "controls.scanner": false,
     "controls.tiles": [
         "location",

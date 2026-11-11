@@ -15,6 +15,10 @@ Rectangle {
     property date month: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     property date selected: new Date()
     property var events: []          // occurrences around the shown month
+    // Settings > Language & Region > First day of the week (0 Sunday, 1 Monday);
+    // the language's own while the user has not chosen.
+    readonly property int firstDay: Settings.values["region.first_day"] !== undefined
+                                    ? Number(Settings.values["region.first_day"]) % 7 : Qt.locale().firstDayOfWeek % 7
 
     readonly property var colors: ({ orange: "#FF7A00", red: "#FF453A", green: "#34D058", blue: "#0A84FF", purple: "#BF5AF2", yellow: "#FFD60A" })
 
@@ -77,7 +81,7 @@ Rectangle {
                         required property int index
                         width: parent.width / 7
                         horizontalAlignment: Text.AlignHCenter
-                        text: Qt.locale().dayName((index + Qt.locale().firstDayOfWeek) % 7, Locale.NarrowFormat)
+                        text: Qt.locale().dayName((index + app.firstDay) % 7, Locale.NarrowFormat)
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.footnoteSize
                         color: Theme.textSecondary
@@ -90,7 +94,7 @@ Rectangle {
                 visible: app.granted
                 width: parent.width
                 columns: 7
-                readonly property int offset: (app.month.getDay() - Qt.locale().firstDayOfWeek + 7) % 7
+                readonly property int offset: (app.month.getDay() - app.firstDay + 7) % 7
                 readonly property int days: new Date(app.month.getFullYear(), app.month.getMonth() + 1, 0).getDate()
                 Repeater {
                     model: Math.ceil((grid.offset + grid.days) / 7) * 7

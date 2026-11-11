@@ -6,7 +6,7 @@
 # looked up; a daemon that is not installed sleeps forever instead of being
 # restarted in a loop.
 #
-#   launch.sh prepare | dbus | iwd | bluetoothd | modemmanager | rmtfs | pd-mapper | tqftpserv
+#   launch.sh prepare | dbus | polkitd | iwd | bluetoothd | modemmanager | rmtfs | pd-mapper | tqftpserv
 #             pipewire | wireplumber | pipewire-pulse | hexagonrpcd
 
 find_bin() {
@@ -70,8 +70,22 @@ bluetoothd)
     fi
     exec "$bin" -n
     ;;
+polkitd)
+    # ModemManager asks PolicyKit before it does anything for a caller (to enable
+    # the modem, to dial, to send a message). Without an answer it refuses all of
+    # them. astrad calls as root, which PolicyKit always allows.
+    bin=$(find_bin /system/lib/polkit-1/polkitd /system/libexec/polkitd /system/libexec/polkit-1/polkitd) || missing polkitd
+    i=0
+    while [ ! -S /run/dbus/system_bus_socket ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+    mkdir -p /data/var/lib/polkit-1
+    chown polkitd:polkitd /data/var/lib/polkit-1 2>/dev/null || chown 1061:1061 /data/var/lib/polkit-1 2>/dev/null || true
+    exec "$bin" --no-debug
+    ;;
 modemmanager)
     bin=$(find_bin /system/bin/ModemManager /system/sbin/ModemManager) || missing ModemManager
+    # After PolicyKit, which it looks for once, when it starts.
+    i=0
+    while [ -x /system/lib/polkit-1/polkitd ] && ! pidof polkitd > /dev/null 2>&1 && [ $i -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
     exec "$bin"
     ;;
 rmtfs)
@@ -115,7 +129,7 @@ hexagonrpcd)
     exec "$bin" -f /dev/fastrpc-adsp -d adsp -s -R "$root" > /dev/null 2>&1
     ;;
 *)
-    echo "usage: $0 prepare|dbus|iwd|bluetoothd|modemmanager|rmtfs|pd-mapper|tqftpserv|pipewire|wireplumber|pipewire-pulse|hexagonrpcd" >&2
+    echo "usage: $0 prepare|dbus|polkitd|iwd|bluetoothd|modemmanager|rmtfs|pd-mapper|tqftpserv|pipewire|wireplumber|pipewire-pulse|hexagonrpcd" >&2
     exit 2
     ;;
 esac

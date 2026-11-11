@@ -45,7 +45,8 @@ Item {
         nightlight: { icon: "night", checked: () => !!Settings.values["display.night_light"], run: () => root.toggleSetting("display.night_light") },
         data: { icon: "signal", checked: () => !!root.cell.dataEnabled,
                 run: () => Network.call("cellSetData", { on: !root.cell.dataEnabled }, null) },
-        screenshot: { icon: "image", checked: () => false, run: () => { root.panel.close(); shotTimer.start() } }
+        screenshot: { icon: "image", checked: () => false, run: () => { root.panel.close(); shotTimer.start() } },
+        nfc: { icon: "nfc", checked: () => Settings.values["controls.nfc"] === true, run: () => root.toggleSetting("controls.nfc") }
     })
     Timer { id: shotTimer; interval: 700; onTriggered: System.screenshot() }
     function openApp(pkg, args) {

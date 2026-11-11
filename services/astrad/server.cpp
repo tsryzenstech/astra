@@ -197,6 +197,7 @@ bool Server::topicAllowed(const QString &topic, const Caller &caller)
         {QStringLiteral("contacts"), QLatin1String(permissions::CONTACTS)},
         {QStringLiteral("telephony"), QLatin1String(permissions::PHONE)},
         {QStringLiteral("developer"), QLatin1String(permissions::DEVELOPER)},
+        {QStringLiteral("nfc"), QLatin1String(permissions::MANAGE_NETWORK)},
     };
     if (!restricted.contains(topic))
         return true;
