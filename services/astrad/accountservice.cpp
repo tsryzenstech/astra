@@ -226,6 +226,13 @@ void AccountService::report(bool withLocation)
             }
             if (reply->error() == QNetworkReply::NoError) {
                 m_account.insert(K("lastReport"), double(QDateTime::currentMSecsSinceEpoch()));
+                // The name of the AstraID, which may have been changed on the web.
+                const QString name = QJsonDocument::fromJson(reply->readAll()).object().value(K("user")).toObject()
+                                         .value(K("name")).toString();
+                if (!name.isEmpty() && name != m_account.value(K("name")).toString()) {
+                    m_account.insert(K("name"), name);
+                    m_settings->setValue(K("account.name"), name);
+                }
                 save();
             }
         });
