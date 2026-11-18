@@ -37,6 +37,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
+#include <QTimer>
 #include <QThread>
 #include <QSocketNotifier>
 
@@ -89,6 +90,54 @@ void applyVolume(SettingsService &settings)
                                          muted ? QStringLiteral("mute") : QStringLiteral("unmute")});
 }
 } // namespace
+
+// The volume and the mute are told to PipeWire once it has an output to tell them to: at
+// the start of the phone WirePlumber comes up after astrad, and a volume sent before
+// it has made the speaker's output goes nowhere (the output then plays at whatever
+// level it was left). Tried every few seconds until the output is there; then what
+// PipeWire and the sound card say is written to /data/system/audio/diag.txt, for
+// whoever has to find out why a phone is silent.
+static void applyVolumeWhenReady(SettingsService &settings)
+{
+    if (Paths::isDevelopmentRoot())
+        return;
+    auto *timer = new QTimer(qApp);
+    auto *tries = new int(0);
+    QObject::connect(timer, &QTimer::timeout, qApp, [timer, tries, &settings] {
+        const QString wpctl = QStandardPaths::findExecutable(QStringLiteral("wpctl"), {QStringLiteral("/system/bin"), QStringLiteral("/usr/bin")});
+        if (wpctl.isEmpty() || ++*tries > 40) {
+            timer->stop();
+            return;
+        }
+        auto *probe = new QProcess(timer);
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        env.insert(QStringLiteral("PIPEWIRE_RUNTIME_DIR"), QStringLiteral("/run/astra/audio"));
+        probe->setProcessEnvironment(env);
+        QObject::connect(probe, &QProcess::finished, timer, [timer, probe, &settings](int code, QProcess::ExitStatus) {
+            probe->deleteLater();
+            if (code != 0 || !timer->isActive())
+                return;
+            timer->stop();
+            applyVolume(settings);
+            // A moment later, with the output settled: the report.
+            QTimer::singleShot(6000, qApp, [] {
+                auto *report = new QProcess(qApp);
+                QProcessEnvironment e = QProcessEnvironment::systemEnvironment();
+                e.insert(QStringLiteral("PIPEWIRE_RUNTIME_DIR"), QStringLiteral("/run/astra/audio"));
+                report->setProcessEnvironment(e);
+                report->setStandardOutputFile(QStringLiteral("/data/system/audio/diag.txt"));
+                report->setStandardErrorFile(QStringLiteral("/data/system/audio/diag.txt"), QIODevice::Append);
+                QObject::connect(report, &QProcess::finished, report, &QObject::deleteLater);
+                report->start(QStringLiteral("/system/bin/sh"), {QStringLiteral("-c"),
+                    QStringLiteral("date; echo '--- cards'; cat /proc/asound/cards; echo '--- wpctl'; wpctl status; "
+                                   "wpctl get-volume @DEFAULT_AUDIO_SINK@; echo '--- sink'; wpctl inspect @DEFAULT_AUDIO_SINK@ | head -60; "
+                                   "echo '--- mixer'; amixer -c 0 contents 2>&1 | head -120; echo '--- pcm'; cat /proc/asound/card0/pcm0p/sub0/status 2>&1")});
+            });
+        });
+        probe->start(wpctl, {QStringLiteral("inspect"), QStringLiteral("@DEFAULT_AUDIO_SINK@")});
+    });
+    timer->start(3000);
+}
 
 // Game Mode (a Focus): every CPU cluster on the performance governor;
 // otherwise back to schedutil.
@@ -183,6 +232,7 @@ int main(int argc, char **argv)
             applyGameMode(settings);
     });
     applyVolume(settings);
+    applyVolumeWhenReady(settings);
     applyGameMode(settings);
 
     QObject::connect(&packages, &PackageManager::permissionsChanged, &server, [&](const QString &pkg, bool) {

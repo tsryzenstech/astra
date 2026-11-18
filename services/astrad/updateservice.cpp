@@ -98,12 +98,12 @@ QString UpdateService::repository() const
     return repo.count(QLatin1Char('/')) == 1 ? repo : QString();
 }
 
-// The channel the phone follows: the user's choice, else its build's.
+// The channel the phone follows is its build's, and nothing else: a pre-release build
+// (a "-rev" version, GitHub's pre-releases) follows the pre-releases, the delta channel;
+// a release follows the releases, the stable one. A phone changes channel by installing
+// a build of the other kind, not by a setting.
 QString UpdateService::channel() const
 {
-    const QString chosen = m_settings->value(K("update.channel")).toString();
-    if (chosen == QLatin1String("stable") || chosen == QLatin1String("prerelease"))
-        return chosen;
     return Properties::get(K("ro.astra.ota.channel")) == QLatin1String("prerelease") ? K("prerelease") : K("stable");
 }
 
@@ -509,16 +509,6 @@ QJsonValue UpdateService::handle(const QString &call, const QJsonObject &params,
     }
     if (call == QLatin1String("cancel")) {
         cancel();
-        return true;
-    }
-    if (call == QLatin1String("setChannel")) {
-        const QString c = params.value(K("channel")).toString();
-        if (c != QLatin1String("stable") && c != QLatin1String("prerelease"))
-            throw RpcError{protocol::InvalidParams, K("channel must be stable or prerelease")};
-        m_settings->setValue(K("update.channel"), c);
-        m_available = {};
-        setStatus(K("idle"));
-        check();
         return true;
     }
     throw RpcError{protocol::MethodNotFound, call};

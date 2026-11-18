@@ -17,7 +17,7 @@ Page {
 
     function channelName(c) {
         switch (c) {
-        case "prerelease": return qsTr("Pre-release")
+        case "prerelease": return qsTr("Delta")
         case "stable": return qsTr("Stable")
         case "local": return qsTr("Local build")
         }
@@ -124,23 +124,11 @@ Page {
     }
 
     ListGroup {
-        title: qsTr("Channel")
-        footer: qsTr("Pre-releases are the automatic builds of each change: they arrive first and may have problems. Stable has the releases only.")
-        ListItem {
-            text: qsTr("Stable")
-            selected: page.u.channel === "stable"
-            onClicked: if (!page.busy && page.u.channel !== "stable") Updates.call("setChannel", { channel: "stable" }, null)
-        }
-        ListItem {
-            text: qsTr("Pre-release")
-            separator: false
-            selected: page.u.channel === "prerelease"
-            onClicked: if (!page.busy && page.u.channel !== "prerelease") Updates.call("setChannel", { channel: "prerelease" }, null)
-        }
-    }
-
-    ListGroup {
         title: qsTr("This build")
+        footer: page.u.channel === "prerelease"
+            ? qsTr("This is a Delta build: the automatic builds of each change, which arrive first and may have problems. It updates to the next Delta build.")
+            : qsTr("This is a Stable build. It updates to the next release.")
+        ListItem { text: qsTr("Channel"); value: page.channelName(page.u.channel) }
         ListItem { text: qsTr("Release"); value: page.u.tag || page.channelName("local") }
         ListItem { text: qsTr("Build ID"); value: page.u.buildId || "—" }
         ListItem { text: qsTr("Updates from"); value: page.u.repository || "—" }

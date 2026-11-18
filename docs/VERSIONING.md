@@ -54,10 +54,9 @@ phones update from its releases.
 | Channel | Offers | Phones on it |
 |---|---|---|
 | **stable** | releases (manual builds) | those installed from a release, and anyone who picks it |
-| **prerelease** | releases and pre-releases (the automatic "delta" builds) | those installed from a pre-release, and anyone who picks it |
+| **prerelease** | releases and pre-releases (the automatic "delta" builds) | those installed from a pre-release |
 
-The phone starts on its build's channel (`ro.astra.ota.channel`); Settings ›
-Software Update changes it. Each device build publishes, next to its zip:
+The phone follows its build's channel (`ro.astra.ota.channel`) and nothing else: a pre-release (`-rev`) build is on the Delta channel, a release is on Stable; the channel changes by installing a build of the other kind. Each device build publishes, next to its zip:
 
 * `astraOS-<tag>-<device>-super.img.gz`, the new `super` partition (sparse),
 * `astraOS-<tag>-<device>-esp.fat.gz`, the new EFI partition (kernel, ramdisk, device tree),
