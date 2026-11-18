@@ -2,6 +2,7 @@
 ro.astra.version=@ASTRA_VERSION@
 ro.astra.version.major=@ASTRA_VERSION_MAJOR@
 ro.astra.version.minor=@ASTRA_VERSION_MINOR@
+ro.astra.version.patch=@ASTRA_VERSION_PATCH@
 ro.astra.channel=@ASTRA_CHANNEL@
 ro.astra.codename=@ASTRA_CODENAME@
 ro.astra.api_level=@ASTRA_API_LEVEL@

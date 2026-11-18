@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 """Publishes astraOS's own apps on Market: the system apps, so phones update
-them from there, and the ones only on Market (MARKET_ONLY).
+them from there, the ones only on Market (MARKET_ONLY), and the apps in extras/,
+made like any developer's with the SDK (their own package names, the design
+check of third-party apps).
 
 Each app in apps/CMakeLists.txt is packed as the system image packs it (same
 revision: the commits that touched its folder, see cmake/AstraApp.cmake) and
@@ -38,6 +40,14 @@ def system_apps():
 MARKET_ONLY = ["mydroid"]
 
 
+def extra_apps():
+    """The apps of extras/: Market apps that are not part of the system."""
+    base = os.path.join(ROOT, "extras")
+    if not os.path.isdir(base):
+        return []
+    return sorted(d for d in os.listdir(base) if os.path.exists(os.path.join(base, d, "app.json")))
+
+
 def revision(app_dir):
     out = subprocess.run(["git", "rev-list", "--count", "HEAD", "--", "."], cwd=app_dir,
                          capture_output=True, text=True, check=True)
@@ -60,21 +70,21 @@ def request(method, path, body=None, content_type="application/json"):
             return e.code, {}
 
 
-def publish(app, manifest, apkg_path):
+def publish(app, manifest, apkg_path, system=True):
     pkg = manifest["package"]
     status, body = request("POST", "/api/dev/apps", {
         "package": pkg,
         "name": manifest["name"],
         "summary": manifest.get("description", "")[:140],
         "description": manifest.get("description", ""),
-        "category": "astraOS",
+        "category": "astraOS" if system else manifest.get("category", "Utilities"),
         "website": "https://github.com/tsryzenstech/astra",
     })
     if status not in (200, 409):
         raise RuntimeError("%s: cannot create it on Market (%d %s)" % (pkg, status, body.get("error", "")))
     notes = urllib.parse.quote("%s %s" % (manifest["name"], manifest["version"]))
     with open(apkg_path, "rb") as f:
-        status, body = request("PUT", "/api/dev/apps/%s/versions?system=1&notes=%s" % (pkg, notes), f.read(),
+        status, body = request("PUT", "/api/dev/apps/%s/versions?%snotes=%s" % (pkg, "system=1&" if system else "", notes), f.read(),
                                "application/octet-stream")
     if status == 409:
         return "already on Market"
@@ -86,16 +96,17 @@ def publish(app, manifest, apkg_path):
 
 
 def main():
-    wanted = sys.argv[1:] or system_apps() + MARKET_ONLY
+    wanted = sys.argv[1:] or system_apps() + MARKET_ONLY + extra_apps()
     upload = bool(os.environ.get("ASTRA_CLOUD_TOKEN")) and bool(os.environ.get("ASTRA_CLOUD_URL"))
     os.makedirs(OUT, exist_ok=True)
     failed = 0
     for app in wanted:
-        app_dir = os.path.join(ROOT, "apps", app)
+        system = app not in extra_apps()
+        app_dir = os.path.join(ROOT, "apps" if system else "extras", app)
         out = os.path.join(OUT, app + ".apkg")
         try:
             manifest, _, _ = apkgtool.pack(app_dir, out, revision(app_dir))
-            result = publish(app, manifest, out) if upload else "packed"
+            result = publish(app, manifest, out, system) if upload else "packed"
             print("%-10s %s %s: %s" % (app, manifest["package"], manifest["version"], result))
         except Exception as e:  # one app's problem does not stop the others
             failed += 1

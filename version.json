@@ -1,6 +1,7 @@
 {
     "major": 27,
     "minor": 1,
+    "patch": 2,
     "channel": "stable",
     "codename": "Candyland",
     "api_level": 1

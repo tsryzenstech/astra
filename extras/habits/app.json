@@ -1,0 +1,21 @@
+{
+    "package": "it.nebulaos.habits",
+    "name": "Habits",
+    "names": {
+        "it": "Abitudini"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Build habits one day at a time: check them off, keep your streak and see the last week.",
+    "descriptions": {
+        "it": "Costruisci abitudini un giorno alla volta: spuntale, mantieni la serie e guarda l'ultima settimana."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "category": "Health",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "accent": "#FF9500"
+}

@@ -100,16 +100,21 @@ Item {
             enabled: root.t > 0.9
             property real startX
             property bool moved: false
+            // The pointer is read in the root's frame: the thumbnail moves
+            // with the drag, so its own coordinates would take the move
+            // back out and the shot would spring back under the finger.
+            function rootX(m) { return mapToItem(root, m.x, m.y).x }
             onPressed: (m) => {
-                startX = m.x
+                startX = rootX(m)
                 moved = false
                 hideTimer.stop()
             }
             onPositionChanged: (m) => {
-                const dx = m.x - startX
+                const dx = rootX(m) - startX
                 if (Math.abs(dx) > 8)
                     moved = true
-                away.value = Math.min(0, dx / (shot.thumbW + 40))
+                // snap, not a value written under the spring that pulls it back to 0
+                away.snap(Math.min(0, dx / (shot.thumbW + 40)))
             }
             onReleased: {
                 if (away.value < -0.35) {

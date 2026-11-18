@@ -1,0 +1,21 @@
+{
+    "package": "it.nebulaos.split",
+    "name": "Split",
+    "names": {
+        "it": "Dividi il conto"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Split the bill: add a tip, say how many are eating and see what each one pays.",
+    "descriptions": {
+        "it": "Dividi il conto: aggiungi la mancia, indica quanti siete e guarda quanto paga ognuno."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "category": "Finance",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "accent": "#32D74B"
+}

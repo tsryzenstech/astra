@@ -1,0 +1,21 @@
+{
+    "package": "it.nebulaos.cards",
+    "name": "Flashcards",
+    "names": {
+        "it": "Flashcard"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Decks of questions and answers, studied with spaced repetition so you remember more with less.",
+    "descriptions": {
+        "it": "Mazzi di domande e risposte, studiati con la ripetizione dilazionata per ricordare di più con meno."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "category": "Education",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "accent": "#AF52DE"
+}

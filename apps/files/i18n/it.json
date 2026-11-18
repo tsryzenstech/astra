@@ -1,8 +1,8 @@
 {
     "%1 free of %2": "%1 liberi su %2",
     "%n items": {
-        "one": "",
-        "other": ""
+        "one": "%n elemento",
+        "other": "%n elementi"
     },
     "Allow access": "Consenti l'accesso",
     "Allow Files to see the files on this phone.": "Consenti a File di vedere i file su questo telefono.",
@@ -13,8 +13,8 @@
     "Create": "Crea",
     "Delete": "Elimina",
     "Delete %n items?": {
-        "one": "",
-        "other": ""
+        "one": "Eliminare %n elemento?",
+        "other": "Eliminare %n elementi?"
     },
     "Delete “%1”?": "Eliminare “%1”?",
     "Documents": "Documenti",
@@ -27,8 +27,8 @@
     "Locations": "Posizioni",
     "Move": "Sposta",
     "Move %n items here": {
-        "one": "",
-        "other": ""
+        "one": "Sposta %n elemento qui",
+        "other": "Sposta %n elementi qui"
     },
     "Movies": "Film",
     "Music": "Musica",
@@ -39,8 +39,8 @@
     "Open a folder and tap “Save here”": "Apri una cartella e tocca “Salva qui”",
     "Open with": "Apri con",
     "Paste %n items here": {
-        "one": "",
-        "other": ""
+        "one": "Incolla %n elemento qui",
+        "other": "Incolla %n elementi qui"
     },
     "Pictures": "Immagini",
     "RECENT FILES": "FILE RECENTI",
@@ -48,8 +48,8 @@
     "Rename": "Rinomina",
     "Save": "Salva",
     "Save %n items here": {
-        "one": "",
-        "other": ""
+        "one": "Salva %n elemento qui",
+        "other": "Salva %n elementi qui"
     },
     "Search in this folder": "Cerca in questa cartella",
     "Share": "Condividi",

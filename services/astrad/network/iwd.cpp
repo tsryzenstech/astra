@@ -4,6 +4,7 @@
 
 #include <QDBusContext>
 #include <QLoggingCategory>
+#include <QSet>
 
 Q_LOGGING_CATEGORY(lcIwd, "astrad.wifi")
 
@@ -230,14 +231,25 @@ QString IwdWifi::address() const
 QJsonArray IwdWifi::accessPoints() const
 {
     QJsonArray out;
+    QSet<QString> seen;
     for (const auto &[path, percent] : m_ordered) {
-        const QVariant ess = props(path, QStringLiteral("net.connman.iwd.Network")).value(QStringLiteral("ExtendedServiceSet"));
+        const QVariantMap network = props(path, QStringLiteral("net.connman.iwd.Network"));
+        // The owner of a network asked not to have it on maps (Mozilla's convention).
+        if (network.value(QStringLiteral("Name")).toString().endsWith(QLatin1String("_nomap"), Qt::CaseInsensitive))
+            continue;
+        const QVariant ess = network.value(QStringLiteral("ExtendedServiceSet"));
         const QList<QDBusObjectPath> bsses = qdbus_cast<QList<QDBusObjectPath>>(ess);
         for (const QDBusObjectPath &bss : bsses) {
             const QString mac = props(bss.path(), QStringLiteral("net.connman.iwd.BasicServiceSet")).value(QStringLiteral("Address")).toString();
-            if (!mac.isEmpty())
-                out.append(QJsonObject{{QStringLiteral("macAddress"), mac.toLower()},
-                                       {QStringLiteral("signalStrength"), int(percent / 2.0 - 100)}});
+            // A locally administered address belongs to a phone's hotspot or a
+            // repeater that moves: it says nothing about where the phone is.
+            bool ok = false;
+            const int first = mac.left(2).toInt(&ok, 16);
+            if (mac.isEmpty() || (ok && (first & 0x02)) || seen.contains(mac.toLower()))
+                continue;
+            seen.insert(mac.toLower());
+            out.append(QJsonObject{{QStringLiteral("macAddress"), mac.toLower()},
+                                   {QStringLiteral("signalStrength"), int(percent / 2.0 - 100)}});
         }
     }
     return out;

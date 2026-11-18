@@ -64,6 +64,9 @@ AccountService::AccountService(Server *server, SettingsService *settings, Notifi
     m_retry.setInterval(30 * 1000);
     connect(&m_retry, &QTimer::timeout, this, &AccountService::poll);
     m_settings->setValue(K("account.signed_in"), !m_account.value(K("token")).toString().isEmpty());
+    // The owner's name is the AstraID's: one set by hand before is dropped.
+    m_settings->setValue(K("account.name"), m_account.value(K("token")).toString().isEmpty()
+                                                ? QString() : m_account.value(K("name")).toString());
     if (!m_account.value(K("token")).toString().isEmpty()) {
         m_reportTimer.start();
         QTimer::singleShot(5000, this, [this] { report(true); startPolling(); });
@@ -75,7 +78,7 @@ QString AccountService::server() const
     const QString s = m_account.value(K("server")).toString();
     if (!s.isEmpty())
         return s;
-    return Properties::get(K("ro.astra.cloud.url"), K("http://34.155.86.153"));
+    return Properties::get(K("ro.astra.cloud.url"), K("https://market.nebulaos.it"));
 }
 
 QJsonObject AccountService::state() const
@@ -133,6 +136,8 @@ void AccountService::signedOut()
     if (!server.isEmpty())
         m_account.insert(K("server"), server);
     save();
+    // Without an AstraID the phone has no owner's name: "Not Logged In".
+    m_settings->setValue(K("account.name"), QString());
     announce();
 }
 
@@ -338,8 +343,8 @@ QJsonValue AccountService::handle(const QString &call, const QJsonObject &params
             m_account.insert(K("email"), user.value(K("email")));
             m_account.insert(K("name"), user.value(K("name")));
             save();
-            if (m_settings->value(K("account.name")).toString().isEmpty())
-                m_settings->setValue(K("account.name"), user.value(K("name")).toString());
+            // The name is the AstraID's, and only that.
+            m_settings->setValue(K("account.name"), user.value(K("name")).toString());
             m_reportTimer.start();
             report(true);
             startPolling();

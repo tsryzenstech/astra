@@ -1,0 +1,21 @@
+{
+    "package": "it.nebulaos.game2048",
+    "name": "2048",
+    "names": {
+        "it": "2048"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Swipe to slide the tiles and join equal ones until you make 2048.",
+    "descriptions": {
+        "it": "Scorri per muovere le tessere e unire quelle uguali fino ad arrivare a 2048."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "category": "Games",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "accent": "#FF9F0A"
+}

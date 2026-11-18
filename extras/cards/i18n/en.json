@@ -1,0 +1,10 @@
+{
+    "%n cards": {
+        "one": "%n card",
+        "other": "%n cards"
+    },
+    "Study %n cards": {
+        "one": "Study %n card",
+        "other": "Study %n cards"
+    }
+}

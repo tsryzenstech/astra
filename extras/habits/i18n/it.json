@@ -1,0 +1,18 @@
+{
+    "%1 of %2 done today": "%1 di %2 fatte oggi",
+    "%n days in a row": {
+        "one": "%n giorno di fila",
+        "other": "%n giorni di fila"
+    },
+    "Add": "Aggiungi",
+    "Add something you want to do every day: read, walk, drink water.": "Aggiungi qualcosa che vuoi fare ogni giorno: leggere, camminare, bere acqua.",
+    "Delete Habit": "Elimina abitudine",
+    "Edit Habit": "Modifica abitudine",
+    "Habits": "Abitudini",
+    "Name of the habit": "Nome dell'abitudine",
+    "New Habit": "Nuova abitudine",
+    "No habits yet": "Ancora nessuna abitudine",
+    "Save": "Salva",
+    "Tap a day to mark it. Press and hold a habit to edit it.": "Tocca un giorno per segnarlo. Tieni premuta un'abitudine per modificarla.",
+    "best %1": "record %1"
+}

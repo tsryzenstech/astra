@@ -8,6 +8,15 @@
 file(READ ${CMAKE_SOURCE_DIR}/version.json _astra_version_json)
 string(JSON ASTRA_VERSION_MAJOR GET "${_astra_version_json}" major)
 string(JSON ASTRA_VERSION_MINOR GET "${_astra_version_json}" minor)
+string(JSON ASTRA_VERSION_PATCH ERROR_VARIABLE _astra_no_patch GET "${_astra_version_json}" patch)
+if(_astra_no_patch OR "${ASTRA_VERSION_PATCH}" STREQUAL "")
+    set(ASTRA_VERSION_PATCH 0)
+endif()
+if("${ASTRA_VERSION_PATCH}" STREQUAL "0")
+    set(ASTRA_VERSION_PATCH_PART "")
+else()
+    set(ASTRA_VERSION_PATCH_PART ".${ASTRA_VERSION_PATCH}")
+endif()
 string(JSON ASTRA_CHANNEL GET "${_astra_version_json}" channel)
 string(JSON ASTRA_CODENAME GET "${_astra_version_json}" codename)
 string(JSON ASTRA_API_LEVEL GET "${_astra_version_json}" api_level)
@@ -27,7 +36,7 @@ endif()
 # Device builds between versions (pre-releases) add "-rev<N>" (see
 # docs/VERSIONING.md); the device repository's CI passes it.
 set(ASTRA_VERSION_SUFFIX "" CACHE STRING "Appended to the version, e.g. -rev3 for a pre-release build")
-set(ASTRA_VERSION "${ASTRA_VERSION_MAJOR}.${ASTRA_VERSION_MINOR}${ASTRA_CHANNEL_LETTER}${ASTRA_VERSION_SUFFIX}")
+set(ASTRA_VERSION "${ASTRA_VERSION_MAJOR}.${ASTRA_VERSION_MINOR}${ASTRA_VERSION_PATCH_PART}${ASTRA_CHANNEL_LETTER}${ASTRA_VERSION_SUFFIX}")
 
 find_package(Git QUIET)
 set(ASTRA_BUILD_NUMBER 0)
@@ -51,7 +60,7 @@ string(TIMESTAMP ASTRA_BUILD_EPOCH "%s" UTC)
 set(ASTRA_BUILD_ID "ASTRA.${ASTRA_VERSION}.${ASTRA_BUILD_DATE}.${ASTRA_BUILD_NUMBER}")
 set(ASTRA_OTA_URL "https://raw.githubusercontent.com/tsryzenstech/astra-ota/main" CACHE STRING "Base URL of the OTA update manifests")
 # astra cloud (github.com/tsryzenstech/astra-cloud): Market catalog and AstraID.
-set(ASTRA_CLOUD_URL "http://34.155.86.153" CACHE STRING "astra cloud server (Market and AstraID)")
+set(ASTRA_CLOUD_URL "https://market.nebulaos.it" CACHE STRING "astra cloud server (Market and AstraID)")
 set(ASTRA_MARKET_URL "${ASTRA_CLOUD_URL}/api/store/index.json" CACHE STRING "Market catalog (JSON list of apps)")
 
 message(STATUS "astraOS ${ASTRA_VERSION} \"${ASTRA_CODENAME}\" (${ASTRA_CHANNEL}) build ${ASTRA_BUILD_NUMBER} ${ASTRA_GIT_HASH}")

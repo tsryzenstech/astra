@@ -12,6 +12,8 @@
 #include <QLoggingCategory>
 #include <QNetworkReply>
 
+#include <algorithm>
+
 Q_LOGGING_CATEGORY(lcLocation, "astrad.location")
 
 namespace astrad {
@@ -62,10 +64,16 @@ void LocationService::refresh()
     if (m_busy)
         return;
     m_busy = true;
-    if (m_cell && m_cell->available())
-        m_cell->locate([this](const QJsonObject &modem) { lookup(modem); });
-    else
-        lookup({});
+    // What the access points around say is only as good as the last scan: ask
+    // for a fresh one and look the results up when it is in.
+    if (m_wifi && m_wifi->available() && !m_wifi->scanning())
+        m_wifi->scan();
+    QTimer::singleShot(m_wifi && m_wifi->available() ? 3500 : 0, this, [this] {
+        if (m_cell && m_cell->available())
+            m_cell->locate([this](const QJsonObject &modem) { lookup(modem); });
+        else
+            lookup({});
+    });
 }
 
 void LocationService::lookup(const QJsonObject &modem)
@@ -77,7 +85,15 @@ void LocationService::lookup(const QJsonObject &modem)
         finish(fix);
         return;
     }
-    const QJsonArray aps = m_wifi ? m_wifi->accessPoints() : QJsonArray();
+    QJsonArray aps = m_wifi ? m_wifi->accessPoints() : QJsonArray();
+    // The strongest ones place the phone best; the far ones pull the answer away.
+    QList<QJsonValue> sorted(aps.begin(), aps.end());
+    std::sort(sorted.begin(), sorted.end(), [](const QJsonValue &a, const QJsonValue &b) {
+        return a.toObject().value(K("signalStrength")).toInt() > b.toObject().value(K("signalStrength")).toInt();
+    });
+    aps = QJsonArray();
+    for (int i = 0; i < sorted.size() && i < 20; ++i)
+        aps.append(sorted.at(i));
     QJsonObject body;
     if (aps.size() >= 2) // a single access point is not enough to place anyone
         body.insert(K("wifiAccessPoints"), aps);

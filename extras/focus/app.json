@@ -1,0 +1,23 @@
+{
+    "package": "it.nebulaos.focus",
+    "name": "Focus Timer",
+    "names": {
+        "it": "Timer Focus"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Work in rounds with breaks. A notification tells you when to stop and when to start again.",
+    "descriptions": {
+        "it": "Lavora a cicli con pause. Una notifica dice quando fermarti e quando ripartire."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "category": "Productivity",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.NOTIFICATIONS"
+    ],
+    "accent": "#FF3B30"
+}

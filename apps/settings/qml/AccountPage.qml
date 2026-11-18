@@ -38,27 +38,4 @@ Page {
             separator: false
         }
     }
-    ListGroup {
-        title: qsTr("Owner")
-        footer: qsTr("Shown on this phone, to nearby devices and as the name of your Personal Hotspot.")
-        Item {
-            width: parent.width
-            height: 72
-            TextField {
-                id: nameField
-                anchors.fill: parent
-                anchors.margins: 12
-                placeholder: qsTr("Your name")
-                text: Settings.values["account.name"] || ""
-                maximumLength: 40
-                onAccepted: Settings.setValue("account.name", text.trim())
-            }
-        }
-        ListItem {
-            text: qsTr("Save")
-            textColor: Theme.accent
-            separator: false
-            onClicked: Settings.setValue("account.name", nameField.text.trim())
-        }
-    }
 }

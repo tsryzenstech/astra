@@ -1,0 +1,16 @@
+{
+    "%1 collected, %2 over": "%1 incassati, %2 in più",
+    "%n people": {
+        "one": "%n persona",
+        "other": "%n persone"
+    },
+    "Bill amount": "Importo del conto",
+    "Custom: %1%": "Personalizzata: %1%",
+    "Each pays": "Ognuno paga",
+    "People": "Persone",
+    "Round up each share": "Arrotonda ogni quota per eccesso",
+    "Sharing the bill": "Dividono il conto",
+    "Split": "Dividi",
+    "Tip": "Mancia",
+    "Total %1 · tip %2": "Totale %1 · mancia %2"
+}

@@ -1,0 +1,38 @@
+{
+    "%1 due": "%1 da fare",
+    "%1 known, %2 to see again.": "%1 sapute, %2 da rivedere.",
+    "%1 of %2": "%1 di %2",
+    "%n cards": {
+        "one": "%n carta",
+        "other": "%n carte"
+    },
+    "Add": "Aggiungi",
+    "Add cards to study": "Aggiungi carte da studiare",
+    "Again": "Ancora",
+    "All caught up": "Tutto in pari",
+    "Answer": "Risposta",
+    "Box %1": "Scatola %1",
+    "Cancel": "Annulla",
+    "Delete": "Elimina",
+    "Delete Card": "Elimina carta",
+    "Delete Deck": "Elimina mazzo",
+    "Delete this deck?": "Eliminare questo mazzo?",
+    "Done": "Fatto",
+    "Edit Card": "Modifica carta",
+    "Flashcards": "Flashcard",
+    "I knew it": "Lo sapevo",
+    "Its cards are deleted too.": "Vengono eliminate anche le sue carte.",
+    "Make a deck for what you want to learn, then add cards to it.": "Crea un mazzo per quello che vuoi imparare, poi aggiungi le carte.",
+    "Name of the deck": "Nome del mazzo",
+    "New Card": "Nuova carta",
+    "New Deck": "Nuovo mazzo",
+    "No decks": "Nessun mazzo",
+    "Question": "Domanda",
+    "Save": "Salva",
+    "Session done": "Sessione finita",
+    "Study %n cards": {
+        "one": "Studia %n carta",
+        "other": "Studia %n carte"
+    },
+    "Tap to see the answer": "Tocca per vedere la risposta"
+}

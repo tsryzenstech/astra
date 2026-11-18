@@ -1,0 +1,21 @@
+{
+    "package": "it.nebulaos.journal",
+    "name": "Journal",
+    "names": {
+        "it": "Diario"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Write about your day with a mood. Search your entries and keep your streak.",
+    "descriptions": {
+        "it": "Scrivi della tua giornata con un umore. Cerca tra le voci e mantieni la serie."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "category": "Lifestyle",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "accent": "#FF2D55"
+}

@@ -1,0 +1,21 @@
+{
+    "package": "it.nebulaos.convert",
+    "name": "Convert",
+    "names": {
+        "it": "Converti"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Lengths, weights, temperatures, volumes, speeds, areas, data and time: every unit at once.",
+    "descriptions": {
+        "it": "Lunghezze, pesi, temperature, volumi, velocità, aree, dati e tempo: tutte le unità insieme."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "category": "Utilities",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "accent": "#5856D6"
+}

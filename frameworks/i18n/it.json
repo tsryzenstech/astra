@@ -22,6 +22,7 @@
     "Full network access": "Accesso completo alla rete",
     "Green": "Verde",
     "Install and remove apps": "Installare e rimuovere app",
+    "Listen Now": "Ascolta ora",
     "Location": "Posizione",
     "Manage all notifications": "Gestire tutte le notifiche",
     "Manage networks": "Gestire le reti",
@@ -38,10 +39,11 @@
     "Pink": "Rosa",
     "Reboot the device": "Riavviare il dispositivo",
     "Red": "Rosso",
+    "Search": "Cerca",
     "Share": "Condividi",
     "Share %n items": {
-        "one": "",
-        "other": ""
+        "one": "Condividi %n elemento",
+        "other": "Condividi %n elementi"
     },
     "SMS messages": "Messaggi SMS",
     "Teal": "Verde acqua",

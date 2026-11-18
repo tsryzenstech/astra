@@ -1,0 +1,21 @@
+{
+    "package": "it.nebulaos.expenses",
+    "name": "Expenses",
+    "names": {
+        "it": "Spese"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Write down what you spend, see the month by category and export it as a CSV file.",
+    "descriptions": {
+        "it": "Annota quello che spendi, guarda il mese per categoria ed esportalo in un file CSV."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "category": "Finance",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "accent": "#30B0C7"
+}

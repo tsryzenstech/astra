@@ -1,0 +1,21 @@
+{
+    "package": "it.nebulaos.tasks",
+    "name": "Tasks",
+    "names": {
+        "it": "Attività"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Your to-do list: tasks with a day, a flag and a note, grouped by when they are due.",
+    "descriptions": {
+        "it": "La tua lista di cose da fare: attività con un giorno, un contrassegno e una nota, raggruppate per scadenza."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "category": "Productivity",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "accent": "#34C759"
+}

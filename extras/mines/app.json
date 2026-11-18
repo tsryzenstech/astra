@@ -1,0 +1,21 @@
+{
+    "package": "it.nebulaos.mines",
+    "name": "Mines",
+    "names": {
+        "it": "Campo minato"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Clear the field without touching a mine. Three sizes and your best times.",
+    "descriptions": {
+        "it": "Libera il campo senza toccare una mina. Tre dimensioni e i tuoi tempi migliori."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "category": "Games",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [],
+    "accent": "#0A84FF"
+}
