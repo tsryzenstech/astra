@@ -62,6 +62,20 @@ Item {
     // Android (MyDroid) draws every Android app in one surface: the window
     // belongs to the Android app opened last, and moves to the next one.
     property string androidFront: ""
+    // The Android screen is there as soon as the session starts (at boot): it
+    // waits here, unseen, until an Android app is opened.
+    property var idleAndroid: null
+    function attachIdleAndroid(w) {
+        const idle = idleAndroid
+        idleAndroid = null
+        if (!idle || !idle.toplevel)
+            return false
+        w.closePending = false
+        w.doomed = false
+        w.androidSurface = true
+        w.attach(idle.toplevel, idle.xdgSurface)
+        return true
+    }
     function isAndroid(pkg) { return !!(Packages.get(pkg) || {}).android }
     function moveAndroidWindow(pkg) {
         for (const key in windows) {
@@ -93,6 +107,8 @@ Item {
         if (previous && previous.packageName !== pkg && !previous.settledOpen)
             previous.close(shell.home.iconRect(previous.packageName), 0)
         const w = windowFor(pkg, fromRect)
+        if (isAndroid(pkg) && !w.toplevel)
+            attachIdleAndroid(w)
         bringToFront(w)
         w.open()
         Packages.launch(pkg, args)
@@ -190,6 +206,11 @@ Item {
                 return
             attached = true
             console.info("window:", toplevel.appId, "title:", toplevel.title)
+            // The whole Android screen, with no Android app asked for: no window, no animation.
+            if (toplevel.appId.toLowerCase() === "waydroid" && !androidFront) {
+                layer.idleAndroid = { toplevel: toplevel, xdgSurface: xdgSurface }
+                return
+            }
             const pkg = packageForAppId(toplevel.appId)
             let w = windows[pkg]
             if (!w) {

@@ -64,6 +64,8 @@ private:
     void start();
     void stop();
     void startSession();
+    void tuneAndroid();
+    void scanMedia();
     void reset();
     void installApk(const QString &path, std::function<void(QString)> done);
     void refreshApps();
@@ -91,6 +93,11 @@ private:
     QString m_step;          // what is happening ("download", "starting"...)
     QString m_error;
     double m_progress = -1;
+    // The download's files (system image, vendor image): each counts from 0 on its own.
+    int m_dlFile = 0;
+    double m_dlTotal = 0;
+    double m_dlLast = 0;
+    double m_dlBefore = 0;   // MB of the files before this one
     bool m_running = false;
     QJsonArray m_apps;       // [{package, name, shortcut}]
     QHash<QString, int> m_posted; // Android notification key -> astraOS notification id

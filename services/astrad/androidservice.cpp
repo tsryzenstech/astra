@@ -19,6 +19,9 @@
 #include <QRegularExpression>
 #include <QTimer>
 
+#include <functional>
+#include <memory>
+
 #include <grp.h>
 #include <unistd.h>
 
@@ -71,6 +74,9 @@ AndroidService::AndroidService(Server *server, PackageManager *packages, Notific
         // And once a minute, the apps (installed from inside Android too).
         if (++m_ticks % 4 == 0)
             refreshApps();
+        // New pictures and music of the phone reach Android's apps every few minutes.
+        if (m_ticks % 20 == 0)
+            scanMedia();
     });
     // An app installed or removed inside Android: Waydroid adds or removes its
     // launcher file. A moment later the list is read again.
@@ -196,6 +202,8 @@ void AndroidService::setup(const QString &variant)
     m_step = K("download");
     m_error.clear();
     m_progress = -1;
+    m_dlFile = 0;
+    m_dlTotal = m_dlLast = m_dlBefore = 0;
     changed();
     QDir().mkpath(waydroidData());
     m_setupTail.clear();
@@ -232,8 +240,20 @@ void AndroidService::setup(const QString &variant)
         for (auto it = re.globalMatch(m_setupTail); it.hasNext();)
             last = it.next();
         if (last.hasMatch() && last.captured(2).toDouble() > 0) {
-            const double progress = last.captured(1).toDouble() / last.captured(2).toDouble();
-            if (qAbs(progress - m_progress) > 0.01) {
+            const double done = last.captured(1).toDouble();
+            const double total = last.captured(2).toDouble();
+            // A new file starts when the size changes or the count goes back to the start.
+            if (m_dlTotal > 0 && (qAbs(total - m_dlTotal) > 0.5 || done + 1.0 < m_dlLast)) {
+                m_dlBefore += m_dlTotal;
+                ++m_dlFile;
+            }
+            m_dlTotal = total;
+            m_dlLast = done;
+            // The first file (the system image) is most of it: the vendor image, still to come,
+            // is counted as a tenth more until it shows itself. Never back.
+            const double whole = m_dlBefore + total + (m_dlFile == 0 ? total * 0.1 : 0);
+            const double progress = qBound(0.0, (m_dlBefore + done) / whole, 0.99);
+            if (progress > m_progress + 0.005) {
                 m_progress = progress;
                 changed();
             }
@@ -332,9 +352,58 @@ void AndroidService::startSession()
             m_step.clear();
             m_poll->start();
             changed();
+            QTimer::singleShot(2000, this, &AndroidService::tuneAndroid);
             QTimer::singleShot(2000, this, &AndroidService::refreshApps);
         }
     });
+}
+
+// What Android is told once it runs, so that it behaves like part of the phone:
+//  - its apps keep running in the background until the user closes them (no
+//    Doze, no app standby, no cap on cached or "phantom" processes, and Waydroid
+//    does not freeze the container when no window is shown);
+//  - navigation by gestures instead of the three buttons (no back arrow at the bottom);
+//  - the phone's pictures and music are scanned into Android's media store, which
+//    is where its apps (a chat's gallery picker) look.
+void AndroidService::tuneAndroid()
+{
+    if (!m_running)
+        return;
+    const QList<QStringList> commands{
+        {K("prop"), K("set"), K("persist.waydroid.suspend"), K("false")},
+        {K("shell"), K("--"), K("dumpsys"), K("deviceidle"), K("disable")},
+        {K("shell"), K("--"), K("settings"), K("put"), K("global"), K("app_standby_enabled"), K("0")},
+        {K("shell"), K("--"), K("settings"), K("put"), K("global"), K("adaptive_battery_management_enabled"), K("0")},
+        {K("shell"), K("--"), K("settings"), K("put"), K("global"), K("settings_enable_monitor_phantom_procs"), K("false")},
+        {K("shell"), K("--"), K("settings"), K("put"), K("global"), K("cached_apps_freezer"), K("disabled")},
+        {K("shell"), K("--"), K("device_config"), K("put"), K("activity_manager"), K("max_phantom_processes"), K("2147483647")},
+        {K("shell"), K("--"), K("device_config"), K("put"), K("activity_manager"), K("max_cached_processes"), K("256")},
+        {K("shell"), K("--"), K("device_config"), K("set_sync_disabled_for_tests"), K("persistent")},
+        {K("shell"), K("--"), K("cmd"), K("overlay"), K("enable"), K("com.android.internal.systemui.navbar.gestural")},
+        {K("shell"), K("--"), K("settings"), K("put"), K("secure"), K("navigation_mode"), K("2")},
+    };
+    // One after the other: each one is a call into the container.
+    auto *index = new int(0);
+    auto next = std::make_shared<std::function<void()>>();
+    *next = [this, commands, index, next] {
+        if (*index >= commands.size() || !m_running) {
+            delete index;
+            next->operator=(nullptr);
+            scanMedia();
+            return;
+        }
+        waydroid(commands.at((*index)++), false, [next](int, QString) { (*next)(); });
+    };
+    (*next)();
+}
+
+// The pictures, videos and music of the phone, into Android's media store.
+void AndroidService::scanMedia()
+{
+    if (!m_running)
+        return;
+    waydroid({K("shell"), K("--"), K("content"), K("call"), K("--uri"), K("content://media/"), K("--method"),
+              K("scan_volume"), K("--arg"), K("external_primary")}, false, nullptr);
 }
 
 void AndroidService::stop()
@@ -353,10 +422,29 @@ void AndroidService::stop()
     });
 }
 
+// Android's shared storage folders are the phone's own (container.sh mounts them): they are
+// let go before anything under Android's data is deleted, or the deletion would go through
+// them and into the user's pictures. True when none is mounted any more.
+static bool releaseMedia()
+{
+    const QString base = Paths::resolve(QStringLiteral("/data/var/lib/waydroid/data/media/0"));
+    for (const char *d : {"DCIM", "Pictures", "Movies", "Music", "Download", "Documents", "Recordings"})
+        QProcess::execute(Paths::resolve(QStringLiteral("/system/bin/umount")), {QStringLiteral("-l"), base + QLatin1Char('/') + QLatin1String(d)});
+    QFile mounts(QStringLiteral("/proc/self/mountinfo"));
+    if (mounts.open(QIODevice::ReadOnly))
+        return !mounts.readAll().contains("waydroid/data/media/0");
+    return !QFileInfo::exists(QStringLiteral("/proc/self/mountinfo")) ? true : false;
+}
+
 void AndroidService::reset()
 {
     stop();
     QTimer::singleShot(5000, this, [this] {
+        if (!releaseMedia() && !Paths::isDevelopmentRoot()) {
+            m_error = K("Android's storage is still in use: nothing was deleted. Restart the phone and try again.");
+            changed();
+            return;
+        }
         for (const QJsonValue &v : std::as_const(m_apps))
             m_packages->removeShortcut(v.toObject().value(K("shortcut")).toString());
         m_apps = {};

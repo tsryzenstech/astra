@@ -17,6 +17,10 @@ Item {
 
     property string packageName
     property bool androidSurface: false   // MyDroid's Android screen (AppLayer.moveAndroidWindow)
+    // Android apps get the space under the status bar (black above): Android draws
+    // its own status bar, which would otherwise sit under astraOS's.
+    readonly property real topInset: androidSurface ? Theme.statusBarHeight : 0
+    onTopInsetChanged: resize()
     property var info: ({})
     property var host // the AppLayer
     property rect fromRect: Qt.rect(0, 0, 0, 0)
@@ -107,7 +111,7 @@ Item {
     function resize() {
         if (toplevel)
             toplevel.sendFullscreen(Qt.size(Math.round(win.width * Screen.devicePixelRatio),
-                                            Math.round((win.height - keyboardInset) * Screen.devicePixelRatio)))
+                                            Math.round((win.height - keyboardInset - topInset) * Screen.devicePixelRatio)))
     }
     // Remembers the current frame for Recents.
     function capture() {
@@ -201,8 +205,16 @@ Item {
                 }
             }
 
+            // The strip above an Android app.
+            Rectangle {
+                visible: win.topInset > 0
+                width: parent.width
+                height: win.topInset
+                color: "black"
+            }
             ShellSurfaceItem {
                 id: surfaceItem
+                y: win.topInset
                 shellSurface: win.xdgSurface
                 // Android (MyDroid) takes touches only: with a pointer over it as
                 // well, Android 13 drops the touch gestures of the other device

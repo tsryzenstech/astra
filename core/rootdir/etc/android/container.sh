@@ -30,4 +30,16 @@ if [ -f "$cfg" ]; then
     sed -i 's#^lxc.rootfs.path = /var/lib/waydroid#lxc.rootfs.path = /data/var/lib/waydroid#' "$cfg"
     grep -q '^lxc.rootfs.mount' "$cfg" || echo 'lxc.rootfs.mount = /run/waydroid/rootfs-mount' >> "$cfg"
 fi
+# The phone's own folders are Android's: pictures, videos, music, downloads and
+# documents are the same files in both (a chat app picking a photo sees Gallery's).
+# Android's shared storage is the folder "media/0" of its data, the phone's the same
+# path in /data: each folder is mounted over its counterpart before the container starts.
+astra_media=/data/media/0
+droid_media=/data/var/lib/waydroid/data/media/0
+if [ -d "$astra_media" ]; then
+    for d in DCIM Pictures Movies Music Download Documents Recordings; do
+        mkdir -p "$astra_media/$d" "$droid_media/$d" 2>/dev/null
+        mountpoint -q "$droid_media/$d" || mount --bind "$astra_media/$d" "$droid_media/$d" 2>/dev/null
+    done
+fi
 exec "$bin" -w container start

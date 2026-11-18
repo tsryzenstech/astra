@@ -61,6 +61,51 @@ QString encode(const QUrl &url)
     return QString::fromLatin1(url.toEncoded().toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals));
 }
 
+// Android's launcher icons come with their own shape: a circle, a drop, a
+// squircle with a margin around it. Artwork like that (transparent corners) is
+// cut to what it draws and put on the colour of its edge, so that it fills
+// astraOS's icon shape like any other app's.
+bool adaptAndroidArt(const QImage &art, QImage *adapted, QColor *backdrop)
+{
+    const int w = art.width(), h = art.height();
+    if (w < 16 || h < 16 || !art.hasAlphaChannel() || qAlpha(art.pixel(1, 1)) > 40 || qAlpha(art.pixel(w - 2, h - 2)) > 40)
+        return false;
+    int x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (int y = 0; y < h; ++y) {
+        const QRgb *line = reinterpret_cast<const QRgb *>(art.constScanLine(y));
+        for (int x = 0; x < w; ++x) {
+            if (qAlpha(line[x]) > 48) {
+                x0 = qMin(x0, x); x1 = qMax(x1, x); y0 = qMin(y0, y); y1 = qMax(y1, y);
+            }
+        }
+    }
+    if (x1 - x0 < 8 || y1 - y0 < 8)
+        return false;
+    // A square around the drawing.
+    const int side = qMax(x1 - x0, y1 - y0) + 1;
+    const QPoint centre((x0 + x1) / 2, (y0 + y1) / 2);
+    QRect crop(centre.x() - side / 2, centre.y() - side / 2, side, side);
+    crop = crop.intersected(art.rect());
+    *adapted = art.copy(crop);
+    // The colour along the edge of the drawing: its own backdrop.
+    qint64 r = 0, g = 0, b = 0, n = 0;
+    const int cw = adapted->width(), ch = adapted->height();
+    auto take = [&](int x, int y) {
+        const QRgb c = adapted->pixel(qBound(0, x, cw - 1), qBound(0, y, ch - 1));
+        if (qAlpha(c) > 220) {
+            r += qRed(c); g += qGreen(c); b += qBlue(c); ++n;
+        }
+    };
+    for (int i = cw / 4; i < cw - cw / 4; ++i) { take(i, 1); take(i, ch - 2); }
+    for (int i = ch / 4; i < ch - ch / 4; ++i) { take(1, i); take(cw - 2, i); }
+    if (n == 0) {
+        // A drawing that does not touch its frame (a glyph alone): the average colour around its middle.
+        take(cw / 2, ch / 2);
+    }
+    *backdrop = n ? QColor(int(r / n), int(g / n), int(b / n)) : QColor(Qt::white);
+    return true;
+}
+
 // Ids are "r/<ratio>/<url>" and "t/<#rrggbbaa>/<url>", the URL in base64.
 class Provider : public QQuickImageProvider
 {
@@ -97,6 +142,10 @@ public:
         QImage out(art.size(), QImage::Format_ARGB32_Premultiplied);
         out.fill(Qt::transparent);
         QPainter p(&out);
+        QImage adapted;
+        QColor backdrop;
+        if (parts.at(0) == QLatin1String("r") && adaptAndroidArt(art, &adapted, &backdrop))
+            p.setBrush(backdrop);
         p.setRenderHint(QPainter::Antialiasing);
         p.setRenderHint(QPainter::SmoothPixmapTransform);
         if (parts.at(0) == QLatin1String("t")) {
@@ -106,10 +155,32 @@ public:
         } else {
             const qreal radius = parts.at(1).toDouble() * qMin(out.width(), out.height());
             p.setPen(Qt::NoPen);
-            p.setBrush(Qt::white);
+            p.setBrush(adapted.isNull() ? QBrush(Qt::white) : QBrush(backdrop));
             p.drawRoundedRect(QRectF(out.rect()), radius, radius);
             p.setCompositionMode(QPainter::CompositionMode_SourceIn);
-            p.drawImage(0, 0, art);
+            if (adapted.isNull()) {
+                p.drawImage(0, 0, art);
+            } else {
+                // The backdrop under the shape, the artwork over it.
+                p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+                QImage tile(out.size(), QImage::Format_ARGB32_Premultiplied);
+                tile.fill(backdrop);
+                QPainter t(&tile);
+                t.setRenderHint(QPainter::SmoothPixmapTransform);
+                t.drawImage(QRect(QPoint(0, 0), out.size()), adapted);
+                t.end();
+                QImage shape(out.size(), QImage::Format_ARGB32_Premultiplied);
+                shape.fill(Qt::transparent);
+                QPainter sp(&shape);
+                sp.setRenderHint(QPainter::Antialiasing);
+                sp.setPen(Qt::NoPen);
+                sp.setBrush(Qt::white);
+                sp.drawRoundedRect(QRectF(shape.rect()), radius, radius);
+                sp.setCompositionMode(QPainter::CompositionMode_SourceIn);
+                sp.drawImage(0, 0, tile);
+                sp.end();
+                p.drawImage(0, 0, shape);
+            }
         }
         p.end();
         if (size)
