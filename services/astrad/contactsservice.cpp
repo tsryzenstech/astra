@@ -94,6 +94,9 @@ QJsonValue ContactsService::handle(const QString &call, const QJsonObject &param
 
     if (call == QLatin1String("list"))
         return m_contacts;
+    // A batch from outside (Google, a file): the ones already here are left alone. Returns how many are new.
+    if (call == QLatin1String("import"))
+        return merge(params.value(QLatin1String("contacts")).toArray());
     if (call == QLatin1String("lookup"))
         return nameForNumber(params.value(QLatin1String("number")).toString());
     if (call == QLatin1String("add")) {

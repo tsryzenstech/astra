@@ -407,29 +407,14 @@ Rectangle {
     }
 
     // ---- tab bar --------------------------------------------------------------------
-    Rectangle {
+    TabBar {
         id: tabs
-        anchors.bottom: parent.bottom
-        width: parent.width
-        height: 58 + Theme.homeIndicatorHeight * 0.6
-        color: Theme.glassPanel
-        Rectangle { width: parent.width; height: 1; color: Theme.separator }
-        Row {
-            y: 6
-            Repeater {
-                model: [{ id: "listen", icon: "play", label: qsTr("Listen Now") },
-                        { id: "library", icon: "music", label: qsTr("Library") }, { id: "search", icon: "search", label: qsTr("Search") }]
-                delegate: Item {
-                    required property var modelData
-                    readonly property bool on: app.tab === modelData.id
-                    width: tabs.width / 3
-                    height: 48
-                    Icon { anchors.horizontalCenter: parent.horizontalCenter; y: 2; name: parent.modelData.icon; size: 24; color: parent.on ? app.tint : Theme.textSecondary }
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; y: 30; text: parent.modelData.label; font.family: Theme.fontFamily; font.pixelSize: 11; color: parent.on ? app.tint : Theme.textSecondary }
-                    MouseArea { anchors.fill: parent; onClicked: { app.tab = parent.modelData.id; if (stack.depth > 1) stack.pop(null) } }
-                }
-            }
-        }
+        tint: app.tint
+        model: [{ id: "listen", icon: "play", label: qsTr("Listen Now") },
+                { id: "library", icon: "music", label: qsTr("Library") },
+                { id: "search", icon: "search", label: qsTr("Search") }]
+        current: app.tab
+        onSelected: (id) => { app.tab = id; if (stack.depth > 1) stack.pop(null) }
     }
 
     // ---- Now Playing ------------------------------------------------------------------

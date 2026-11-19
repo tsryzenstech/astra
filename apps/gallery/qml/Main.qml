@@ -132,61 +132,14 @@ Rectangle {
         onOpened: (list, index, item) => app.openViewer(list, index, item)
     }
 
-    // ---- floating tab bar --------------------------------------------------------
-    Rectangle {
+    // ---- tab bar -----------------------------------------------------------------
+    TabBar {
         visible: app.granted && !viewer.active
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 34
-        width: 236
-        height: 54
-        radius: 27
-        color: Qt.rgba(0.16, 0.16, 0.18, 0.92)
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.08)
-
-        Rectangle {
-            id: tabPill
-            y: 5
-            height: 44
-            width: 110
-            radius: 22
-            color: Qt.rgba(1, 1, 1, 0.14)
-            x: app.tab === "library" ? 5 : parent.width - width - 5
-            Behavior on x { SpringNumberAnimation { preset: Motion.bouncy } }
-        }
-        Row {
-            anchors.fill: parent
-            anchors.margins: 5
-            Repeater {
-                model: [ { id: "library", icon: "image", label: qsTr("Library") }, { id: "albums", icon: "folder", label: qsTr("Albums") } ]
-                delegate: Item {
-                    required property var modelData
-                    width: 113
-                    height: 44
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: 6
-                        Icon { name: modelData.icon; size: 18; anchors.verticalCenter: parent.verticalCenter
-                               color: app.tab === modelData.id ? Theme.accent : "white" }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: modelData.label
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.captionSize + 1
-                            font.weight: Font.DemiBold
-                            color: app.tab === modelData.id ? Theme.accent : "white"
-                        }
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            app.tab = modelData.id
-                            albumGrid.visible = false
-                        }
-                    }
-                }
-            }
+        model: [ { id: "library", icon: "image", label: qsTr("Library") }, { id: "albums", icon: "folder", label: qsTr("Albums") } ]
+        current: app.tab
+        onSelected: (id) => {
+            app.tab = id
+            albumGrid.visible = false
         }
     }
 

@@ -11,7 +11,7 @@ foreach(file IN LISTS SYSBOARD_QML SYSBOARD_ICONS)
     string(REGEX REPLACE "^qml/" "" alias "${file}")
     set_source_files_properties(${file} PROPERTIES QT_RESOURCE_ALIAS ${alias})
 endforeach()
-set_source_files_properties(qml/SystemClock.qml qml/EmojiData.qml qml/FocusModes.qml qml/HomeWidgetActions.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(qml/SystemClock.qml qml/EmojiData.qml qml/FocusModes.qml qml/HomeWidgetActions.qml qml/LockSlots.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 # The emoji table is one huge literal: compiled to C++ it is a 1.4 MB file
 # that takes the compiler a very long time (hours under qemu). Loaded from
 # source it takes a few milliseconds, once.

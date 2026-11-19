@@ -131,5 +131,6 @@
     "hotspot.name": "",
     "keyboard.recent_emoji": [],
     "display.aod": false,
+    "display.charge_animation": true,
     "setup.done": false
 }

@@ -46,6 +46,29 @@ Item {
     WebEngineView {
         id: web
         anchors.fill: parent
+        // True while the page has an editable field in focus: only then is there a keyboard
+        // (the runtime's WebInputFilter answers "no input method" for a view without it).
+        property bool astraEditable: false
+        onJavaScriptConsoleMessage: (level, message, line, source) => {
+            if (message.indexOf("astra:editable:") !== 0)
+                return
+            const on = message === "astra:editable:1"
+            if (on !== astraEditable) {
+                astraEditable = on
+                Qt.inputMethod.update(Qt.ImEnabled)
+                if (!on)
+                    Qt.inputMethod.hide()
+            }
+        }
+        userScripts: [
+            WebEngineScript {
+                name: "astra-editable"
+                injectionPoint: WebEngineScript.DocumentCreation
+                worldId: WebEngineScript.MainWorld
+                runsOnSubFrames: true
+                sourceCode: "(function(){var last=null;function ed(e){while(e&&e.shadowRoot&&e.shadowRoot.activeElement)e=e.shadowRoot.activeElement;if(!e)return false;if(e.isContentEditable)return true;var t=e.tagName;if(t==='TEXTAREA')return !e.readOnly;if(t==='INPUT'){var k=(e.type||'text').toLowerCase();return ['button','submit','reset','checkbox','radio','file','image','color','range'].indexOf(k)<0&&!e.readOnly;}return false;}function report(){var v=ed(document.activeElement);if(v!==last){last=v;console.log('astra:editable:'+(v?1:0));}}document.addEventListener('focusin',report,true);document.addEventListener('focusout',function(){setTimeout(report,0);},true);window.addEventListener('pageshow',report);})();"
+            }
+        ]
         visible: tab.started
         profile: tab.isPrivate ? tab.browser.privateProfile : tab.browser.profile
         zoomFactor: tab.textZoom

@@ -43,47 +43,15 @@ Rectangle {
     }
 
     // ---- tab bar ---------------------------------------------------------------
-    Rectangle {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 30
-        width: parent.width - 40
-        height: 60
-        radius: 30
-        color: Theme.surfaceRaised
-        Row {
-            anchors.fill: parent
-            anchors.margins: 5
-            Repeater {
-                model: [
-                    { id: "world", icon: "globe", label: qsTr("World") },
-                    { id: "alarms", icon: "alarm", label: qsTr("Alarms") },
-                    { id: "stopwatch", icon: "stopwatch", label: qsTr("Stopwatch") },
-                    { id: "timers", icon: "timer", label: qsTr("Timers") }
-                ]
-                delegate: Rectangle {
-                    required property var modelData
-                    width: (parent.width) / 4
-                    height: 50
-                    radius: 25
-                    color: app.tab === modelData.id ? Theme.surfacePressed : "transparent"
-                    Column {
-                        anchors.centerIn: parent
-                        Icon { anchors.horizontalCenter: parent.horizontalCenter; name: modelData.icon; size: 20
-                               color: app.tab === modelData.id ? Theme.accent : Theme.text }
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: modelData.label
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 10
-                            font.weight: Font.Medium
-                            color: app.tab === modelData.id ? Theme.accent : Theme.textSecondary
-                        }
-                    }
-                    MouseArea { anchors.fill: parent; onClicked: app.tab = modelData.id }
-                }
-            }
-        }
+    TabBar {
+        model: [
+            { id: "world", icon: "globe", label: qsTr("World") },
+            { id: "alarms", icon: "alarm", label: qsTr("Alarms") },
+            { id: "stopwatch", icon: "stopwatch", label: qsTr("Stopwatch") },
+            { id: "timers", icon: "timer", label: qsTr("Timers") }
+        ]
+        current: app.tab
+        onSelected: (id) => app.tab = id
     }
 
     // ---- World clock -----------------------------------------------------------

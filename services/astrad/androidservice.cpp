@@ -390,11 +390,27 @@ void AndroidService::tuneAndroid()
             delete index;
             next->operator=(nullptr);
             scanMedia();
+            reportInsets();
             return;
         }
         waydroid(commands.at((*index)++), false, [next](int, QString) { (*next)(); });
     };
     (*next)();
+}
+
+// Where Android puts its system bars and its windows, written to /data/system/android-insets.txt: it is
+// what tells a black strip at the bottom of an Android app from one at the top.
+void AndroidService::reportInsets()
+{
+    if (!m_running)
+        return;
+    waydroid({K("shell"), K("--"), K("sh"), K("-c"),
+              K("wm size; wm density; dumpsys window windows | grep -E 'Window #|mFrame=|mDisplayFrame|InsetsSource|isReadyToDispatchInsetsState|navigationBars|statusBars' | head -80")},
+             false, [](int, QString out) {
+        QFile f(Paths::resolve(QStringLiteral("/data/system/android-insets.txt")));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            f.write(out.toUtf8());
+    });
 }
 
 // The pictures, videos and music of the phone, into Android's media store.

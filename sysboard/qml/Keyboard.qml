@@ -169,15 +169,30 @@ Item {
                 maskThresholdMin: 0.5
                 maskSpreadAtMin: 1.0
             }
-            BlurLayer {
-                readonly property point origin: root.blurSource ? panel.mapToItem(root.blurSource, 0, 0) : Qt.point(0, 0)
-                x: -origin.x
-                y: -origin.y
-                width: root.blurSource ? root.blurSource.width : 0
-                height: root.blurSource ? root.blurSource.height : 0
-                source: root.blurSource
-                amount: root.visible && root.blurSource ? 1 : 0
-                dim: 0
+            // An app is shorter by the keyboard's height, so under the keyboard there is nothing
+            // of it: what shows through the glass is the strip of the screen right above the
+            // keyboard, turned over and blurred, which continues the app's last rows the way
+            // iOS lets the page run on under its keyboard.
+            ShaderEffectSource {
+                id: strip
+                width: panel.width
+                height: panel.height
+                // Not drawn itself: MultiEffect below draws it.
+                visible: false
+                live: root.visible
+                sourceItem: root.visible ? root.blurSource : null
+                sourceRect: root.blurSource ? Qt.rect(0, Math.max(0, root.blurSource.height - 2 * root.panelHeight),
+                                                      root.blurSource.width, root.panelHeight) : Qt.rect(0, 0, 0, 0)
+            }
+            MultiEffect {
+                anchors.fill: parent
+                source: strip
+                autoPaddingEnabled: false
+                blurEnabled: true
+                blurMax: 64
+                blur: 1
+                saturation: 0.15
+                transform: Scale { origin.y: height / 2; yScale: -1 }
             }
             Rectangle { anchors.fill: parent; color: root.panelColor }
         }

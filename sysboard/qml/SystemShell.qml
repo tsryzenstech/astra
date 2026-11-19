@@ -426,6 +426,34 @@ Item {
         MouseArea { anchors.fill: parent }
     }
 
+    // ---- the lock screens to choose from (hold the lock screen) ---------------------------
+    function openLockPicker() { lockPicker.open() }
+    LockPicker {
+        id: lockPicker
+        shell: shell
+        blurSource: screenContent
+        z: 60
+    }
+
+    // ---- the charger plugged in --------------------------------------------
+    ChargeAnimation {
+        id: charge
+        blurSource: screenContent
+        onWantsWake: shell.wake()
+        // A phone that was asleep goes back to sleep, unless it is being used by now.
+        onDoneShowing: (wokeIt) => { if (wokeIt && shell.locked && !alarm.active && call.ongoing === null) shell.sleep() }
+    }
+    property bool wasCharging: System.charging
+    Connections {
+        target: System
+        function onHardwareChanged() {
+            const now = System.charging
+            if (now && !shell.wasCharging && System.batteryLevel >= 0 && Settings.values["display.charge_animation"] !== false)
+                charge.play()
+            shell.wasCharging = now
+        }
+    }
+
     // ---- hardware buttons --------------------------------------------------
     VolumeHud {
         id: volumeHud

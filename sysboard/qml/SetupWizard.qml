@@ -44,21 +44,60 @@ Rectangle {
 
     Spring { id: page; to: 1; response: 0.5; dampingFraction: 0.86 }
 
-    // Soft colour glows, as on the About page.
-    Item {
+    // The wallpaper of the phone behind everything: sharp on the first page, then frosted, with a
+    // slow drift so the screen is never still.
+    Image {
+        id: backdrop
         anchors.fill: parent
-        layer.enabled: true
-        layer.effect: MultiEffect { blurEnabled: true; blurMax: 64; blur: 1.0 }
-        Rectangle { x: -120; y: -80; width: 420; height: 420; radius: 210; color: "#7B2FF7"; opacity: 0.45 }
-        Rectangle { x: parent.width - 220; y: parent.height - 360; width: 420; height: 420; radius: 210; color: "#00C9A7"; opacity: 0.35 }
+        source: Host.wallpaper
+        fillMode: Image.PreserveAspectCrop
+        sourceSize: Qt.size(width, height)
+        asynchronous: true
+        visible: false
     }
-    Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, 0.45) }
+    MultiEffect {
+        anchors.fill: parent
+        source: backdrop
+        autoPaddingEnabled: false
+        blurEnabled: true
+        blurMax: 64
+        blur: root.current === "hello" ? 0 : 0.8
+        saturation: root.current === "hello" ? 0.1 : 0.0
+        Behavior on blur { NumberAnimation { duration: 700; easing.type: Easing.OutCubic } }
+    }
+    Rectangle {
+        anchors.fill: parent
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, root.current === "hello" ? 0.10 : 0.40) }
+            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, root.current === "hello" ? 0.45 : 0.58) }
+        }
+    }
+
+    // Where we are: a row of dots.
+    Row {
+        visible: root.current !== "hello" && root.current !== "done"
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: Theme.statusBarHeight + 22
+        spacing: 7
+        Repeater {
+            model: root.steps.length - 2
+            Rectangle {
+                required property int index
+                width: index + 1 === root.step ? 20 : 6
+                height: 6
+                radius: 3
+                color: "white"
+                opacity: index + 1 <= root.step ? 0.95 : 0.3
+                Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+            }
+        }
+    }
 
     Item {
         id: content
         anchors.fill: parent
-        anchors.topMargin: Theme.statusBarHeight + 30
-        anchors.bottomMargin: 40
+        anchors.topMargin: Theme.statusBarHeight + 70
+        anchors.bottomMargin: 150
         opacity: page.value
         transform: Translate { x: (1 - page.value) * 60 }
 
@@ -74,8 +113,8 @@ Rectangle {
                 readonly property var words: ["Hello", "Ciao", "Hola", "Bonjour", "Hallo", "Olá", "こんにちは", "你好", "Привет", "مرحبا"]
                 text: words[i]
                 font.family: Theme.fontFamily
-                font.pixelSize: 64
-                font.weight: Font.DemiBold
+                font.pixelSize: 84
+                font.weight: Font.Light
                 color: "white"
                 Timer { interval: 1800; repeat: true; running: root.visible && root.current === "hello"; onTriggered: swap.restart() }
                 SequentialAnimation {
@@ -85,7 +124,7 @@ Rectangle {
                     NumberAnimation { target: hello; property: "opacity"; to: 1; duration: 320 }
                 }
             }
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Welcome to astraOS"); font.family: Theme.fontFamily; font.pixelSize: 18; color: Qt.rgba(1, 1, 1, 0.7) }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Welcome to astraOS"); font.family: Theme.fontFamily; font.pixelSize: 20; color: Qt.rgba(1, 1, 1, 0.85) }
         }
 
         // ---- language -----------------------------------------------------------
@@ -145,9 +184,11 @@ Rectangle {
                 function ask(n) { net = n; visible = true; pw.text = ""; pw.forceActiveFocus() }
                 visible: false
                 width: parent.width
-                height: 56
-                radius: 18
-                color: Qt.rgba(1, 1, 1, 0.12)
+                height: 58
+                radius: 20
+                color: Qt.rgba(1, 1, 1, 0.14)
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.16)
                 TextInput {
                     id: pw
                     anchors.fill: parent
@@ -326,44 +367,61 @@ Rectangle {
     }
 
     // ---- navigation ------------------------------------------------------------------
-    Item {
+    // Back: a round frosted button, top left.
+    Rectangle {
+        visible: root.step > 0 && root.current !== "done"
+        x: 18
+        y: Theme.statusBarHeight + 8
+        width: 40
+        height: 40
+        radius: 20
+        color: Qt.rgba(1, 1, 1, backArea.pressed ? 0.28 : 0.16)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.2)
+        Icon { anchors.centerIn: parent; name: "chevron-left"; size: 20; color: "white" }
+        MouseArea { id: backArea; anchors.fill: parent; anchors.margins: -6; onClicked: root.back() }
+    }
+    // Continue: one wide button at the bottom, as the big phone setups have.
+    Column {
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 46
-        width: parent.width
-        height: 56
-        Text {
-            visible: root.step > 0 && root.current !== "done"
-            x: 28
-            anchors.verticalCenter: parent.verticalCenter
-            text: qsTr("Back")
-            font.family: Theme.fontFamily
-            font.pixelSize: 16
-            color: Qt.rgba(1, 1, 1, 0.7)
-            MouseArea { anchors.fill: parent; anchors.margins: -12; onClicked: root.back() }
-        }
+        anchors.bottomMargin: 38
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: parent.width - 48
+        spacing: 12
         Rectangle {
-            anchors.right: parent.right
-            anchors.rightMargin: 24
-            width: nextText.implicitWidth + 48
-            height: 52
-            radius: 26
-            color: "white"
+            width: parent.width
+            height: 56
+            radius: 28
+            color: Qt.rgba(1, 1, 1, nextArea.pressed ? 0.8 : 1)
+            scale: nextArea.pressed ? 0.98 : 1
+            Behavior on scale { NumberAnimation { duration: 100 } }
             Text {
-                id: nextText
                 anchors.centerIn: parent
-                text: root.current === "hello" ? qsTr("Get Started") : root.current === "done" ? qsTr("Start Using astraOS")
-                    : (root.current === "astraid" && !Account.state.signedIn) || (root.current === "pin" && !Lock.hasPin) ? qsTr("Set Up Later")
-                    : qsTr("Continue")
+                text: root.current === "hello" ? qsTr("Get Started") : root.current === "done" ? qsTr("Start Using astraOS") : qsTr("Continue")
                 font.family: Theme.fontFamily
-                font.pixelSize: 16
+                font.pixelSize: 17
                 font.weight: Font.DemiBold
                 color: "#0B0B0F"
             }
-            MouseArea { anchors.fill: parent; onClicked: root.current === "done" ? root.finish() : root.next() }
+            MouseArea { id: nextArea; anchors.fill: parent; onClicked: root.current === "done" ? root.finish() : root.next() }
+        }
+        // The optional steps can wait.
+        Item {
+            width: parent.width
+            height: 24
+            Text {
+                visible: (root.current === "astraid" && !Account.state.signedIn) || (root.current === "pin" && !Lock.hasPin)
+                anchors.centerIn: parent
+                text: qsTr("Set Up Later")
+                font.family: Theme.fontFamily
+                font.pixelSize: 16
+                color: Qt.rgba(1, 1, 1, 0.8)
+                MouseArea { anchors.fill: parent; anchors.margins: -10; onClicked: root.next() }
+            }
         }
     }
 
-    component Title: Text { font.family: Theme.fontFamily; font.pixelSize: 34; font.weight: Font.Bold; color: "white"; width: parent ? parent.width : 300; wrapMode: Text.WordWrap }
+    component Title: Text { font.family: Theme.fontFamily; font.pixelSize: 36; font.weight: Font.Bold; color: "white"; width: parent ? parent.width : 300; wrapMode: Text.WordWrap }
     component Subtitle: Text { font.family: Theme.fontFamily; font.pixelSize: 15; color: Qt.rgba(1, 1, 1, 0.7); width: parent ? parent.width : 300; wrapMode: Text.WordWrap }
     component Choice: Rectangle {
         id: choice
@@ -373,9 +431,11 @@ Rectangle {
         property bool switchable: false
         signal clicked()
         width: parent ? parent.width : 300
-        height: 56
-        radius: 18
-        color: Qt.rgba(1, 1, 1, area.pressed ? 0.2 : 0.12)
+        height: 58
+        radius: 20
+        color: Qt.rgba(1, 1, 1, area.pressed ? 0.24 : 0.14)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.16)
         Text { x: 18; anchors.verticalCenter: parent.verticalCenter; text: choice.text; font.family: Theme.fontFamily; font.pixelSize: 16; color: "white" }
         Text { visible: !choice.switchable && choice.detail !== ""; anchors.right: parent.right; anchors.rightMargin: 46; anchors.verticalCenter: parent.verticalCenter; text: choice.detail; font.family: Theme.fontFamily; font.pixelSize: 13; color: Qt.rgba(1, 1, 1, 0.6) }
         Icon { visible: !choice.switchable && choice.selected; anchors.right: parent.right; anchors.rightMargin: 18; anchors.verticalCenter: parent.verticalCenter; name: "check"; size: 20; color: Theme.accent }
@@ -390,9 +450,11 @@ Rectangle {
         property int hints: 0
         signal accepted()
         width: parent ? parent.width : 300
-        height: 56
-        radius: 18
-        color: Qt.rgba(1, 1, 1, 0.12)
+        height: 58
+        radius: 20
+        color: Qt.rgba(1, 1, 1, 0.14)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.16)
         function forceActiveFocus() { input.forceActiveFocus() }
         TextInput {
             id: input

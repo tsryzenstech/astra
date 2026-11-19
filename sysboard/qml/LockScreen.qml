@@ -17,6 +17,8 @@ Item {
     readonly property bool pinPadVisible: pinPad.progress > 0.01
     readonly property bool musicExpanded: music.expanded
     property var pendingAction: null
+    // Something to do once the PIN is right that does not unlock the phone (the lock screen picker).
+    property var pendingVerify: null
 
     readonly property var clockWeights: ({
         "Thin": Font.Thin, "ExtraLight": Font.ExtraLight, "Light": Font.Light, "Regular": Font.Normal,
@@ -32,6 +34,7 @@ Item {
         pinPad.hide(true)
         music.expanded = false
         pendingAction = null
+        pendingVerify = null
     }
 
     // Ask for the PIN (if any), then run action after unlocking.
@@ -42,6 +45,17 @@ Item {
             pinPad.show()
         } else {
             finishUnlock()
+        }
+    }
+
+    // Ask for the PIN (if any) and run fn, with the phone staying locked.
+    function verifyThen(fn) {
+        if (Lock.hasPin) {
+            pendingVerify = fn
+            swipe.animateTo(1, 0)
+            pinPad.show()
+        } else {
+            fn()
         }
     }
 
@@ -65,56 +79,13 @@ Item {
         id: lockContent
         anchors.fill: parent
 
-        Image {
-            anchors.fill: parent
-            source: root.shell ? root.shell.wallpaper : Host.wallpaper
-            fillMode: Image.PreserveAspectCrop
-            sourceSize: Qt.size(width * 2, height * 2)
-            asynchronous: true
-        }
-
-        Item {
+        // The wallpaper, the date, the clock and the widgets of the lock screen in use
+        // (LockSlots): the same face the picker and the editor draw.
+        LockFace {
             id: faceplate
             anchors.fill: parent
             opacity: (1 - swipe.value) * (1 - music.progress)
             y: -swipe.value * 120
-
-            Icon {
-                name: "lock"
-                size: 22
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 78
-                opacity: 0.85
-            }
-
-            Text {
-                id: time
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.baseline: parent.top
-                anchors.baselineOffset: 228
-                text: SystemClock.time
-                // Settings > Lock Screen: Poppins at any weight, or another installed family.
-                font.family: Settings.values["lockscreen.clock_font"] || Theme.fontFamily
-                font.pixelSize: 118
-                font.weight: root.clockWeights[Settings.values["lockscreen.clock_weight"] || "SemiBold"] ?? Font.DemiBold
-                font.letterSpacing: -3
-                color: "white"
-            }
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.baseline: parent.top
-                anchors.baselineOffset: 263
-                text: SystemClock.longDate
-                font.family: Theme.fontFamily
-                font.pixelSize: 21
-                color: "white"
-            }
-
-            LockWidgets {
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 278
-            }
         }
 
         LockButton {
@@ -200,10 +171,12 @@ Item {
                     swipe.animateTo(0, -vy / (root.height * 0.45))
             }
         }
-        pressAndHoldInterval: 650
+        // Held for three seconds on an empty place: the PIN (if any), then the lock screens to
+        // choose from and customise.
+        pressAndHoldInterval: 3000
         onPressAndHold: {
             if (!moved && !music.expanded)
-                root.authenticate(() => root.shell.launch("com.astra.settings", { page: "lockscreen" }))
+                root.verifyThen(() => root.shell.openLockPicker())
         }
     }
 
@@ -217,9 +190,20 @@ Item {
     PinPad {
         id: pinPad
         anchors.fill: parent
-        onAccepted: root.finishUnlock()
+        onAccepted: {
+            if (root.pendingVerify) {
+                const fn = root.pendingVerify
+                root.pendingVerify = null
+                pinPad.hide(true)
+                swipe.animateTo(0, 0)
+                fn()
+            } else {
+                root.finishUnlock()
+            }
+        }
         onCancelled: {
             root.pendingAction = null
+            root.pendingVerify = null
             swipe.animateTo(0, 0)
         }
     }

@@ -1,4 +1,5 @@
 {
+    "%1 of %2 Google contacts are new": "%1 contatti Google nuovi su %2",
     "%n contacts": {
         "one": "%n contatto",
         "other": "%n contatti"
@@ -10,10 +11,15 @@
     "Add favourites in Contacts": "Aggiungi preferiti in Contatti",
     "Add to Favorites": "Aggiungi ai preferiti",
     "Allow Contacts in Settings › Apps › Contacts to see the people you know.": "Consenti l'accesso ai contatti in Impostazioni › App › Contatti per vedere le persone che conosci.",
+    "Bring in the contacts of your Google account.": "Importa i contatti del tuo account Google.",
     "call": "chiama",
     "Cancel": "Annulla",
+    "Change Client ID": "Cambia ID client",
+    "Client ID": "ID client",
+    "Close": "Chiudi",
     "Company": "Azienda",
     "Contacts": "Contatti",
+    "Continue": "Continua",
     "Delete": "Elimina",
     "Delete Contact": "Elimina contatto",
     "Done": "Fine",
@@ -21,6 +27,12 @@
     "Edit Contact": "Modifica contatto",
     "email": "email",
     "Email": "Email",
+    "Getting your contacts… %1": "Recupero i contatti… %1",
+    "Google Contacts": "Contatti Google",
+    "Google did not answer (%1).": "Google non ha risposto (%1).",
+    "Google did not sign you in.": "Google non ti ha fatto accedere.",
+    "Google's answer could not be read.": "Non è stato possibile leggere la risposta di Google.",
+    "Last synced %1": "Ultima sincronizzazione %1",
     "mail": "email",
     "message": "messaggio",
     "mobile": "cellulare",
@@ -33,7 +45,11 @@
     "Remove from Favorites": "Rimuovi dai preferiti",
     "Search": "Cerca",
     "Share Contact": "Condividi contatto",
+    "To bring in your Google contacts, astraOS needs a client ID of your own Google Cloud project: create an OAuth client of the type Web application, turn on the People API, add http://localhost/ as an authorised redirect URI and paste the client ID here. It is kept on this phone only.": "Per importare i contatti Google serve un ID client di un tuo progetto Google Cloud: crea un client OAuth di tipo Applicazione web, attiva la People API, aggiungi http://localhost/ tra gli URI di reindirizzamento autorizzati e incolla qui l'ID client. Resta solo su questo telefono.",
+    "Try Again": "Riprova",
+    "Turn on the People API for this client in Google Cloud, then try again.": "Attiva la People API per questo client in Google Cloud, poi riprova.",
     "video": "video",
+    "You did not allow it.": "Non hai dato il consenso.",
     "Your Name": "Il tuo nome",
     "“%1” is removed from all your apps.": "“%1” verrà rimosso da tutte le tue app."
 }

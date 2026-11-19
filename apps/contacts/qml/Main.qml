@@ -109,6 +109,21 @@ Rectangle {
                 }
             }
 
+            ListGroup {
+                visible: app.granted && !search.text
+                width: parent.width
+                ListItem {
+                    text: qsTr("Google Contacts")
+                    subtitle: Settings.values["app.com.astra.contacts.google_last"]
+                              ? qsTr("Last synced %1").arg(Qt.formatDateTime(new Date(Settings.values["app.com.astra.contacts.google_last"]), "d MMM, HH:mm"))
+                              : qsTr("Bring in the contacts of your Google account.")
+                    iconName: "refresh"
+                    chevron: true
+                    separator: false
+                    onClicked: googleLoader.active = true
+                }
+            }
+
             Repeater {
                 model: lp.letters
                 delegate: Column {
@@ -280,6 +295,22 @@ Rectangle {
     }
 
     ShareSheet { id: share }
+
+    // Google: the sign-in page and the import, over the whole app.
+    Loader {
+        id: googleLoader
+        anchors.fill: parent
+        active: false
+        z: 40
+        sourceComponent: GoogleSync {
+            onClosed: googleLoader.active = false
+            onDone: (added, total) => {
+                Settings.setValue("app.com.astra.contacts.google_last", Date.now())
+                googleLoader.active = false
+                toast.show(qsTr("%1 of %2 Google contacts are new").arg(added).arg(total))
+            }
+        }
+    }
 
     Rectangle {
         id: toast

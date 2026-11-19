@@ -16,6 +16,8 @@
 #include <QFile>
 #include <QFontDatabase>
 #include <QGuiApplication>
+#include <QInputMethodQueryEvent>
+#include <QMetaObject>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -108,6 +110,35 @@ private:
     QQuickView *m_view;
 };
 
+// A web page asks for the keyboard whenever the text of a page is touched, as it treats any
+// text as something that might be edited. The keyboard is for fields: a web view answers "no
+// input method" unless the page says that an editable field has focus (Planet's script tells
+// it through the view's astraEditable property).
+class WebInputFilter : public QObject
+{
+protected:
+    bool eventFilter(QObject *object, QEvent *event) override
+    {
+        if (event->type() != QEvent::InputMethodQuery || !object->metaObject())
+            return false;
+        auto *query = static_cast<QInputMethodQueryEvent *>(event);
+        if (!(query->queries() & Qt::ImEnabled))
+            return false;
+        // The view is a QML type derived from QQuickWebEngineView.
+        for (const QMetaObject *m = object->metaObject(); m; m = m->superClass()) {
+            if (QByteArray(m->className()).contains("WebEngineView")) {
+                const QVariant editable = object->property("astraEditable");
+                if (editable.isValid() && !editable.toBool()) {
+                    query->setValue(Qt::ImEnabled, false);
+                    return true;
+                }
+                return false;
+            }
+        }
+        return false;
+    }
+};
+
 // The manifest on disk, readable before the application object exists.
 static QJsonObject manifestOnDisk(const QString &package)
 {
@@ -191,6 +222,7 @@ int main(int argc, char **argv)
     view.setColor(QColor(info.value(QLatin1String("background")).toString(QStringLiteral("#000000"))));
     view.setResizeMode(QQuickView::SizeRootObjectToView);
     view.installEventFilter(new FocusDismisser(&view));
+    app.installEventFilter(new WebInputFilter);
     view.setTitle(QGuiApplication::applicationDisplayName());
     QObject::connect(view.engine(), &QQmlEngine::quit, &app, &QGuiApplication::quit);
 

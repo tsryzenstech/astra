@@ -21,9 +21,96 @@ Page {
 
     function open(file, props) { stack.open(Qt.resolvedUrl(file), props || {}) }
 
-    AccountCard { onClicked: page.open("AccountPage.qml") }
+    // ---- search: a bar above the title, there when the page is pulled all the way down ----------
+    readonly property real searchSpace: Theme.statusBarHeight + 54
+    property bool searchOpen: false
+    property string query: ""
+    readonly property var searchIndex: [
+        { text: qsTr("Wi-Fi"), words: "wifi wi-fi network internet rete", file: "WifiPage.qml", icon: "wifi" },
+        { text: qsTr("Bluetooth"), words: "bluetooth headphones cuffie", file: "BluetoothPage.qml", icon: "bluetooth" },
+        { text: qsTr("Cellular Data"), words: "mobile cellular sim data dati", file: "MobilePage.qml", icon: "signal" },
+        { text: qsTr("Personal Hotspot"), words: "hotspot tethering condividi", file: "HotspotPage.qml", icon: "hotspot" },
+        { text: qsTr("NFC"), words: "nfc tag", file: "NfcPage.qml", icon: "nfc" },
+        { text: qsTr("Display"), words: "display brightness luminosita night light dark mode scuro aod always on refresh", file: "DisplayPage.qml", icon: "display" },
+        { text: qsTr("Sound"), words: "sound volume ringtone suoneria audio vibration", file: "SoundPage.qml", icon: "sound" },
+        { text: qsTr("Notifications"), words: "notifications notifiche banners", file: "NotificationsPage.qml", icon: "notification" },
+        { text: qsTr("Focus"), words: "focus do not disturb non disturbare game", file: "FocusPage.qml", icon: "moon" },
+        { text: qsTr("Battery"), words: "battery batteria charging saver", file: "BatteryPage.qml", icon: "battery" },
+        { text: qsTr("Storage"), words: "storage memoria spazio files", file: "StoragePage.qml", icon: "storage" },
+        { text: qsTr("Apps"), words: "apps applicazioni permissions permessi", file: "AppsPage.qml", icon: "grid" },
+        { text: qsTr("Language & Region"), words: "language lingua region temperature units", file: "LanguagePage.qml", icon: "language" },
+        { text: qsTr("Date & Time"), words: "date time ora data timezone fuso", file: "DateTimePage.qml", icon: "clock" },
+        { text: qsTr("Accessibility"), words: "accessibility text size motion accessibilita", file: "AccessibilityPage.qml", icon: "accessibility" },
+        { text: qsTr("Software Update"), words: "update aggiornamento software ota", file: "UpdatePage.qml", icon: "refresh" },
+        { text: qsTr("Reset"), words: "reset erase factory ripristino cancella", file: "ResetPage.qml", icon: "reset" },
+        { text: qsTr("About"), words: "about info version device build", file: "AboutPage.qml", icon: "info" },
+        { text: qsTr("Lock Screen"), words: "lock screen schermata blocco wallpaper sfondo clock font", file: "LockScreenPage.qml", icon: "lock" },
+        { text: qsTr("Privacy Options"), words: "privacy pin passcode location permissions", file: "PrivacyPage.qml", icon: "shield" },
+        { text: qsTr("Location Services"), words: "location gps posizione", file: "LocationPage.qml", icon: "location" },
+        { text: qsTr("Themes"), words: "themes temi accent colour wallpaper", file: "ThemesPage.qml", icon: "palette" },
+        { text: qsTr("Cards"), words: "cards control center controlli", file: "CardsPage.qml", icon: "sliders" },
+        { text: qsTr("General Customization"), words: "general customization home layout icons", file: "GeneralPage.qml", icon: "settings" },
+        { text: qsTr("Cloudy"), words: "cloudy assistant ai", file: "HeyCloudyPage.qml", icon: "sparkles" },
+        { text: qsTr("Store Purchases"), words: "store purchases acquisti market", file: "PurchasesPage.qml", icon: "bag" },
+        { text: qsTr("AstraID"), words: "astraid account login accedi", file: "AccountPage.qml", icon: "person" }
+    ]
+    readonly property var found: {
+        const q = page.query.trim().toLowerCase()
+        if (!q)
+            return []
+        return searchIndex.filter(e => (e.text + " " + e.words).toLowerCase().indexOf(q) >= 0)
+    }
+    onSearchOpenChanged: {
+        page.flickable.topMargin = searchOpen ? searchSpace : 0
+        Qt.callLater(function() { page.flickable.returnToBounds() })
+        if (!searchOpen)
+            page.query = ""
+    }
+    Connections {
+        target: page.flickable
+        function onContentYChanged() {
+            const f = page.flickable
+            if (!page.searchOpen && f.dragging && f.contentY < -70)
+                page.searchOpen = true
+            else if (page.searchOpen && page.query === "" && !searchField.activeFocus && !f.dragging && f.contentY > 24)
+                page.searchOpen = false
+        }
+    }
+    TextField {
+        id: searchField
+        parent: page.flickable.contentItem
+        x: Theme.margin
+        y: -page.searchSpace + Theme.statusBarHeight + 4
+        width: page.width - 2 * Theme.margin
+        height: 44
+        radius: 22
+        placeholder: qsTr("Search Settings")
+        visible: page.searchOpen
+        onTextChanged: page.query = text
+    }
 
     ListGroup {
+        visible: page.query.trim() !== ""
+        title: page.found.length ? qsTr("Results") : ""
+        footer: page.found.length ? "" : qsTr("No settings match.")
+        Repeater {
+            model: page.found
+            delegate: ListItem {
+                required property var modelData
+                required property int index
+                text: modelData.text
+                iconName: modelData.icon
+                chevron: true
+                separator: index < page.found.length - 1
+                onClicked: page.open(modelData.file)
+            }
+        }
+    }
+
+    AccountCard { visible: page.query.trim() === ""; onClicked: page.open("AccountPage.qml") }
+
+    ListGroup {
+        visible: page.query.trim() === ""
         title: qsTr("Connectivity")
         ListItem {
             text: qsTr("Wi-Fi")
@@ -78,6 +165,7 @@ Page {
     }
 
     ListGroup {
+        visible: page.query.trim() === ""
         title: qsTr("Customization")
         ListItem { text: qsTr("General Customization"); chevron: true; onClicked: page.open("GeneralPage.qml") }
         ListItem { text: qsTr("Lock Screen"); chevron: true; onClicked: page.open("LockScreenPage.qml") }
@@ -87,12 +175,14 @@ Page {
     }
 
     ListGroup {
+        visible: page.query.trim() === ""
         title: qsTr("PRISM exclusives")
         ListItem { text: qsTr("Cloudy"); chevron: true; onClicked: page.open("HeyCloudyPage.qml") }
         ListItem { text: qsTr("Store Purchases"); chevron: true; separator: false; onClicked: page.open("PurchasesPage.qml") }
     }
 
     ListGroup {
+        visible: page.query.trim() === ""
         title: qsTr("System")
         ListItem { text: qsTr("Display"); chevron: true; onClicked: page.open("DisplayPage.qml") }
         ListItem { text: qsTr("Sound"); chevron: true; onClicked: page.open("SoundPage.qml") }

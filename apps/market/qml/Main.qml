@@ -143,42 +143,15 @@ Rectangle {
     }
 
     // ---- tab bar -----------------------------------------------------------
-    Rectangle {
+    TabBar {
         id: tabs
-        anchors.bottom: parent.bottom
-        width: parent.width
-        height: 58 + Theme.homeIndicatorHeight * 0.6
-        color: Theme.glassPanel
-        Rectangle { width: parent.width; height: 1; color: Theme.separator }
-        Row {
-            y: 6
-            Repeater {
-                model: [
-                    { id: "today", icon: "sparkles", label: qsTr("Today") },
-                    { id: "apps", icon: "grid", label: qsTr("Apps") },
-                    { id: "search", icon: "search", label: qsTr("Search") },
-                    { id: "updates", icon: "download", label: qsTr("Updates") }
-                ]
-                delegate: Item {
-                    required property var modelData
-                    readonly property bool on: app.tab === modelData.id
-                    width: tabs.width / 4
-                    height: 48
-                    Icon { anchors.horizontalCenter: parent.horizontalCenter; y: 2; name: parent.modelData.icon; size: 24; color: parent.on ? Theme.accent : Theme.textSecondary }
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; y: 30; text: parent.modelData.label; font.family: Theme.fontFamily; font.pixelSize: 11; color: parent.on ? Theme.accent : Theme.textSecondary }
-                    Rectangle {
-                        visible: parent.modelData.id === "updates" && app.updates.length > 0
-                        x: parent.width / 2 + 6; y: 0
-                        width: 18; height: 18; radius: 9
-                        color: Theme.danger
-                        Text { anchors.centerIn: parent; text: app.updates.length; font.family: Theme.fontFamily; font.pixelSize: 11; font.weight: Font.Bold; color: "white" }
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: { app.tab = parent.modelData.id; if (stack.depth > 1) stack.pop(null) }
-                    }
-                }
-            }
-        }
+        model: [
+            { id: "today", icon: "sparkles", label: qsTr("Today") },
+            { id: "apps", icon: "grid", label: qsTr("Apps") },
+            { id: "search", icon: "search", label: qsTr("Search") },
+            { id: "updates", icon: "download", label: qsTr("Updates"), badge: app.updates.length }
+        ]
+        current: app.tab
+        onSelected: (id) => { app.tab = id; if (stack.depth > 1) stack.pop(null) }
     }
 }

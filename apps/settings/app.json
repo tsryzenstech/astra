@@ -17,6 +17,7 @@
         "astra.permission.MANAGE_PACKAGES",
         "astra.permission.MANAGE_NOTIFICATIONS",
         "astra.permission.MEDIA_CONTROL",
+        "astra.permission.MEDIA",
         "astra.permission.HARDWARE",
         "astra.permission.POWER",
         "astra.permission.MANAGE_NETWORK",

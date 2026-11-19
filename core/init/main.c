@@ -19,6 +19,7 @@
 #include "rescue.h"
 #include "util.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
@@ -203,6 +204,52 @@ static void loopback_up(void)
     close(fd);
 }
 
+/* Settings > Reset > Erase: astrad leaves /data/.astra-wipe and restarts the phone. The next boot
+ * finds it here, with /data mounted and nothing running, and erases everything in /data: apps and
+ * their data, accounts, settings, photos and files. What stays is the update already downloaded
+ * (/data/ota, which the first stage writes at the next restart) and the file system's own lost+found.
+ * The setup wizard then runs again, as on a new phone. */
+static void wipe_data_if_requested(void)
+{
+    struct stat st;
+    if (stat("/data/.astra-wipe", &st) < 0)
+        return;
+    if (guest_mode) {
+        WARN("guest: the wipe request is ignored (the guest's data is the launcher's to erase)");
+        unlink("/data/.astra-wipe");
+        return;
+    }
+    INFO("factory reset: erasing /data");
+    dev_t dev = st.st_dev;
+    DIR *d = opendir("/data");
+    if (!d) {
+        ERR("factory reset: cannot open /data: %s", strerror(errno));
+        return;
+    }
+    struct dirent *de;
+    while ((de = readdir(d))) {
+        const char *n = de->d_name;
+        if (!strcmp(n, ".") || !strcmp(n, "..") || !strcmp(n, "lost+found") || !strcmp(n, "ota") || !strcmp(n, ".astra-wipe"))
+            continue;
+        char child[512];
+        struct stat cs;
+        snprintf(child, sizeof(child), "/data/%s", n);
+        if (lstat(child, &cs) < 0 || cs.st_dev != dev)
+            continue;
+        if (S_ISDIR(cs.st_mode)) {
+            remove_tree_same_dev(child, dev);
+            rmdir(child);
+        } else {
+            unlink(child);
+        }
+    }
+    closedir(d);
+    /* Last, so that a power cut in the middle erases again at the next start. */
+    unlink("/data/.astra-wipe");
+    sync();
+    INFO("factory reset: done");
+}
+
 static void do_reboot(const char *mode)
 {
     INFO("shutting down (%s)", mode);
@@ -322,6 +369,7 @@ static int second_stage_main(void)
     rc_trigger("early-init");
     rc_trigger("init");
     rc_trigger("fs");
+    wipe_data_if_requested();
     rc_trigger("post-fs-data");
     rc_trigger("boot");
     if (cmdline_has("astra.diag"))

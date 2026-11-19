@@ -103,6 +103,20 @@ Page {
                 }
             }
         }
+        ListItem {
+            text: qsTr("Choose from Gallery")
+            subtitle: qsTr("Use one of your own photos as the wallpaper.")
+            iconName: "image"
+            chevron: true
+            onClicked: stack.open(Qt.resolvedUrl("GalleryWallpaperPage.qml"))
+        }
+        ListItem {
+            visible: !!Settings.values["display.wallpaper"]
+            text: qsTr("Use the default wallpaper")
+            textColor: Theme.accent
+            separator: false
+            onClicked: Settings.reset("display.wallpaper")
+        }
     }
 
     ListGroup {

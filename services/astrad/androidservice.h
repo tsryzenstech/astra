@@ -66,6 +66,7 @@ private:
     void startSession();
     void tuneAndroid();
     void scanMedia();
+    void reportInsets();
     void reset();
     void installApk(const QString &path, std::function<void(QString)> done);
     void refreshApps();
