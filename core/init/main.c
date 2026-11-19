@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
+#include <sys/prctl.h>
 #include <sys/reboot.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
@@ -208,6 +209,9 @@ static void do_reboot(const char *mode)
     rc_trigger("shutdown");
     services_stop_all(3000);
     sync();
+    /* A guest ends itself; the host is not restarted for it. */
+    if (guest_mode)
+        _exit(!strcmp(mode, "reboot") ? 10 : 0);
     umount2("/data", MNT_DETACH);
     if (!strcmp(mode, "poweroff"))
         reboot(RB_POWER_OFF);
@@ -274,9 +278,15 @@ static void handle_control(int fd)
 
 static int second_stage_main(void)
 {
+    const char *guest = getenv("ASTRA_GUEST");
+    guest_mode = guest && *guest && strcmp(guest, "0");
     /* Booting without a ramdisk (e.g. testing in a VM) skips the first stage. */
-    if (access("/proc/self", F_OK) < 0)
+    if (guest_mode) {
+        /* Not PID 1: the orphans of the services come to this process, which reaps them. */
+        prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0);
+    } else if (access("/proc/self", F_OK) < 0) {
         mount_pseudo();
+    }
     klog_init();
     INFO("astraOS init: second stage");
     umask(022);
@@ -287,8 +297,10 @@ static int second_stage_main(void)
     mount("tmpfs", "/dev/shm", "tmpfs", MS_NOSUID | MS_NODEV, "mode=1777");
     mount("tmpfs", "/run", "tmpfs", MS_NOSUID | MS_NODEV, "mode=0755");
     mount("tmpfs", "/tmp", "tmpfs", MS_NOSUID | MS_NODEV, "mode=1777");
-    create_by_name_links();
-    loopback_up();
+    if (!guest_mode) {
+        create_by_name_links();
+        loopback_up();
+    }
 
     init_setenv("PATH", "/system/bin:/vendor/bin:/product/bin");
     init_setenv("LANG", "en_US.UTF-8");
@@ -315,7 +327,8 @@ static int second_stage_main(void)
     if (cmdline_has("astra.diag"))
         rc_trigger("diag");
 
-    watchdog_init();
+    if (!guest_mode)
+        watchdog_init();
 
     for (;;) {
         struct pollfd pfd[2] = {{.fd = sfd, .events = POLLIN}, {.fd = cfd, .events = POLLIN}};
@@ -338,7 +351,8 @@ static int second_stage_main(void)
         if (cfd >= 0 && (pfd[1].revents & POLLIN))
             handle_control(cfd);
         services_restart_due();
-        watchdog_pet();
+        if (!guest_mode)
+            watchdog_pet();
     }
     return 0;
 }
@@ -364,6 +378,6 @@ int main(int argc, char **argv)
     if (getpid() == 1)
         return second_stage_main();
 
-    fprintf(stderr, "usage: init [second_stage | --check <rc>]\n");
+    fprintf(stderr, "usage: init [second_stage | --check <rc>]   (ASTRA_GUEST=1: as a guest, docs/GUEST.md)\n");
     return 1;
 }

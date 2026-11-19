@@ -11,6 +11,17 @@
 #define INIT_LOG_WARN 4
 #define INIT_LOG_INFO 6
 
+/*
+ * Guest mode (ASTRA_GUEST=1 in the environment): astraOS runs as a guest on another
+ * system's kernel (docs/GUEST.md), in a mount namespace of its own but sharing the
+ * host's processes, devices, kernel parameters, hostname and watchdog. In this mode
+ * init must not touch any of those: no reboot or poweroff (it exits instead), no
+ * watchdog, no writes to /proc/sys or /sys, no module loading, no mounting of the
+ * host's partitions, no hostname, no udev trigger. It becomes the subreaper of its
+ * services, since it can not be PID 1.
+ */
+extern int guest_mode;
+
 void klog_init(void);
 void klog(int level, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 

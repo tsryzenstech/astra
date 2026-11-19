@@ -18,6 +18,8 @@
 
 static int kmsg_fd = -1;
 
+int guest_mode;
+
 void klog_init(void)
 {
     if (kmsg_fd >= 0)

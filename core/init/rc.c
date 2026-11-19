@@ -277,11 +277,34 @@ static int run_and_wait(char **argv)
     return WIFEXITED(status) && WEXITSTATUS(status) == 0 ? 0 : -1;
 }
 
+/* What a guest must leave alone: the host's kernel, partitions, modules and names. */
+static int guest_forbids(int argc, char **argv)
+{
+    const char *cmd = argv[0];
+    if (!strcmp(cmd, "mount_all") || !strcmp(cmd, "insmod") || !strcmp(cmd, "hostname"))
+        return 1;
+    if (!strcmp(cmd, "write") && argc == 3)
+        return !strncmp(argv[1], "/proc/sys", 9) || !strncmp(argv[1], "/sys/", 5);
+    if (!strcmp(cmd, "exec") && argc >= 2) {
+        const char *prog = argv[!strcmp(argv[1], "--") && argc >= 3 ? 2 : 1];
+        const char *base = strrchr(prog, '/');
+        base = base ? base + 1 : prog;
+        return !strcmp(base, "udevadm") || !strcmp(base, "modprobe") || !strcmp(base, "disptest") ||
+               !strcmp(base, "insmod") || !strcmp(base, "reboot") || !strcmp(base, "mount") || !strcmp(base, "umount");
+    }
+    return 0;
+}
+
 static int builtin(struct command *c)
 {
     int argc = c->argc;
     char **argv = c->argv;
     const char *cmd = argv[0];
+
+    if (guest_mode && guest_forbids(argc, argv)) {
+        INFO("guest: not running \"%s %s\"", cmd, argc > 1 ? argv[1] : "");
+        return 0;
+    }
 
     if (!strcmp(cmd, "mkdir") && argc >= 2) {
         mode_t mode = argc >= 3 ? (mode_t)strtoul(argv[2], NULL, 8) : 0755;
