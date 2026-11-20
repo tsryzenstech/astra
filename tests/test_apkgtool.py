@@ -98,6 +98,81 @@ class ApkgToolTest(unittest.TestCase):
                 apkgtool.pack(os.path.join(apps, name), out)
                 apkgtool.Package(out).verify()
 
+    def test_desktop_apps_pack(self):
+        # astraOS Desktop's own apps (apps-desktop/<name>): each is a "desktop" package.
+        apps = os.path.join(SOURCE, "apps-desktop")
+        for name in sorted(os.listdir(apps)) if os.path.isdir(apps) else []:
+            if os.path.isfile(os.path.join(apps, name, "app.json")):
+                out = os.path.join(self.tmp, name + ".apkg")
+                manifest, _, _ = apkgtool.pack(os.path.join(apps, name), out)
+                self.assertEqual(manifest.get("target"), "desktop", name)
+                apkgtool.Package(out).verify()
+
+    def test_target(self):
+        # No "target" is a mobile app: packages built before the field existed do not change.
+        apkgtool.pack(self.app, self.out)
+        self.assertNotIn("target", apkgtool.Package(self.out).manifest)
+        self.manifest["target"] = "desktop"
+        self.manifest["desktop"] = {"width": 900, "height": 600, "minWidth": 480, "minHeight": 320}
+        self.write("app.json", json.dumps(self.manifest))
+        manifest, _, _ = apkgtool.pack(self.app, self.out)
+        self.assertEqual(manifest["target"], "desktop")
+        for bad in ("tablet", "", 1):
+            self.manifest["target"] = bad
+            self.write("app.json", json.dumps(self.manifest))
+            with self.assertRaises(apkgtool.ApkgError):
+                apkgtool.pack(self.app, self.out)
+
+    def test_desktop_hints_need_desktop_target(self):
+        self.manifest["desktop"] = {"width": 900}
+        self.write("app.json", json.dumps(self.manifest))
+        with self.assertRaises(apkgtool.ApkgError):
+            apkgtool.pack(self.app, self.out)
+        self.manifest.update(target="desktop", desktop={"width": 900, "color": 1})
+        self.write("app.json", json.dumps(self.manifest))
+        with self.assertRaises(apkgtool.ApkgError):
+            apkgtool.pack(self.app, self.out)
+        self.manifest["desktop"] = {"width": 300, "minWidth": 400}
+        self.write("app.json", json.dumps(self.manifest))
+        with self.assertRaises(apkgtool.ApkgError):
+            apkgtool.pack(self.app, self.out)
+
+
+class LintTargetTest(unittest.TestCase):
+    """Astra.Desktop is for desktop apps only: a mobile app also runs on the phone."""
+
+    def setUp(self):
+        sys.path.insert(0, os.path.join(SOURCE, "sdk"))
+        from astra_sdk import lint
+        self.lint = lint
+        self.tmp = tempfile.mkdtemp()
+        os.makedirs(os.path.join(self.tmp, "qml"))
+        with open(os.path.join(self.tmp, "qml", "Main.qml"), "w") as f:
+            f.write("import QtQuick\nimport Astra.Desktop\nItem {}\n")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def manifest(self, **extra):
+        with open(os.path.join(self.tmp, "app.json"), "w") as f:
+            json.dump(dict(package="org.example.x", name="X", version="1", versionCode=1, **extra), f)
+
+    def codes(self):
+        return [p.code for p in self.lint.check_app(self.tmp)]
+
+    def test_desktop_import(self):
+        self.manifest()
+        self.assertIn("E013", self.codes())
+        self.manifest(target="mobile")
+        self.assertIn("E013", self.codes())
+        self.manifest(target="desktop")
+        self.assertNotIn("E013", self.codes())
+        self.assertNotIn("E012", self.codes())
+
+    def test_bad_target(self):
+        self.manifest(target="tablet")
+        self.assertIn("E102", self.codes())
+
 
 if __name__ == "__main__":
     unittest.main()

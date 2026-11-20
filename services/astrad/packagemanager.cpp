@@ -5,6 +5,7 @@
 #include "permissions.h"
 
 #include <astra/apkg.h>
+#include <astra/form.h>
 #include <astra/global.h>
 #include <astra/paths.h>
 #include <astra/properties.h>
@@ -67,11 +68,34 @@ void PackageManager::scan()
         QString dir;
         bool privileged;
     };
-    const QList<Root> roots{{Paths::privilegedApps(), true}, {Paths::systemApps(), false}, {Paths::productApps(), false}};
+    // astraOS Desktop keeps every app in /Applications; which of them hold system permissions is
+    // decided by /system/etc/priv-apps.txt (root-owned), as /system/priv-app does on the phone.
+    QList<Root> roots{{Paths::privilegedApps(), true}, {Paths::systemApps(), false}, {Paths::productApps(), false}};
+    QSet<QString> privileged;
+    if (Form::isDesktop()) {
+        roots.append({Paths::applications(), false});
+        QFile list(Paths::resolve(QStringLiteral("/system/etc/priv-apps.txt")));
+        if (list.open(QIODevice::ReadOnly))
+            for (const QByteArray &line : list.readAll().split('\n'))
+                if (!line.trimmed().isEmpty() && !line.trimmed().startsWith('#'))
+                    privileged.insert(QString::fromUtf8(line.trimmed()));
+    }
 
     QSet<QString> seenSystem;
-    for (const Root &root : roots) {
-        QDirIterator it(root.dir, {QStringLiteral("*.apkg")}, QDir::Files, QDirIterator::Subdirectories);
+    // Packages the image has a desktop build of (the mobile build of the same package is not used).
+    QSet<QString> desktopBuilds;
+    if (Form::isDesktop()) {
+        for (const Root &r : roots) {
+            QDirIterator pre(r.dir, {QStringLiteral("*.apkg")}, QDir::Files, QDirIterator::Subdirectories);
+            while (pre.hasNext()) {
+                Apkg a;
+                if (a.open(pre.next()) && Form::normalizeTarget(a.manifest().value(K("target")).toString()) == QLatin1String("desktop"))
+                    desktopBuilds.insert(a.manifest().value(K("package")).toString());
+            }
+        }
+    }
+    for (const Root &rootDir : roots) {
+        QDirIterator it(rootDir.dir, {QStringLiteral("*.apkg")}, QDir::Files, QDirIterator::Subdirectories);
         while (it.hasNext()) {
             const QString path = it.next();
             Apkg apkg;
@@ -80,7 +104,18 @@ void PackageManager::scan()
                 continue;
             }
             const QString pkg = apkg.manifest().value(K("package")).toString();
+            const QString target = Form::normalizeTarget(apkg.manifest().value(K("target")).toString());
+            // A desktop app on the phone is not installed (and so not an "image package" either).
+            if (!Form::runsHere(target)) {
+                qCInfo(lcPm) << "skipping" << pkg << "(desktop app, this is a phone)";
+                continue;
+            }
+            // The same package as a mobile and as a desktop build (one Market page, two files): the
+            // desktop build is the one that runs on the desktop.
+            if (target == QLatin1String("mobile") && desktopBuilds.contains(pkg))
+                continue;
             seenSystem.insert(pkg);
+            const Root root{rootDir.dir, rootDir.privileged || privileged.contains(pkg)};
             const QJsonObject existing = m_packages.value(pkg);
             const QString checksum = QString::fromLatin1(apkg.checksum().toHex());
             // A system app updated from Market keeps its update until the
@@ -158,6 +193,10 @@ bool PackageManager::installFrom(const QString &apkgPath, bool system, bool priv
     }
     const QJsonObject manifest = apkg.manifest();
     const QString pkg = manifest.value(K("package")).toString();
+    if (!Form::runsHere(manifest.value(K("target")).toString())) {
+        *error = QStringLiteral("%1 is an app for astraOS Desktop: it does not run on a phone").arg(pkg);
+        return false;
+    }
     const QJsonObject existing = m_packages.value(pkg);
     // System apps are also on Market: a newer version from there (or from the
     // system itself, ADU) replaces the image's until the image has a newer one.
@@ -343,6 +382,10 @@ QJsonObject PackageManager::info(const QString &package) const
         {K("icon"), code + QLatin1Char('/') + m.value(K("icon")).toString()},
         {K("main"), code + QLatin1Char('/') + m.value(K("main")).toString()},
         {K("launcher"), m.value(K("launcher")).toObject().value(K("visible")).toBool(true)},
+        // "mobile" or "desktop" (docs/DESKTOP.md): a mobile app on astraOS Desktop gets a phone shaped
+        // window, a desktop app one it can resize within "desktop" (width, height, minWidth, minHeight).
+        {K("target"), Form::normalizeTarget(m.value(K("target")).toString())},
+        {K("desktop"), m.value(K("desktop")).toObject()},
         {K("codePath"), code},
         {K("dataDir"), Paths::dataData() + QLatin1Char('/') + package},
         {K("uid"), r.value(K("uid"))},

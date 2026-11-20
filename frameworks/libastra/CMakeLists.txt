@@ -3,6 +3,7 @@ find_package(ZLIB REQUIRED)
 qt_add_library(astra SHARED
     include/astra/apkg.h
     include/astra/client.h
+    include/astra/form.h
     include/astra/global.h
     include/astra/localization.h
     include/astra/paths.h
@@ -10,6 +11,7 @@ qt_add_library(astra SHARED
     include/astra/protocol.h
     src/apkg.cpp
     src/client.cpp
+    src/form.cpp
     src/localization.cpp
     src/paths.cpp
     src/properties.cpp

@@ -82,6 +82,8 @@ Trailer (40 bytes)
 | `widgets` | no | lock screen widgets, see [APPS.md](APPS.md#lock-screen-widgets) |
 | `category` | no | store category, e.g. `"Utilities"`. `"Music"` is also what lets the app's `MediaSession` reach the lock screen player and Control Center (other apps' sessions are ignored there) |
 | `opens` | no | file types the app opens from Files › Open with, e.g. `["audio/*"]`; matches subtypes and aliases (`audio/ogg` also covers `audio/x-vorbis+ogg`). The app gets `{ action: "open", files: [paths] }` as launch arguments |
+| `target` | no | `"mobile"` (the default) or `"desktop"`: where the app runs. A mobile app runs on the phone and, in a window with a phone's aspect ratio, on astraOS Desktop; a desktop app only on astraOS Desktop (see [DESKTOP.md](DESKTOP.md)). A package may exist as both builds, with the same `package`: Market has one page for it |
+| `desktop` | no | for `"target": "desktop"`: first window size and minimum, `{ "width", "height", "minWidth", "minHeight" }` (positive integers) |
 | `share` | no | file types the app receives from the share sheet, same form as `opens` |
 
 ## Installation

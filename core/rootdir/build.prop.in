@@ -6,6 +6,7 @@ ro.astra.version.patch=@ASTRA_VERSION_PATCH@
 ro.astra.channel=@ASTRA_CHANNEL@
 ro.astra.codename=@ASTRA_CODENAME@
 ro.astra.api_level=@ASTRA_API_LEVEL@
+ro.astra.form=@ASTRA_FORM@
 ro.astra.build.number=@ASTRA_BUILD_NUMBER@
 ro.astra.build.id=@ASTRA_BUILD_ID@
 ro.astra.build.date=@ASTRA_BUILD_EPOCH@

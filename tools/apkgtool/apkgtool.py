@@ -35,6 +35,8 @@ TYPE_FILE = 0
 PACKAGE_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
 WIDGET_SIZES = ("small", "wide")                         # lock screen
 HOME_WIDGET_SIZES = ("small", "medium", "large", "bar")   # home screen
+TARGETS = ("mobile", "desktop")  # app.json "target": where the app runs (docs/DESKTOP.md)
+DESKTOP_WINDOW_KEYS = ("width", "height", "minWidth", "minHeight")  # app.json "desktop": window hints
 EXCLUDED_NAMES = {"__pycache__", ".DS_Store", "Thumbs.db"}
 EXCLUDED_DIRS = {"build", "dist"}  # build output (`astra build` writes dist/<package>.apkg)
 EXCLUDED_SUFFIXES = (".qmlc", ".jsc", ".pyc", "~")
@@ -77,6 +79,22 @@ def validate_manifest(manifest, root):
         raise ApkgError("app.json: versionCode must be >= 1")
     for key in ("main", "icon"):
         need_file(need(key, str), f"'{key}'")
+    # "mobile" (the default, every app so far) runs on the phone and, in a window with a phone's
+    # aspect ratio, on astraOS Desktop; "desktop" runs only on astraOS Desktop.
+    target = manifest.get("target", "mobile")
+    if target not in TARGETS:
+        raise ApkgError(f"app.json: 'target' must be one of {TARGETS}")
+    window = manifest.get("desktop")
+    if window is not None:
+        if target != "desktop":
+            raise ApkgError("app.json: 'desktop' (window size hints) is for apps with \"target\": \"desktop\"")
+        if not isinstance(window, dict):
+            raise ApkgError("app.json: 'desktop' must be an object")
+        for key, value in window.items():
+            if key not in DESKTOP_WINDOW_KEYS or not isinstance(value, int) or isinstance(value, bool) or value < 1:
+                raise ApkgError(f"app.json: desktop.{key}: only {DESKTOP_WINDOW_KEYS}, as positive integers")
+        if window.get("minWidth", 0) > window.get("width", 1 << 30) or window.get("minHeight", 0) > window.get("height", 1 << 30):
+            raise ApkgError("app.json: desktop minimum size is larger than the size")
     perms = manifest.get("permissions", [])
     if not isinstance(perms, list) or not all(isinstance(p, str) for p in perms):
         raise ApkgError("app.json: 'permissions' must be a list of strings")

@@ -13,6 +13,8 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(AstraVersion)
 set(ASTRA_BUILD_TYPE "userdebug" CACHE STRING "Build flavour reported in build.prop (user, userdebug, eng)")
 
+set(ASTRA_FORM "phone" CACHE STRING "Form factor of the image: phone or desktop (docs/DESKTOP.md)")
+set_property(CACHE ASTRA_FORM PROPERTY STRINGS phone desktop)
 option(ASTRA_BUILD_CORE "Build init and the boot animation (Linux only)" ON)
 option(ASTRA_BUILD_UI "Build the Qt based frameworks, SysBoard, services and apps" ON)
 option(ASTRA_STATIC_INIT "Link init statically (required when it is used as the ramdisk /init)" OFF)

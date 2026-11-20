@@ -27,3 +27,10 @@ astra_add_app(astraid PRIVILEGED)
 
 # On Market only, not in the system image (tools/market/publish.py):
 #   mydroid   Android apps (the system's android service does the work)
+
+# astraOS Desktop: the desktop builds (apps-desktop/, only with -DASTRA_FORM=desktop).
+if(ASTRA_FORM STREQUAL "desktop")
+    add_subdirectory(${PROJECT_SOURCE_DIR}/apps-desktop ${CMAKE_CURRENT_BINARY_DIR}/desktop)
+endif()
+
+astra_finish_apps()

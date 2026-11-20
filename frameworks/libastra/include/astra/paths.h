@@ -22,6 +22,8 @@ public:
     static QString systemDir() { return resolve(QStringLiteral("/system")); }
     static QString systemApps() { return resolve(QStringLiteral("/system/app")); }
     static QString privilegedApps() { return resolve(QStringLiteral("/system/priv-app")); }
+    // astraOS Desktop: every app (.apkg) of the system lives in /Applications.
+    static QString applications() { return resolve(QStringLiteral("/Applications")); }
     static QString productApps() { return resolve(QStringLiteral("/product/app")); }
     static QString frameworkQml() { return resolve(QStringLiteral("/system/framework/qml")); }
     static QString fonts() { return resolve(QStringLiteral("/system/fonts")); }
