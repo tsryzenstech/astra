@@ -14,6 +14,10 @@ Item {
 
     property var shell
     property Item blurSource
+    // The two centers are as wide as the screen on the phone. On the desktop they are a column of
+    // their own (astraOS Desktop sets the width and the position of the column).
+    property real contentWidth: width
+    property real contentLeft: 0
 
     readonly property real reveal: revealSpring.value
     readonly property real page: pageSpring.value        // 0 = notifications, 1 = controls
@@ -117,19 +121,26 @@ Item {
         }
     }
 
-    NotificationCenter {
-        x: -panels.page * panels.width
-        width: panels.width
+    Item {
+        x: panels.contentLeft
+        width: panels.contentWidth
         height: panels.height
-        panel: panels
-        shell: panels.shell
-    }
+        clip: panels.contentWidth < panels.width
 
-    ControlCenter {
-        x: (1 - panels.page) * panels.width
-        width: panels.width
-        height: panels.height
-        panel: panels
-        shell: panels.shell
+        NotificationCenter {
+            x: -panels.page * panels.contentWidth
+            width: panels.contentWidth
+            height: panels.height
+            panel: panels
+            shell: panels.shell
+        }
+
+        ControlCenter {
+            x: (1 - panels.page) * panels.contentWidth
+            width: panels.contentWidth
+            height: panels.height
+            panel: panels
+            shell: panels.shell
+        }
     }
 }

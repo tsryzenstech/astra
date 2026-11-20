@@ -32,6 +32,11 @@ def components():
     for name in sorted(os.listdir(apps)):
         if os.path.exists(os.path.join(apps, name, "app.json")):
             out[name] = (os.path.join(apps, name), os.path.join(apps, name, "i18n"))
+    # astraOS Desktop's own builds (docs/DESKTOP.md): "<name>-desktop", next to the mobile app's strings.
+    desktop = os.path.join(ROOT, "apps-desktop")
+    for name in sorted(os.listdir(desktop)) if os.path.isdir(desktop) else []:
+        if os.path.exists(os.path.join(desktop, name, "app.json")):
+            out[name + "-desktop"] = (os.path.join(desktop, name), os.path.join(desktop, name, "i18n"))
     return out
 
 

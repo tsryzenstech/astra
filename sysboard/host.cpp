@@ -2,6 +2,7 @@
 #include "host.h"
 
 #include <astra/client.h>
+#include <astra/form.h>
 #include <astra/global.h>
 #include <astra/paths.h>
 #include <astra/properties.h>
@@ -151,9 +152,22 @@ bool SysBoardHost::fullscreen() const
     return !development();
 }
 
+QString SysBoardHost::formFactor() const
+{
+    return astra::Form::current();
+}
+
+bool SysBoardHost::desktop() const
+{
+    return astra::Form::isDesktop();
+}
+
 QSize SysBoardHost::windowSize() const
 {
-    // Development window: the reference phone size of the design concepts.
+    // Development window: the reference phone size of the design concepts, or a 16:9 screen on the desktop.
+    if (astra::Form::isDesktop())
+        return QSize(qEnvironmentVariableIntValue("ASTRA_WINDOW_WIDTH") ? qEnvironmentVariableIntValue("ASTRA_WINDOW_WIDTH") : 1280,
+                     qEnvironmentVariableIntValue("ASTRA_WINDOW_HEIGHT") ? qEnvironmentVariableIntValue("ASTRA_WINDOW_HEIGHT") : 720);
     return QSize(393, 852);
 }
 

@@ -1,0 +1,83 @@
+# Debian packages of the astraOS Desktop image (one per line; comments start with #).
+# Everything astra itself needs is in /system (Qt, Poppins, the apps): these are the operating system under it.
+
+# base, boot
+systemd
+systemd-sysv
+systemd-timesyncd
+udev
+dbus
+kmod
+linux-image-amd64
+firmware-linux
+grub-efi-amd64
+initramfs-tools
+sudo
+locales
+ca-certificates
+console-setup
+keyboard-configuration
+
+# graphics: Mesa (AMD, Intel, and nouveau), the Vulkan loaders, KMS/DRM, input
+libdrm2
+libdrm-amdgpu1
+libdrm-intel1
+libegl1
+libgbm1
+libgl1-mesa-dri
+libglx-mesa0
+libgles2
+mesa-vulkan-drivers
+mesa-va-drivers
+libinput10
+libxkbcommon0
+xkb-data
+libudev1
+# NVIDIA's proprietary driver is installed on demand from non-free (nvidia-driver) by astra-first-boot
+# when an NVIDIA GPU is found: it needs the kernel headers and DKMS.
+pciutils
+usbutils
+mesa-utils
+
+# network, bluetooth, audio, power
+network-manager
+wpasupplicant
+iwd
+bluez
+pipewire
+pipewire-pulse
+wireplumber
+alsa-utils
+upower
+polkitd
+systemd-resolved
+avahi-daemon
+openssl
+
+# what astra's own programs use at run time
+libfontconfig1
+libfreetype6
+libpng16-16
+zlib1g
+libssl3
+libxcb-cursor0
+libvulkan1
+libpulse0
+libasound2
+libva2
+libxkbcommon-x11-0
+libdouble-conversion3
+libicu72
+libglib2.0-0
+libb2-1
+libpcre2-16-0
+gzip
+zstd
+xz-utils
+python3-minimal
+curl
+unzip
+file
+udisks2
+nano
+less

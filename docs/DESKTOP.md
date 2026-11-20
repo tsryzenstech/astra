@@ -174,13 +174,41 @@ SysBoard, and handed over as on the phone).
 
 | | | Status |
 |---|---|---|
-| M1 | `target` in `app.json`, `apkgtool`, `astra check`, `packagemanager`, `/Applications`, `astra::Form` | done, tests (`tests/test_apkgtool.py`) |
-| M2 | Market: one page, two builds; AstraID device kinds, links | done on the server, `astra-cloud/scripts/smoke-desktop.mjs` |
-| M3 | DesktopShell: bar, Dock, windows, Activities, lock screen, setup | built and rendered headless (screenshots, see below); animations and pointer behaviour need a real screen |
-| M4 | PetalDrop and Phone Linker in astrad; ShareSheet; Settings pages | written; see "Verified" |
-| M5 | Desktop apps (Files first), `Astra.Desktop` controls, Market client for the desktop | Files: see "Verified" |
-| M6 | The Debian image, systemd units, drivers, OTA | scaffold in `distro/`; **not built or booted** |
+| M1 | `target` in `app.json`, `apkgtool`, `astra check`, `packagemanager`, `/Applications`, `astra::Form` | done; `tests/test_apkgtool.py` |
+| M2 | Market: one page, two builds; AstraID device kinds and links (server) | done; `astra-cloud/scripts/smoke-desktop.mjs` |
+| M3 | DesktopShell: bar, Dock, windows, Activities, lock screen, setup | done and rendered (below); the feel (animations, pointer) needs a real screen |
+| M4 | PetalDrop and Phone Linker in astrad; ShareSheet; Settings pages | done, tested against astrad (below); the phone side of Phone Linker and signed PetalDrop transfers are not |
+| M5 | Desktop apps, `Astra.Desktop` controls | Files done; the other apps run as mobile builds in phone windows; no Market client for the desktop yet |
+| M6 | The Debian image, systemd units, drivers, OTA | scaffold in `distro/` and the update service; **not built or booted** |
 
 ## Verified, and not
 
-(Kept up to date with the work; see the commit messages.)
+Run on this machine (WSL2, Qt 6.8.3, a virtual X display, software rendering), headless:
+
+* `tests/test_apkgtool.py` (12 tests, the target field and the lint rules) pass.
+* `astra-cloud/scripts/smoke-desktop.mjs`: one app with a mobile and a desktop build is one catalog entry and one page,
+  each device gets its own build, a desktop-only app is not offered to a phone, phone and desktop link (one with one),
+  events cross the long poll, PetalDrop's key and addresses. All pass.
+* DesktopShell rendered at 1280 × 720 (`scripts/dev-desktop.sh`, screenshots): the setup (full screen), the lock screen (with
+  its widgets, the user, the password field), the desktop (menu bar, widgets, Dock), Activities with live window
+  thumbnails, a desktop app (Files) in a resizable window, and a mobile app (Settings) in a phone window, scaled to
+  fit the screen.
+* `tests/manual/petaldrop-receive.py` and `petaldrop-send.py` against a running astrad: offers, the user's answer through the
+  system dialog, files whole with their SHA-256, a corrupted file refused, `mydevices` refusing a stranger, sending to a
+  device announcing itself. All pass.
+* `tests/manual/phonelink-desktop.py` against astrad and a real astra-cloud server: the desktop signs in as a desktop, links
+  with a phone played over HTTP, and a notification, contacts and a photo from it arrive. All pass.
+
+**Not verified** (be careful with anything below this line):
+
+* Moving, resizing, maximising and minimising windows with a pointer, the Dock's magnification, the Alt+Tab and the keyboard
+  shortcuts, the context menus, typing in the lock screen and in Files (the dev automation has taps and swipes only).
+* Any real GPU, a real display, HiDPI, multiple displays, the NVIDIA driver; "smooth from the first frame" is a claim for the
+  design (the same engine as the phone), not a measurement.
+* The phone's side of Phone Linker (sending notifications, photos and contacts) and PetalDrop's account signed transfers ("my
+  devices"), which need two devices; the PetalDrop transfer is not encrypted on the wire.
+* The Debian image (`distro/build.sh`), booting, systemd units, the setup on a real first boot, NetworkManager (astrad's
+  network service speaks to iwd and BlueZ: **Wi-Fi does not work on a Debian desktop yet**), the OTA apply on a real disk.
+* The Market client (`apps/market`) on the desktop (it runs in a phone window and reads the phone's catalog unless it asks with
+  `?target=`; its requests carry the runtime's User-Agent, which does not yet say "desktop"), and the web page of the cloud.
+* The other mobile apps in phone windows beyond Settings; their desktop builds (only Files was rewritten).

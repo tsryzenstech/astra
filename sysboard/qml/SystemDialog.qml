@@ -109,8 +109,9 @@ Item {
 
     Rectangle {
         id: sheet
-        x: root.modal ? 28 : 10
-        width: parent.width - (root.modal ? 56 : 20)
+        // On astraOS Desktop the sheet is as wide as on a phone, in the middle of the screen.
+        x: Host.desktop ? (parent.width - width) / 2 : (root.modal ? 28 : 10)
+        width: Host.desktop ? Math.min(460, parent.width - 20) : parent.width - (root.modal ? 56 : 20)
         height: column.implicitHeight + 48
         y: root.modal ? (parent.height - height) / 2 : parent.height - 12 - height + (1 - reveal.value) * (height + 40)
         scale: root.modal ? 0.8 + 0.2 * reveal.value : 1

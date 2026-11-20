@@ -29,7 +29,7 @@ WaylandCompositor {
                 id: shell
                 anchors.fill: parent
                 asynchronous: true
-                sourceComponent: SystemShell { compositor: server }
+                sourceComponent: Host.desktop ? desktopShell : phoneShell
                 onLoaded: {
                     for (const w of server.earlyToplevels)
                         item.appLayer.addToplevel(w[0], w[1])
@@ -67,6 +67,10 @@ WaylandCompositor {
             }
         }
     }
+
+    Component { id: phoneShell; SystemShell { compositor: server } }
+    // astraOS Desktop: windows, a menu bar and a Dock (docs/DESKTOP.md).
+    Component { id: desktopShell; DesktopShell { compositor: server } }
 
     XdgShell {
         onToplevelCreated: (toplevel, xdgSurface) => {

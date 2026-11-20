@@ -1,0 +1,17 @@
+# Puts an update that astrad downloaded in place: /data/ota/apply/system.tar holds the new /system and
+# /Applications. They are unpacked next to the old ones and swapped with renames, the old ones kept as
+# /system.old and /Applications.old (the way back: distro/overlay/usr/lib/astra/ota-rollback.sh).
+[Unit]
+Description=Apply an astraOS update
+DefaultDependencies=no
+After=local-fs.target
+Before=astra-session.service sysinit.target
+ConditionPathExists=/data/ota/apply/system.tar
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astra/ota-apply.sh
+RemainAfterExit=no
+
+[Install]
+WantedBy=sysinit.target

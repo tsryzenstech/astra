@@ -1,0 +1,17 @@
+# The boot animation: the phone's, shown as soon as the display driver is up. SysBoard stops it
+# (it writes "stop" to /run/astra/bootanim.ctl) when its shell is ready and takes the display over.
+[Unit]
+Description=astraOS boot animation
+DefaultDependencies=no
+After=systemd-udevd.service systemd-tmpfiles-setup-dev.service
+Before=astra-session.service basic.target
+ConditionPathExists=/system/bin/bootanim
+
+[Service]
+Type=simple
+ExecStart=/system/bin/bootanim
+SupplementaryGroups=video render
+Restart=no
+
+[Install]
+WantedBy=sysinit.target

@@ -1,0 +1,24 @@
+# astrad and SysBoard, the way init starts them on the phone (astrad.rc, sysboard.rc). SysBoard is the whole
+# graphical session: there is no display manager and no X server.
+[Unit]
+Description=astraOS session (astrad and SysBoard)
+After=systemd-user-sessions.service systemd-logind.service dbus.service NetworkManager.service astra-first-boot.service astra-bootanim.service
+Wants=NetworkManager.service astra-first-boot.service
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStartPre=/usr/lib/astra/session-prepare.sh
+ExecStart=/usr/lib/astra/session.sh
+Restart=always
+RestartSec=1
+TTYPath=/dev/tty1
+StandardInput=tty-force
+TTYReset=yes
+TTYVHangup=yes
+Environment=QT_LOGGING_RULES=*.debug=false
+KillMode=control-group
+
+[Install]
+WantedBy=graphical.target

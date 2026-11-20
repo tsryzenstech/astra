@@ -1,0 +1,14 @@
+{
+    "%1 of %n items selected": {
+        "one": "%1 of %n items selected",
+        "other": "%1 of %n items selected"
+    },
+    "%n items": {
+        "one": "%n items",
+        "other": "%n items"
+    },
+    "Delete %n items?": {
+        "one": "Delete %n items?",
+        "other": "Delete %n items?"
+    }
+}

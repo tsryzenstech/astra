@@ -27,6 +27,9 @@ class SysBoardHost : public QObject
     Q_PROPERTY(QSize windowSize READ windowSize CONSTANT)
     Q_PROPERTY(bool fullscreen READ fullscreen CONSTANT)
     Q_PROPERTY(bool development READ development CONSTANT)
+    // "phone" or "desktop" (astra::Form): which shell Main.qml loads.
+    Q_PROPERTY(QString formFactor READ formFactor CONSTANT)
+    Q_PROPERTY(bool desktop READ desktop CONSTANT)
     Q_PROPERTY(QUrl wallpaper READ wallpaper CONSTANT)
     Q_PROPERTY(QUrl bootLogo READ bootLogo CONSTANT)
     Q_PROPERTY(bool screenOn READ screenOn NOTIFY screenOnChanged)
@@ -42,6 +45,8 @@ public:
     QSize windowSize() const;
     bool fullscreen() const;
     bool development() const;
+    QString formFactor() const;
+    bool desktop() const;
     QUrl wallpaper() const;
     QUrl bootLogo() const;
     bool screenOn() const { return m_screenOn; }

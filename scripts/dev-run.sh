@@ -6,6 +6,7 @@
 #   scripts/dev-run.sh                       build, install to out/root and run
 #   QT_DIR=/opt/Qt/6.8.3/gcc_64 scripts/dev-run.sh
 #   ASTRA_HEADLESS=1 scripts/dev-run.sh      run on a virtual X display (CI, screenshots)
+#   scripts/dev-desktop.sh                   the same for astraOS Desktop (ASTRA_FORM=desktop, own build and root)
 #
 # The whole filesystem is relocated under $ASTRA_ROOT (default out/root), so
 # /system, /data, /dev/socket... are plain directories there. F12 acts as the
@@ -26,14 +27,14 @@ if [ -z "$QT_DIR" ]; then
     done
 fi
 
-cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Debug ${QT_DIR:+-DCMAKE_PREFIX_PATH=$QT_DIR} >/dev/null
+cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Debug -DASTRA_FORM=${ASTRA_FORM:-phone} ${QT_DIR:+-DCMAKE_PREFIX_PATH=$QT_DIR} >/dev/null
 cmake --build "$BUILD"
 cmake --install "$BUILD" --prefix "$ASTRA_ROOT" >/dev/null
 mkdir -p "$ASTRA_ROOT"/{data,dev,vendor,product}
 # Sockets on DrvFs (WSL /mnt/c/...) fail with ENOTSUP (95). Relocate dev/socket and run to tmpfs if needed.
 if ! python3 -c "import socket; s = socket.socket(socket.AF_UNIX); s.bind('$ASTRA_ROOT/dev/.probe'); s.close()" 2>/dev/null; then
     rm -f "$ASTRA_ROOT/dev/.probe" 2>/dev/null || true
-    DEV_TMP="/tmp/astra-${USER:-dev}"
+    DEV_TMP="/tmp/astra-${USER:-dev}-$(basename "$ASTRA_ROOT")"
     mkdir -p "$DEV_TMP/socket" "$DEV_TMP/run/astra/display"
     rm -rf "$ASTRA_ROOT/dev/socket" "$ASTRA_ROOT/run"
     ln -sfn "$DEV_TMP/socket" "$ASTRA_ROOT/dev/socket"
@@ -57,9 +58,10 @@ cleanup() { kill "${pids[@]}" 2>/dev/null || true; }
 trap cleanup EXIT
 
 if [ "${ASTRA_HEADLESS:-0}" = 1 ]; then
-    Xvfb :87 -screen 0 1280x1024x24 -nolisten tcp &
+    XDISPLAY=${ASTRA_XDISPLAY:-87}
+    Xvfb ":$XDISPLAY" -screen 0 ${ASTRA_XSCREEN:-1280x1024x24} -nolisten tcp &
     pids+=($!)
-    export DISPLAY=:87 QT_QPA_PLATFORM=xcb
+    export DISPLAY=":$XDISPLAY" QT_QPA_PLATFORM=xcb
     unset WAYLAND_DISPLAY
     sleep 1
 fi
@@ -67,7 +69,14 @@ fi
 "$ASTRA_ROOT/system/bin/astrad" &
 astrad_pid=$!
 pids+=($astrad_pid)
-sleep 0.5
+# The first start installs every app (slow on a Windows drive): SysBoard's singletons read astrad once, when
+# they are created, so it must not start before astrad listens.
+for _ in $(seq 1 1200); do
+    [ -S "$ASTRA_ROOT/dev/socket/astrad" ] && break
+    kill -0 "$astrad_pid" 2>/dev/null || break
+    sleep 0.1
+done
+sleep 0.3
 
 while kill -0 "$astrad_pid" 2>/dev/null; do
     "$ASTRA_ROOT/system/bin/sysboard" || true

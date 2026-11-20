@@ -10,6 +10,7 @@
 #include "host.h"
 
 #include <astra/client.h>
+#include <astra/form.h>
 #include <astra/localization.h>
 #include <astra/paths.h>
 #include <astra/properties.h>
@@ -152,7 +153,9 @@ int main(int argc, char **argv)
     }
     setDefaultEnv("QT_WAYLAND_COMPOSITOR_NO_THROTTLE", "0");
     // The astraOS keyboard (sysboard/inputcontext + Keyboard.qml).
-    setDefaultEnv("QT_IM_MODULE", "astra");
+    // (The desktop has a keyboard of its own: no on-screen one.)
+    if (!astra::Form::isDesktop())
+        setDefaultEnv("QT_IM_MODULE", "astra");
     const QByteArray plugins = QFile::encodeName(Paths::resolve(QStringLiteral("/system/lib/qt6/plugins")));
     qputenv("QT_PLUGIN_PATH", qEnvironmentVariableIsEmpty("QT_PLUGIN_PATH") ? plugins : plugins + ':' + qgetenv("QT_PLUGIN_PATH"));
     setDefaultEnv("QT_QUICK_CONTROLS_STYLE", "Basic");

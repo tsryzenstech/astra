@@ -8,6 +8,7 @@
 // SysBoard matches windows to launcher icons.
 
 #include <astra/client.h>
+#include <astra/form.h>
 #include <astra/global.h>
 #include <astra/localization.h>
 #include <astra/paths.h>
@@ -232,6 +233,16 @@ int main(int argc, char **argv)
             qCritical("%s", qPrintable(e.toString()));
         return 1;
     }
-    view.showFullScreen();
+    if (astra::Form::isDesktop()) {
+        // astraOS Desktop: a window, not the whole screen. A desktop app asks for the size in its app.json
+        // ("desktop"); a mobile app gets a phone's, and SysBoard keeps it there (it does not resize).
+        const QJsonObject hints = info.value(QLatin1String("desktop")).toObject();
+        const bool desktopApp = info.value(QLatin1String("target")).toString() == QLatin1String("desktop");
+        view.resize(desktopApp ? QSize(hints.value(QLatin1String("width")).toInt(960), hints.value(QLatin1String("height")).toInt(640))
+                               : QSize(astra::Form::phoneWindowWidth, astra::Form::phoneWindowHeight));
+        view.show();
+    } else {
+        view.showFullScreen();
+    }
     return app.exec();
 }
