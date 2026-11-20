@@ -209,6 +209,6 @@ Run on this machine (WSL2, Qt 6.8.3, a virtual X display, software rendering), h
   devices"), which need two devices; the PetalDrop transfer is not encrypted on the wire.
 * The Debian image (`distro/build.sh`), booting, systemd units, the setup on a real first boot, NetworkManager (astrad's
   network service speaks to iwd and BlueZ: **Wi-Fi does not work on a Debian desktop yet**), the OTA apply on a real disk.
-* The Market client (`apps/market`) on the desktop (it runs in a phone window and reads the phone's catalog unless it asks with
-  `?target=`; its requests carry the runtime's User-Agent, which does not yet say "desktop"), and the web page of the cloud.
+* The Market client (`apps/market`) on the desktop (it runs in a phone window; its requests carry the runtime's User-Agent, which says "desktop" there, so the
+  server gives it the desktop builds: that path is tested on the server only, not through the app), and the web page of the cloud.
 * The other mobile apps in phone windows beyond Settings; their desktop builds (only Files was rewritten).

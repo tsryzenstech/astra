@@ -66,8 +66,10 @@ protected:
         req.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
         if (!req.hasRawHeader("User-Agent"))
             req.setHeader(QNetworkRequest::UserAgentHeader,
-                          QStringLiteral("astraOS/%1 (%2; +https://github.com/tsryzenstech/astra)")
-                              .arg(QString::fromLatin1(astra::version()), QGuiApplication::desktopFileName()));
+                          // "desktop" tells Market which build of an app this device installs (astra-cloud deviceOf()).
+                          QStringLiteral("astraOS/%1 (%2; %3+https://github.com/tsryzenstech/astra)")
+                              .arg(QString::fromLatin1(astra::version()), QGuiApplication::desktopFileName(),
+                                   astra::Form::isDesktop() ? QStringLiteral("desktop; ") : QString()));
         return QNetworkAccessManager::createRequest(op, req, data);
     }
 };
