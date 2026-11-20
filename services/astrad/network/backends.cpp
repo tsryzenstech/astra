@@ -6,11 +6,17 @@
 #include "bluez.h"
 #include "iwd.h"
 #include "modemmanager.h"
+#include "nm.h"
+
+#include <astra/form.h>
 
 namespace astrad::network {
 
 WifiBackend *createWifi(QObject *parent)
 {
+    // astraOS Desktop runs on Debian, whose network daemon is NetworkManager (iwd is the phone's).
+    if (astra::Form::isDesktop() || (!serviceRegistered(QStringLiteral("net.connman.iwd")) && NMWifi::daemonPresent()))
+        return new NMWifi(parent);
     return new IwdWifi(parent);
 }
 

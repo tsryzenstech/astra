@@ -14,6 +14,8 @@ Item {
     property Item blurSource
     property var windowLayer                       // DesktopWindowLayer
     readonly property var pinned: {
+        if (Host.installer)
+            return ["com.astra.installer", "com.astra.diskutil", "org.astra.browser", "org.astra.terminal"].filter(p => Packages.get(p).package)
         const saved = Settings.values["desktop.dock"]
         const wanted = saved && saved.length ? saved
             : ["com.astra.tune", "com.astra.planet", "com.astra.settings", "com.astra.gallery", "com.astra.notes", "com.astra.weather"]

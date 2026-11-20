@@ -1,0 +1,67 @@
+# The workflow of the astraOS Desktop image repository (create it on GitHub, e.g. tsryzenstech/astra_desktop, and put this
+# file in .github/workflows/): it builds the live ISO and the update with astra's distro/build.sh and publishes them as a
+# GitHub release, as the phones' device repositories do (docs/VERSIONING.md):
+#   - a push, or the `astra-version` event astra sends when version.json changes: a pre-release, tag <version>-rev<N>
+#   - run by hand (Actions > build > Run workflow) with "release" ticked: a release, tag <version>
+# The release carries astraOS-<tag>-desktop.iso, astraOS-<tag>-desktop-system.tar.gz and ota.json; astrad's update service on
+# an installed desktop reads the last two (ro.astra.ota.repo is this repository).
+name: build
+on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [astra-version]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish a release (not a pre-release)"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: astra
+        uses: actions/checkout@v4
+        with:
+          repository: tsryzenstech/astra
+          path: astra
+          fetch-depth: 0
+      - name: Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools cmake ninja-build \
+            python3-pip libdrm-dev libpng-dev zlib1g-dev libxkbcommon-dev libegl-dev libgl-dev libvulkan-dev pkg-config file
+          python3 -m pip install aqtinstall
+          aqt install-qt linux desktop 6.8.3 linux_gcc_64 -m qtwaylandcompositor qtmultimedia -O "$HOME/Qt"
+      - name: Version and tag
+        id: v
+        run: |
+          VERSION=$(python3 -c "import json; v=json.load(open('astra/version.json')); print('%d.%d.%d' % (v['major'], v['minor'], v.get('patch', 0)))")
+          if [ "${{ github.event.inputs.release }}" = true ]; then
+            TAG=$VERSION
+            gh release view "$TAG" >/dev/null 2>&1 && TAG=$VERSION-rev$(( $(gh release list --limit 200 | grep -c "^$VERSION-rev") + 1 ))
+            PRE=false
+          else
+            TAG=$VERSION-rev$(( $(gh release list --limit 200 | grep -c "^$VERSION-rev") + 1 ))
+            PRE=true
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"; echo "pre=$PRE" >> "$GITHUB_OUTPUT"
+        env: { GH_TOKEN: "${{ github.token }}" }
+      - name: Build the ISO and the update
+        run: |
+          export OTA_TAG=${{ steps.v.outputs.tag }} OTA_REPOSITORY=${{ github.repository }} QT_DIR=$HOME/Qt/6.8.3/gcc_64
+          sudo -E astra/distro/build.sh ota
+          sudo -E ASTRA_BUILD=astra/build/distro astra/distro/build.sh iso
+          sudo mv astra/out/distro/astraOS-*-desktop.iso "astra/out/distro/astraOS-${OTA_TAG}-desktop.iso"
+      - name: Publish
+        run: |
+          gh release create "${{ steps.v.outputs.tag }}" --title "astraOS Desktop ${{ steps.v.outputs.tag }}" \
+            $([ "${{ steps.v.outputs.pre }}" = true ] && echo --prerelease) \
+            astra/out/distro/astraOS-*-desktop.iso astra/out/distro/astraOS-*-desktop-system.tar.gz astra/out/distro/ota.json
+        env: { GH_TOKEN: "${{ github.token }}" }

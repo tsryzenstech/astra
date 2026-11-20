@@ -48,6 +48,7 @@ Item {
 
     Text {
         anchors.centerIn: parent
+        visible: !root.locked
         text: SystemClock.time
         font.family: Theme.fontFamily
         font.pixelSize: 15
@@ -56,6 +57,18 @@ Item {
         MouseArea { anchors.fill: parent; anchors.margins: -10; enabled: !root.locked; onClicked: root.clockClicked() }
     }
 
+    // The Control Center button: a pill that lights under the pointer.
+    Rectangle {
+        anchors.right: parent.right
+        anchors.rightMargin: 8
+        anchors.verticalCenter: parent.verticalCenter
+        width: status.width + 22
+        height: 26
+        radius: 13
+        color: Qt.rgba(1, 1, 1, ccArea.pressed ? 0.28 : ccArea.containsMouse ? 0.16 : 0)
+        visible: !root.locked
+        MouseArea { id: ccArea; anchors.fill: parent; hoverEnabled: true; onClicked: root.statusClicked() }
+    }
     Row {
         id: status
         anchors.right: parent.right
@@ -84,8 +97,16 @@ Item {
             size: 14
             color: FocusModes.currentMode ? FocusModes.currentMode.color : root.tint
         }
+        // The status as on the phone: always there, dimmed when there is nothing to report (no battery,
+        // Wi-Fi or Bluetooth off).
+        Icon {
+            anchors.verticalCenter: parent.verticalCenter
+            name: "bluetooth"
+            size: 14
+            color: root.tint
+            opacity: (Network.state.bluetooth || {}).powered ? 1 : 0.4
+        }
         WifiGlyph {
-            visible: !!root.wifi.powered
             opacity: root.wifi.state === "connected" ? 1 : 0.4
             anchors.verticalCenter: parent.verticalCenter
             height: 13
@@ -94,13 +115,13 @@ Item {
             connecting: root.wifi.state === "connecting"
         }
         BatteryGlyph {
-            visible: System.batteryLevel >= 0
+            opacity: System.batteryLevel >= 0 ? 1 : 0.4
             anchors.verticalCenter: parent.verticalCenter
             height: 14
             color: root.tint
             level: Math.max(0, System.batteryLevel)
             charging: System.charging
-            showLevel: Settings.values["battery.show_percentage"] !== false
+            showLevel: Settings.values["battery.show_percentage"] !== false && System.batteryLevel >= 0
         }
     }
     MouseArea {

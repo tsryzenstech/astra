@@ -1,0 +1,27 @@
+{
+    "%n partitions": {
+        "one": "%n partizione",
+        "other": "%n partizioni"
+    },
+    "astraOS is installed": "astraOS è installato",
+    "astraOS will be installed on it. For more control (partitions, formats) open Disk Utility first.": "astraOS verrà installato su di esso. Per più controllo (partizioni, formati) apri prima Utility Disco.",
+    "Back": "Indietro",
+    "Choose a disk": "Scegli un disco",
+    "Connect a disk and press Refresh.": "Collega un disco e premi Aggiorna.",
+    "Continue": "Continua",
+    "Do not turn the computer off.": "Non spegnere il computer.",
+    "Erase and Install": "Cancella e installa",
+    "Erase “%1” and install astraOS?": "Cancellare “%1” e installare astraOS?",
+    "Everything on this disk (%1) will be erased and cannot be recovered.": "Tutto su questo disco (%1) verrà cancellato e non si potrà recuperare.",
+    "Install astraOS": "Installa astraOS",
+    "Installing astraOS": "Installazione di astraOS",
+    "No disk found": "Nessun disco trovato",
+    "Refresh": "Aggiorna",
+    "removable": "rimovibile",
+    "Remove the installation medium and restart. The first start sets the computer up.": "Rimuovi il supporto di installazione e riavvia. Il primo avvio configura il computer.",
+    "Restart": "Riavvia",
+    "Starting...": "Avvio...",
+    "The installation failed": "Installazione non riuscita",
+    "the installer is on this disk": "l'installer è su questo disco",
+    "This puts astraOS Desktop on a disk of this computer. You choose the disk next; nothing is changed before you confirm.": "Questo installa astraOS Desktop su un disco del computer. Scegli il disco al passo successivo; nulla cambia prima della conferma."
+}

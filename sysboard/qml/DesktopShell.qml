@@ -3,6 +3,7 @@ import QtQuick
 import Astra.Core
 import Astra.Controls
 import Astra.Animation
+import Astra.Desktop
 
 // Root of the system UI of astraOS Desktop (docs/DESKTOP.md). The same system as the phone's
 // SystemShell (the same springs, notifications, dialogs, alarms, lock screens, panels and permissions),
@@ -19,7 +20,8 @@ Item {
 
     property var compositor
     property alias appLayer: windows
-    property bool locked: true
+    // The recovery environment (the live ISO) starts unlocked, with the utilities instead of widgets.
+    property bool locked: !Host.installer
     readonly property bool appOpen: windows.activeWindow !== null
     readonly property bool panelOpen: panels.reveal > 0.001
     readonly property url wallpaper: Settings.values["display.wallpaper"]
@@ -119,13 +121,27 @@ Item {
                 sourceSize: Qt.size(width, height)
                 asynchronous: true
             }
+            DesktopRecovery {
+                anchors.fill: parent
+                visible: Host.installer
+                shell: shell
+            }
+            // Right click the desktop: add a widget or a giant folder.
+            MouseArea {
+                anchors.fill: parent
+                enabled: !Host.installer
+                acceptedButtons: Qt.RightButton
+                onClicked: (m) => shell.widgetMenuAt(-1, m.x, m.y)
+            }
             DesktopWidgets {
                 id: widgets
                 x: 26
                 y: menuBar.height + 22
                 shell: shell
+                visible: !Host.installer
                 opacity: windows.activeWindow && windows.activeWindow.maximized ? 0 : 1
                 Behavior on opacity { NumberAnimation { duration: 200 } }
+                onMenuRequested: (index, mx, my) => shell.widgetMenuAt(index, widgets.x + mx, widgets.y + my)
             }
         }
 
@@ -162,14 +178,12 @@ Item {
     DesktopMenuBar {
         id: menuBar
         width: parent.width
-        z: 20
         locked: shell.locked
         appName: windows.activeWindow && !windows.activeWindow.minimized ? windows.activeWindow.info.name || "" : ""
         onActivitiesClicked: shell.openActivities()
         onClockClicked: { activities.close(); panels.open("notifications") }
         onStatusClicked: { activities.close(); panels.open("controls") }
-        opacity: lockScreen.active ? 0.0 : 1.0
-        Behavior on opacity { NumberAnimation { duration: 200 } }
+        z: 31   // over the lock screen too: the status is always there
     }
 
     Panels {
@@ -181,6 +195,45 @@ Item {
         blurSource: screenContent
         contentWidth: 393
         contentLeft: parent.width - 393 - 14
+    }
+
+    // ---- the widgets' menu: remove, move, add --------------------------------------------------
+    function widgetMenuAt(index, x, y) {
+        widgetMenu.index = index
+        const n = widgets.entries.length
+        const items = []
+        if (index >= 0) {
+            items.push({ id: "remove", label: qsTr("Remove"), icon: "trash", danger: true })
+            if (n > 1) {
+                items.push({ id: "up", label: qsTr("Move Up"), disabled: index === 0 })
+                items.push({ id: "down", label: qsTr("Move Down"), disabled: index === n - 1 })
+            }
+            if (widgets.hasFolder)
+                items.push({ id: "editfolder", label: qsTr("Choose Apps..."), icon: "grid" })
+            items.push({ separator: true })
+        }
+        items.push({ id: "addwidget", label: qsTr("Add Widget..."), icon: "add-circle", disabled: widgets.hasFolder })
+        items.push({ id: "addfolder", label: widgets.hasFolder ? qsTr("Edit Giant Folder...") : qsTr("Add Giant Folder..."), icon: "folder" })
+        widgetMenu.popup(x, y, items)
+    }
+    ContextMenu {
+        id: widgetMenu
+        anchors.fill: parent
+        z: 17
+        property int index: -1
+        onTriggered: (id) => {
+            if (id === "remove") widgets.remove(index)
+            else if (id === "up") widgets.swap(index, index - 1)
+            else if (id === "down") widgets.swap(index, index + 1)
+            else if (id === "addwidget") picker.openWidgets()
+            else if (id === "addfolder" || id === "editfolder") picker.openFolder()
+        }
+    }
+    DesktopWidgetPicker {
+        id: picker
+        anchors.fill: parent
+        widgets: widgets
+        shell: shell
     }
 
     // ---- the Dock's context menu ------------------------------------------------------

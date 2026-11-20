@@ -1,95 +1,152 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 #
-# Builds the astraOS Desktop image: a Debian root file system with the astra tree on top, as a UEFI bootable
-# disk image (docs/DESKTOP.md, "Image"). Run it as root on a Debian or Ubuntu machine (or in a container):
+# Builds astraOS Desktop (docs/DESKTOP.md): a Debian root file system with the astra tree on top, as
 #
-#   sudo distro/build.sh                         -> out/distro/astraOS-<version>-desktop.img
-#   SUITE=trixie ARCH=amd64 sudo distro/build.sh
-#   ASTRA_BUILD=/path/to/build sudo distro/build.sh   use an astra tree already built with -DASTRA_FORM=desktop
+#   sudo distro/build.sh iso          out/distro/astraOS-<version>-desktop.iso   a live ISO (BIOS and UEFI) that starts the
+#                                     recovery environment: Install astraOS, Disk Utility, a browser, a terminal
+#   sudo distro/build.sh ota          out/distro/astraOS-<version>-desktop-system.tar.gz and ota.json (the update, as on the phone)
+#   sudo distro/build.sh rootfs       only the root file system, out/distro/rootfs
 #
-# NOT TESTED: this script was written with the rest of the desktop work but has never been run to the end,
-# nor the image booted. Expect to fix things in it on the first run (see distro/README.md).
+# Run it as root on Debian or Ubuntu (or WSL2: debootstrap, squashfs-tools, xorriso, grub-pc-bin, grub-efi-amd64-bin, mtools).
+#   SUITE=trixie ARCH=amd64          ASTRA_BUILD=<dir>  use an astra tree already built with -DASTRA_FORM=desktop
+#   QT_DIR=/opt/astra-sdk/qt/6.8.3/gcc_64              the Qt astra was built with (copied into /system/lib)
+#   MIRROR=http://deb.debian.org/debian
+# The build host's glibc must not be newer than the suite's (Ubuntu 24.04 is fine for trixie).
 set -euo pipefail
 
 SRC=$(cd "$(dirname "$0")/.." && pwd)
-SUITE=${SUITE:-trixie}                # Debian stable ("bookworm" before trixie is released as stable)
+WHAT=${1:-iso}
+SUITE=${SUITE:-trixie}
 ARCH=${ARCH:-amd64}
+MIRROR=${MIRROR:-http://deb.debian.org/debian}
 OUT=${OUT:-$SRC/out/distro}
-IMG_SIZE=${IMG_SIZE:-8G}
 QT_DIR=${QT_DIR:-/opt/astra-sdk/qt/6.8.3/gcc_64}
 BUILD=${ASTRA_BUILD:-$SRC/build/distro}
 ROOTFS=$OUT/rootfs
-
-[ "$(id -u)" = 0 ] || { echo "run as root (mmdebstrap needs to mount things)"; exit 1; }
-for tool in mmdebstrap cmake ninja sfdisk mkfs.vfat mkfs.ext4 losetup; do
-    command -v "$tool" >/dev/null || { echo "missing: $tool (apt install mmdebstrap cmake ninja-build fdisk dosfstools e2fsprogs mount)"; exit 1; }
-done
+[ "$(id -u)" = 0 ] || { echo "run as root"; exit 1; }
 mkdir -p "$OUT"
 
-# ---- 1. astra, built for the desktop --------------------------------------------------------------
+VERSION=$(python3 -c "import json; v = json.load(open('$SRC/version.json')); print('%d.%d.%d' % (v['major'], v['minor'], v.get('patch', 0)))")
+CHANNEL=$(python3 -c "import json; print(json.load(open('$SRC/version.json')).get('channel', 'stable'))")
+
+# ---- 1. astra, built for the desktop --------------------------------------------------------------------------
 if [ -z "${ASTRA_BUILD:-}" ]; then
-    cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release -DASTRA_FORM=desktop \
-          -DASTRA_STATIC_INIT=OFF -DCMAKE_PREFIX_PATH="$QT_DIR"
+    cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release -DASTRA_FORM=desktop -DCMAKE_PREFIX_PATH="$QT_DIR"
     cmake --build "$BUILD"
 fi
-VERSION=$(python3 -c "import json; v = json.load(open('$SRC/version.json')); print('%d.%d.%d' % (v['major'], v['minor'], v.get('patch', 0)))")
 
-# ---- 2. the Debian root file system -----------------------------------------------------------------
-PACKAGES=$(grep -v '^\s*#' "$SRC/distro/packages.list" | tr '\n' ',' | sed 's/,$//; s/,,*/,/g')
-rm -rf "$ROOTFS"
-mmdebstrap --variant=minbase --architectures="$ARCH" --components="main contrib non-free non-free-firmware" \
-           --include="$PACKAGES" "$SUITE" "$ROOTFS" http://deb.debian.org/debian
+# ---- 2. the Debian root file system -----------------------------------------------------------------------------
+if [ ! -f "$ROOTFS/.astra-base" ]; then
+    rm -rf "$ROOTFS"
+    PACKAGES=$(grep -v '^\s*#' "$SRC/distro/packages.list" | grep -v '^\s*$' | tr '\n' ',' | sed 's/,$//')
+    if command -v mmdebstrap >/dev/null; then
+        mmdebstrap --variant=minbase --architectures="$ARCH" --components="main contrib non-free non-free-firmware" \
+                   --include="$PACKAGES" "$SUITE" "$ROOTFS" "$MIRROR"
+    else
+        debootstrap --variant=minbase --arch="$ARCH" --components=main,contrib,non-free,non-free-firmware \
+                    --include="$PACKAGES" "$SUITE" "$ROOTFS" "$MIRROR"
+    fi
+    touch "$ROOTFS/.astra-base"
+fi
+mountpoints() { for d in dev dev/pts proc sys; do mount --bind "/$d" "$ROOTFS/$d" 2>/dev/null || true; done; }
+umountpoints() { for d in dev/pts dev proc sys; do umount "$ROOTFS/$d" 2>/dev/null || true; done; }
+trap umountpoints EXIT
 
-# ---- 3. astra on top of it ----------------------------------------------------------------------------
-# /system and /Applications come from cmake --install; /data is the state; /Users, /sdcard are the Mac-like names.
+# ---- 3. astra on top of it -----------------------------------------------------------------------------------------
+# /system and /Applications come from cmake --install; /data is the state.
+rm -rf "$ROOTFS/system" "$ROOTFS/Applications"
 DESTDIR="$ROOTFS" cmake --install "$BUILD" --prefix /
-install -d "$ROOTFS"/{data,Applications} "$ROOTFS/home"
+install -d "$ROOTFS"/{data,home}
 ln -sfn home "$ROOTFS/Users"
-ln -sfn data/media/0 "$ROOTFS/sdcard"
-# Qt (the SDK's build) next to astra's libraries: the astra tree is self contained.
-mkdir -p "$ROOTFS/system/lib/qt6"
-cp -a "$QT_DIR/lib/." "$ROOTFS/system/lib/"
-cp -a "$QT_DIR/plugins" "$ROOTFS/system/lib/qt6/plugins"
-cp -a "$QT_DIR/qml/." "$ROOTFS/system/framework/qml/"
-
+# Qt, the one astra was built with: only the libraries the astra programs and the plugins need, next to astra's own.
+"$SRC/distro/collect-qt.sh" "$ROOTFS" "$QT_DIR"
 cp -a "$SRC/distro/overlay/." "$ROOTFS/"
-chroot "$ROOTFS" systemctl enable astra-bootanim.service astra-session.service astra-ota-apply.service NetworkManager.service
-chroot "$ROOTFS" systemctl set-default graphical.target
-echo "astra-desktop" > "$ROOTFS/etc/hostname"
-# The device properties the update service reads: this is a "desktop" device of the amd64 board.
-cat > "$ROOTFS/system/etc/build.prop.d-desktop" <<PROPS
-ro.product.device=desktop
-ro.product.model=astraOS Desktop
-ro.product.manufacturer=astra
-ro.astra.form=desktop
-ro.astra.ota.repo=${OTA_REPOSITORY:-tsryzenstech/astra_desktop}
-PROPS
-cat "$ROOTFS/system/etc/build.prop.d-desktop" >> "$ROOTFS/system/build.prop"
-rm "$ROOTFS/system/etc/build.prop.d-desktop"
+chmod +x "$ROOTFS"/usr/lib/astra/*.sh "$ROOTFS"/usr/lib/astra/installer/*.sh
+find "$ROOTFS/system" -type f \( -name '*.so*' -o -perm -u+x \) -exec sh -c 'file -b "$1" | grep -q "^ELF" && strip --strip-unneeded "$1" 2>/dev/null' _ {} \; || true
 
-# ---- 4. the disk image (GPT: ESP + root) ------------------------------------------------------------------
-IMG=$OUT/astraOS-$VERSION-desktop.img
-truncate -s "$IMG_SIZE" "$IMG"
-sfdisk "$IMG" <<LAYOUT
-label: gpt
-size=512M, type=U, name=ESP
-type=L, name=astraOS
-LAYOUT
-LOOP=$(losetup --find --show --partscan "$IMG")
-trap 'umount -R "$OUT/mnt" 2>/dev/null || true; losetup -d "$LOOP" 2>/dev/null || true' EXIT
-mkfs.vfat -F32 "${LOOP}p1"
-mkfs.ext4 -q -L astraOS "${LOOP}p2"
-mkdir -p "$OUT/mnt"
-mount "${LOOP}p2" "$OUT/mnt"
-mkdir -p "$OUT/mnt/boot/efi"
-mount "${LOOP}p1" "$OUT/mnt/boot/efi"
-cp -a "$ROOTFS/." "$OUT/mnt/"
-cat > "$OUT/mnt/etc/fstab" <<FSTAB
-LABEL=astraOS  /          ext4  defaults,noatime  0 1
-PARTLABEL=ESP  /boot/efi  vfat  umask=0077        0 2
-FSTAB
-for d in dev proc sys run; do mount --bind "/$d" "$OUT/mnt/$d"; done
-chroot "$OUT/mnt" grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable --no-nvram
-chroot "$OUT/mnt" update-grub
-echo "built $IMG"
+mountpoints
+chroot "$ROOTFS" systemctl enable astra-live.service astra-bootanim.service astra-session.service astra-first-boot.service \
+                                 astra-ota-apply.service NetworkManager.service >/dev/null 2>&1 || true
+chroot "$ROOTFS" systemctl set-default graphical.target
+chroot "$ROOTFS" systemctl disable getty@tty1.service >/dev/null 2>&1 || true
+echo astra-desktop > "$ROOTFS/etc/hostname"
+printf '127.0.0.1 localhost\n127.0.1.1 astra-desktop\n' > "$ROOTFS/etc/hosts"
+# The device properties the update service reads.
+{
+    echo "ro.product.device=desktop"
+    echo "ro.product.model=astraOS Desktop"
+    echo "ro.product.manufacturer=astra"
+    echo "ro.astra.form=desktop"
+    echo "ro.astra.ota.repo=${OTA_REPOSITORY:-tsryzenstech/astra_desktop}"
+    echo "ro.astra.ota.channel=$([ "$CHANNEL" = stable ] && echo stable || echo prerelease)"
+    echo "ro.astra.ota.time=$(date +%s)"
+    echo "ro.astra.ota.tag=${OTA_TAG:-$VERSION}"
+} >> "$ROOTFS/system/build.prop"
+# The 'astra-live' account of the recovery environment, and the groups astra's permissions use as numbers.
+chroot "$ROOTFS" sh -c 'getent group media_rw >/dev/null || groupadd -g 1023 media_rw; getent group graphics >/dev/null || groupadd -g 1003 graphics'
+
+check_libs() {
+    local missing
+    missing=$(chroot "$ROOTFS" sh -c 'for b in /system/bin/sysboard /system/bin/astrad /system/bin/astra-app; do LD_LIBRARY_PATH=/system/lib ldd $b | grep "not found"; done' || true)
+    if [ -n "$missing" ]; then echo "missing libraries in the image:"; echo "$missing"; exit 1; fi
+}
+check_libs
+
+if [ "$WHAT" = rootfs ]; then umountpoints; echo "root file system: $ROOTFS"; exit 0; fi
+
+# ---- the update (OTA) --------------------------------------------------------------------------------------------------
+if [ "$WHAT" = ota ]; then
+    umountpoints
+    TAG=${OTA_TAG:-$VERSION}
+    NAME=astraOS-$TAG-desktop-system.tar.gz
+    tar -C "$ROOTFS" -cf "$OUT/system.tar" system Applications
+    gzip -c "$OUT/system.tar" > "$OUT/$NAME"
+    python3 - "$OUT" "$NAME" "$TAG" "$VERSION" "$CHANNEL" "$SRC" <<'PY'
+import hashlib, json, os, subprocess, sys, time
+out, name, tag, version, channel, src = sys.argv[1:]
+def sha(p):
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""): h.update(chunk)
+    return h.hexdigest()
+codename = json.load(open(os.path.join(src, "version.json"))).get("codename", "")
+commit = subprocess.run(["git", "-C", src, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+packed, raw = os.path.join(out, name), os.path.join(out, "system.tar")
+json.dump({"format": 1, "device": "desktop", "tag": tag, "version": version, "codename": codename,
+           "channel": "prerelease" if "-rev" in tag else channel if channel != "stable" else "stable", "time": int(time.time()),
+           "notes": [], "astra": commit,
+           "files": {"system": {"name": name, "size": os.path.getsize(packed), "sha256": sha(packed),
+                                "raw_size": os.path.getsize(raw), "raw_sha256": sha(raw)}}},
+          open(os.path.join(out, "ota.json"), "w"), indent=2)
+PY
+    rm -f "$OUT/system.tar"
+    echo "update: $OUT/$NAME and $OUT/ota.json"
+    exit 0
+fi
+
+# ---- 4. the live ISO ---------------------------------------------------------------------------------------------------------
+# The kernel and the live-boot initramfs are made in the root; the squashfs is what boots (and what the installer copies).
+chroot "$ROOTFS" sh -c 'update-initramfs -u -k all' >/dev/null 2>&1 || chroot "$ROOTFS" update-initramfs -c -k all
+umountpoints
+ISO=$OUT/iso
+rm -rf "$ISO"
+mkdir -p "$ISO/live" "$ISO/boot/grub"
+cp "$ROOTFS"/boot/vmlinuz-* "$ISO/live/vmlinuz"
+cp "$ROOTFS"/boot/initrd.img-* "$ISO/live/initrd.img"
+mksquashfs "$ROOTFS" "$ISO/live/filesystem.squashfs" -comp zstd -Xcompression-level 12 -noappend \
+           -e proc sys dev run tmp boot/initrd.img-\* -quiet
+cat > "$ISO/boot/grub/grub.cfg" <<'GRUB'
+set timeout=3
+set default=0
+menuentry "astraOS Desktop: install or recover" {
+    linux /live/vmlinuz boot=live components astra.live=1 quiet splash
+    initrd /live/initrd.img
+}
+menuentry "astraOS Desktop: install or recover (safe graphics)" {
+    linux /live/vmlinuz boot=live components astra.live=1 nomodeset
+    initrd /live/initrd.img
+}
+GRUB
+grub-mkrescue -o "$OUT/astraOS-$VERSION-desktop.iso" "$ISO" -- -volid ASTRAOS >/dev/null 2>&1
+echo "ISO: $OUT/astraOS-$VERSION-desktop.iso ($(du -h "$OUT/astraOS-$VERSION-desktop.iso" | cut -f1))"

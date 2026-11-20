@@ -13,7 +13,7 @@ Rectangle {
     signal finished()
     focus: true
 
-    readonly property bool needed: Settings.ready && Settings.values["setup.done"] !== true
+    readonly property bool needed: Settings.ready && Settings.values["setup.done"] !== true && !Host.installer
     readonly property var steps: ["hello", "language", "wifi", "user", "astraid", "appearance", "phone", "done"]
     property int step: 0
     readonly property string current: steps[step]

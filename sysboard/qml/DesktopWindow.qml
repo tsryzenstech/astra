@@ -33,6 +33,8 @@ Item {
     readonly property bool phone: (info.target || "mobile") !== "desktop"
     readonly property bool resizable: !phone && !maximized
     readonly property string title: toplevel && toplevel.title ? toplevel.title : (info.name || packageName)
+    // A Linux program of the system: its window is a plain one, sized by the program.
+    readonly property bool legacy: !!(info.legacy && info.legacy.appId)
 
     readonly property real titleHeight: 30
     readonly property real frameRadius: maximized ? 0 : 26

@@ -57,18 +57,18 @@ openssl
 # what astra's own programs use at run time
 libfontconfig1
 libfreetype6
-libpng16-16
+libpng16-16t64
 zlib1g
-libssl3
+libssl3t64
 libxcb-cursor0
 libvulkan1
 libpulse0
-libasound2
+libasound2t64
 libva2
 libxkbcommon-x11-0
 libdouble-conversion3
-libicu72
-libglib2.0-0
+libicu76
+libglib2.0-0t64
 libb2-1
 libpcre2-16-0
 gzip
@@ -81,3 +81,23 @@ file
 udisks2
 nano
 less
+
+# the live ISO and the installer
+live-boot
+squashfs-tools
+parted
+dosfstools
+e2fsprogs
+ntfs-3g
+exfatprogs
+rsync
+grub-pc-bin
+grub-efi-amd64-bin
+grub-common
+efibootmgr
+procps
+util-linux
+# the browser and the terminal of the recovery environment (Linux programs listed as apps in /Applications)
+firefox-esr
+foot
+fonts-noto-core

@@ -18,8 +18,10 @@ Item {
     property var current: null
     property var pending: []
 
+    // On astraOS Desktop a notification is a card at the top right, under the menu bar.
+    readonly property real topInset: Host.desktop ? 44 : Theme.statusBarHeight
     width: parent.width
-    height: card.height + Theme.statusBarHeight + 10
+    height: card.height + topInset + 10
     visible: drop.value > 0.005
 
     Spring { id: drop; to: 0; response: 0.5; dampingFraction: 0.66 }
@@ -77,10 +79,10 @@ Item {
 
     Rectangle {
         id: card
-        x: 10
-        width: parent.width - 20
+        x: Host.desktop ? parent.width - width - 14 : 10
+        width: Host.desktop ? Math.min(380, parent.width - 20) : parent.width - 20
         height: 76
-        y: Theme.statusBarHeight + 2 - (1 - drop.value) * (height + Theme.statusBarHeight + 20) + Math.min(0, pull.value)
+        y: root.topInset + 2 - (1 - drop.value) * (height + root.topInset + 20) + Math.min(0, pull.value)
         radius: height / 2
         color: Qt.rgba(0.1, 0.1, 0.12, 0.94)
         border.width: 1

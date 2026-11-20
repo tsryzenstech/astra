@@ -116,6 +116,18 @@ public:
     explicit PhoneLinkState(QObject *parent = nullptr);
 };
 
+// The disks and the installer of the recovery environment (singleton "Installer", the Installer and Disk Utility apps).
+// state: { live, installing, disks }. Installer.call("disks" | "erase" | "createPartition" | "deletePartition" | "mount" |
+// "unmount" | "install" | "cancel", params, cb). Events: "progress" { percent, text }, "finished", "error" { message }, "changed".
+class InstallerState : public ServiceState
+{
+    Q_OBJECT
+    QML_NAMED_ELEMENT(Installer)
+    QML_SINGLETON
+public:
+    explicit InstallerState(QObject *parent = nullptr);
+};
+
 // PetalDrop (singleton "PetalDrop", apps with NEARBY_DEVICES). state: { receive, name, kind, port, peers, transfers }.
 // PetalDrop.call("peers" | "send" { peer, files } | "cancel" { id }, ..., cb); its events: "transfer" { id, peer, state,
 // sent, total, error } ("connecting", "waiting", "sending", "finishing", "done", "declined", "failed", "cancelled"), "received".

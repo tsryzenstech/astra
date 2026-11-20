@@ -6,7 +6,7 @@ import Astra.Controls
 import Astra.Animation
 
 // The lock screen of astraOS Desktop: the lock screen the user chose (LockSlots: wallpaper, clock font,
-// weight, height, widgets, the same ones as on the phone, picked and edited in the same way), with the
+// weight, height, the same ones as on the phone, picked and edited in the same way; no widgets on the desktop), with the
 // user and a password field below. With music playing the pill takes the place of the user until a
 // key is pressed or the screen clicked. Hold the screen for three seconds to change the lock screen.
 Item {
@@ -55,6 +55,8 @@ Item {
     }
 
     Spring { id: exit; to: 0; response: 0.5; dampingFraction: 0.92 }
+    // The recovery environment starts unlocked: nothing to show.
+    Component.onCompleted: if (!active) exit.snap(1)
     // The screen lifts and fades away when the password is right.
     opacity: 1 - Math.max(0, Math.min(1, exit.value))
     transform: Translate { y: -root.height * 0.05 * Math.max(0, exit.value) }
@@ -113,33 +115,6 @@ Item {
             font.family: Theme.fontFamily
             font.pixelSize: 21 * root.k
             color: "white"
-        }
-
-        // The widgets of this lock screen, under the date.
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: root.height * 0.46
-            spacing: 9.5 * root.k
-            Repeater {
-                model: root.slot.widgets || []
-                delegate: Item {
-                    id: w
-                    required property var modelData
-                    readonly property var info: Packages.count >= 0 ? Packages.widget(modelData) : ({})
-                    visible: info.qmlUrl !== undefined
-                    width: (info.size === "wide" ? 115.5 : 53) * root.k
-                    height: 53 * root.k
-                    Rectangle { anchors.fill: parent; radius: 13 * root.k; color: Qt.rgba(0, 0, 0, 0.36) }
-                    Loader {
-                        x: 6 * root.k; y: 6 * root.k
-                        width: (parent.width - 12 * root.k) / root.k
-                        height: 41
-                        scale: root.k
-                        transformOrigin: Item.TopLeft
-                        source: w.info.qmlUrl || ""
-                    }
-                }
-            }
         }
     }
 

@@ -1,0 +1,5 @@
+# astraOS Desktop boot animation: the phone logo, small, centered on black
+logo logo.png
+background #000000
+logo_width_percent 14
+logo_height_percent 16

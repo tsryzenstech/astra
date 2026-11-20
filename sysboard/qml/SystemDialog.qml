@@ -109,13 +109,14 @@ Item {
 
     Rectangle {
         id: sheet
-        // On astraOS Desktop the sheet is as wide as on a phone, in the middle of the screen.
+        // On astraOS Desktop every dialog is a small card in the middle of the screen (not a sheet over all of it).
+        readonly property bool card: root.modal || Host.desktop
         x: Host.desktop ? (parent.width - width) / 2 : (root.modal ? 28 : 10)
-        width: Host.desktop ? Math.min(460, parent.width - 20) : parent.width - (root.modal ? 56 : 20)
+        width: Host.desktop ? Math.min(340, parent.width - 20) : parent.width - (root.modal ? 56 : 20)
         height: column.implicitHeight + 48
-        y: root.modal ? (parent.height - height) / 2 : parent.height - 12 - height + (1 - reveal.value) * (height + 40)
-        scale: root.modal ? 0.8 + 0.2 * reveal.value : 1
-        opacity: root.modal ? Math.min(1, reveal.value * 1.5) : 1
+        y: card ? (parent.height - height) / 2 : parent.height - 12 - height + (1 - reveal.value) * (height + 40)
+        scale: card ? 0.8 + 0.2 * reveal.value : 1
+        opacity: card ? Math.min(1, reveal.value * 1.5) : 1
         radius: Theme.sheetRadius
         color: Theme.sheet
         border.width: 1

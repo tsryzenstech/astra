@@ -15,6 +15,10 @@ install(FILES etc/resolvconf.conf DESTINATION ${ASTRA_ETC_DIR})
 set(PREBUILT ${PROJECT_SOURCE_DIR}/prebuilt)
 install(DIRECTORY ${PREBUILT}/fonts/ DESTINATION system/fonts)
 install(DIRECTORY ${PREBUILT}/media/ DESTINATION system/media)
+# astraOS Desktop: a smaller logo (docs/DESKTOP.md); installed after the phone's, so it replaces desc.txt.
+if(ASTRA_FORM STREQUAL "desktop")
+    install(FILES ${PROJECT_SOURCE_DIR}/distro/overlay/system/media/bootanimation/desc.txt DESTINATION system/media/bootanimation)
+endif()
 
 if(ASTRA_BUILD_CORE)
     install(FILES ${PROJECT_SOURCE_DIR}/core/bootanimation/bootanim.rc DESTINATION ${ASTRA_ETC_DIR}/init)

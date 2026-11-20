@@ -5,6 +5,8 @@
 #   scripts/dev-ctl.sh screenshot /tmp/home.png
 #   scripts/dev-ctl.sh tap 200 400
 #   scripts/dev-ctl.sh press 200 400 800          (long press, ms)
+#   scripts/dev-ctl.sh rtap 200 400               (right click)
+#   scripts/dev-ctl.sh move 200 400               (the pointer over a place: hover)
 #   scripts/dev-ctl.sh swipe 200 840 200 300 250  (x1 y1 x2 y2 ms)
 #   scripts/dev-ctl.sh swipehold 196 845 196 600 250 1200  (then hold, ms)
 #   scripts/dev-ctl.sh key power

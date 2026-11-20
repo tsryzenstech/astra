@@ -162,6 +162,12 @@ bool SysBoardHost::desktop() const
     return astra::Form::isDesktop();
 }
 
+bool SysBoardHost::installer() const
+{
+    return astra::Form::isDesktop() &&
+           (qEnvironmentVariableIntValue("ASTRA_INSTALLER") == 1 || QFile::exists(Paths::resolve(QStringLiteral("/run/astra/live"))));
+}
+
 QSize SysBoardHost::windowSize() const
 {
     // Development window: the reference phone size of the design concepts, or a 16:9 screen on the desktop.
@@ -221,8 +227,14 @@ void SysBoardHost::compositorReady(QQuickWindow *window)
     // Apps run under their own uid in the "graphics" group.
     if (!development()) {
         const QByteArray path = QFile::encodeName(socket);
-        if (::chmod(path.constData(), 0660) != 0 || ::chown(path.constData(), uid_t(-1), astra::AID_GRAPHICS) != 0)
+        // Apps of astraOS Desktop run under their own uid too, and so do Linux programs of the user (a browser):
+        // on the desktop the socket is open to every local user, as on any single-user Linux desktop.
+        if (astra::Form::isDesktop()) {
+            if (::chmod(path.constData(), 0666) != 0)
+                qWarning("sysboard: cannot open the Wayland socket to apps");
+        } else if (::chmod(path.constData(), 0660) != 0 || ::chown(path.constData(), uid_t(-1), astra::AID_GRAPHICS) != 0) {
             qWarning("sysboard: cannot open the Wayland socket to apps");
+        }
     }
     astra::Client::instance()->call(QStringLiteral("activity.registerDisplay"),
                                     {{QStringLiteral("socket"), socket},
@@ -437,10 +449,10 @@ bool SysBoardHost::eventFilter(QObject *watched, QEvent *event)
 // key power|volup|voldown|screenshot [hold_ms]
 
 namespace {
-void sendMouse(QQuickWindow *w, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
+void sendMouse(QQuickWindow *w, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons, Qt::MouseButton which = Qt::LeftButton)
 {
     // Moves carry no button: a move with a button counts as a new press in Qt.
-    const Qt::MouseButton button = type == QEvent::MouseMove ? Qt::NoButton : Qt::LeftButton;
+    const Qt::MouseButton button = type == QEvent::MouseMove ? Qt::NoButton : which;
     QMouseEvent ev(type, pos, w->mapToGlobal(pos), button, buttons, Qt::NoModifier);
     QCoreApplication::sendEvent(w, &ev);
 }
@@ -496,6 +508,17 @@ void SysBoardHost::startDevAutomation()
                 } else if (a[0] == QLatin1String("tap") && a.size() == 3) {
                     const QPointF p(a[1].toDouble(), a[2].toDouble());
                     gesture(m_window, p, p, 60, [reply] { reply("ok"); });
+                } else if (a[0] == QLatin1String("rtap") && a.size() == 3) {
+                    // A right click (context menus), and "move" brings the pointer over a place (hover).
+                    const QPointF p(a[1].toDouble(), a[2].toDouble());
+                    sendMouse(m_window, QEvent::MouseButtonPress, p, Qt::RightButton, Qt::RightButton);
+                    QTimer::singleShot(60, m_window, [this, p, reply] {
+                        sendMouse(m_window, QEvent::MouseButtonRelease, p, Qt::NoButton, Qt::RightButton);
+                        reply("ok");
+                    });
+                } else if (a[0] == QLatin1String("move") && a.size() == 3) {
+                    sendMouse(m_window, QEvent::MouseMove, QPointF(a[1].toDouble(), a[2].toDouble()), Qt::NoButton);
+                    reply("ok");
                 } else if (a[0] == QLatin1String("press") && a.size() == 4) {
                     const QPointF p(a[1].toDouble(), a[2].toDouble());
                     gesture(m_window, p, p, a[3].toInt(), [reply] { reply("ok"); });

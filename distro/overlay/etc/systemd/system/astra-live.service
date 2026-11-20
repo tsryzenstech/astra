@@ -1,0 +1,17 @@
+# The recovery environment: when the kernel was started with astra.live (the live ISO), the system is a live one:
+# the Installer, Disk Utility, a browser and a terminal instead of a desktop, no setup, no lock. On an installed
+# system this does nothing.
+[Unit]
+Description=astraOS live (recovery) environment
+ConditionKernelCommandLine=astra.live
+DefaultDependencies=no
+After=local-fs.target
+Before=astra-session.service astra-first-boot.service astra-bootanim.service NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/astra/live-setup.sh
+
+[Install]
+WantedBy=sysinit.target

@@ -1,0 +1,8 @@
+{
+    "package": "org.astra.browser",
+    "name": "Browser",
+    "names": { "it": "Browser" },
+    "icon": "/Applications/.icons/browser.svg",
+    "category": "system",
+    "legacy": { "exec": "firefox-esr", "args": ["--no-remote"], "appId": "firefox-esr", "user": "astra-live" }
+}

@@ -18,6 +18,7 @@
 #include "dialogservice.h"
 #include "displayservice.h"
 #include "hardwareservice.h"
+#include "installerservice.h"
 #include "locksettingsservice.h"
 #include "mediasessionservice.h"
 #include "nfcservice.h"
@@ -279,6 +280,8 @@ int main(int argc, char **argv)
     server.registerService(QStringLiteral("update"), &update);
     server.registerService(QStringLiteral("nfc"), &nfc);
     server.registerService(QStringLiteral("developer"), &developer);
+    InstallerService installer(&server);
+    server.registerService(QStringLiteral("installer"), &installer);
     server.registerService(QStringLiteral("phonelink"), &phoneLink);
     server.registerService(QStringLiteral("petaldrop"), &petalDrop);
 

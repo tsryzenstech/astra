@@ -30,6 +30,8 @@ class SysBoardHost : public QObject
     // "phone" or "desktop" (astra::Form): which shell Main.qml loads.
     Q_PROPERTY(QString formFactor READ formFactor CONSTANT)
     Q_PROPERTY(bool desktop READ desktop CONSTANT)
+    // The recovery environment of the live ISO: the shell shows the Installer, Disk Utility and a browser.
+    Q_PROPERTY(bool installer READ installer CONSTANT)
     Q_PROPERTY(QUrl wallpaper READ wallpaper CONSTANT)
     Q_PROPERTY(QUrl bootLogo READ bootLogo CONSTANT)
     Q_PROPERTY(bool screenOn READ screenOn NOTIFY screenOnChanged)
@@ -47,6 +49,7 @@ public:
     bool development() const;
     QString formFactor() const;
     bool desktop() const;
+    bool installer() const;
     QUrl wallpaper() const;
     QUrl bootLogo() const;
     bool screenOn() const { return m_screenOn; }

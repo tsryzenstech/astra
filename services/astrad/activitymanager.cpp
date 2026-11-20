@@ -18,6 +18,7 @@
 #include <QTimer>
 
 #include <grp.h>
+#include <pwd.h>
 #include <unistd.h>
 
 Q_LOGGING_CATEGORY(lcAm, "astrad.activity")
@@ -189,6 +190,11 @@ void ActivityManager::start(const QString &package, const QJsonObject &args)
             m_android(android);
         return;
     }
+    const QJsonObject legacy = info.value(QLatin1String("legacy")).toObject();
+    if (!legacy.value(QLatin1String("exec")).toString().isEmpty()) {
+        startLegacy(package, legacy);
+        return;
+    }
     const uid_t uid = uid_t(info.value(QLatin1String("uid")).toInt());
     const bool asRoot = geteuid() == 0;
 
@@ -272,6 +278,70 @@ void ActivityManager::start(const QString &package, const QJsonObject &args)
     qCInfo(lcAm) << "started" << package << "pid" << process->processId() << "uid" << uid;
     m_server->broadcast(QStringLiteral("activity.started"),
                         QJsonObject{{QStringLiteral("package"), package}, {QStringLiteral("pid"), qint64(process->processId())}});
+}
+
+// A Linux program of the system (docs/DESKTOP.md): started as the user the listing names, drawing on SysBoard's Wayland
+// socket (an absolute WAYLAND_DISPLAY: it has its own runtime directory). Its window is matched to the package by its app_id.
+void ActivityManager::startLegacy(const QString &package, const QJsonObject &legacy)
+{
+    const QString user = legacy.value(QLatin1String("user")).toString();
+    const struct passwd *pw = user.isEmpty() ? nullptr : getpwnam(user.toLocal8Bit().constData());
+    // A listed program never runs as root by accident: a user that does not exist is an error.
+    if (!user.isEmpty() && !pw)
+        throw RpcError{protocol::Failed, QStringLiteral("the user %1 of %2 does not exist").arg(user, package)};
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    const uid_t uid = pw ? pw->pw_uid : geteuid();
+    const QString runtimeDir = Paths::resolve(QStringLiteral("/run/user/%1").arg(uid));
+    QDir().mkpath(runtimeDir);
+    if (pw && geteuid() == 0) {
+        if (chown(QFile::encodeName(runtimeDir).constData(), uid, pw->pw_gid) != 0)
+            qCWarning(lcAm) << "cannot chown" << runtimeDir;
+        QFile::setPermissions(runtimeDir, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+    }
+    env.insert(QStringLiteral("XDG_RUNTIME_DIR"), runtimeDir);
+    env.insert(QStringLiteral("WAYLAND_DISPLAY"), Paths::displayDir() + QLatin1Char('/') + m_waylandDisplay);
+    env.insert(QStringLiteral("XDG_SESSION_TYPE"), QStringLiteral("wayland"));
+    env.insert(QStringLiteral("MOZ_ENABLE_WAYLAND"), QStringLiteral("1"));
+    env.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("wayland"));
+    env.insert(QStringLiteral("GDK_BACKEND"), QStringLiteral("wayland"));
+    env.insert(QStringLiteral("LANG"), m_settings->value(QStringLiteral("system.language")).toString(QStringLiteral("en")) + QStringLiteral(".UTF-8"));
+    if (pw) {
+        env.insert(QStringLiteral("HOME"), QString::fromLocal8Bit(pw->pw_dir));
+        env.insert(QStringLiteral("USER"), user);
+    }
+    auto *process = new QProcess(this);
+    process->setProgram(legacy.value(QLatin1String("exec")).toString());
+    QStringList args;
+    for (const QJsonValue &a : legacy.value(QLatin1String("args")).toArray())
+        args << a.toString();
+    process->setArguments(args);
+    process->setProcessEnvironment(env);
+    process->setProcessChannelMode(QProcess::ForwardedChannels);
+    if (pw && geteuid() == 0) {
+        const uid_t u = pw->pw_uid;
+        const gid_t g = pw->pw_gid;
+        const QByteArray name = user.toLocal8Bit();
+        process->setChildProcessModifier([u, g, name] {
+            if (initgroups(name.constData(), g) != 0 || setgid(g) != 0 || setuid(u) != 0)
+                _exit(126);
+        });
+    }
+    connect(process, &QProcess::finished, this, [this, package, process](int code, QProcess::ExitStatus) {
+        qCInfo(lcAm) << package << "(legacy) exited" << code;
+        m_running.remove(package);
+        process->deleteLater();
+        m_server->broadcast(QStringLiteral("activity.exited"), QJsonObject{{QStringLiteral("package"), package}});
+    });
+    m_running.insert(package, Running{process, {}, QDateTime::currentMSecsSinceEpoch(), false, {}});
+    process->start();
+    if (!process->waitForStarted(3000)) {
+        qCWarning(lcAm) << "cannot start" << package << process->errorString();
+        m_running.remove(package);
+        process->deleteLater();
+        throw RpcError{protocol::Failed, process->errorString()};
+    }
+    qCInfo(lcAm) << "started" << package << "(legacy) pid" << process->processId();
+    m_server->broadcast(QStringLiteral("activity.started"), QJsonObject{{QStringLiteral("package"), package}, {QStringLiteral("pid"), qint64(process->processId())}});
 }
 
 QJsonValue ActivityManager::handle(const QString &call, const QJsonObject &params, const Caller &caller)

@@ -1,0 +1,8 @@
+{
+    "package": "org.astra.terminal",
+    "name": "Terminal",
+    "names": { "it": "Terminale" },
+    "icon": "/Applications/.icons/terminal.svg",
+    "category": "system",
+    "legacy": { "exec": "foot", "args": [], "appId": "foot", "user": "astra-live" }
+}

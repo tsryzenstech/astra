@@ -43,6 +43,7 @@ Q_SIGNALS:
 
 private:
     void start(const QString &package, const QJsonObject &args);
+    void startLegacy(const QString &package, const QJsonObject &legacy);
 
     struct Running {
         QProcess *process = nullptr;

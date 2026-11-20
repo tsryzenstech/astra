@@ -139,6 +139,11 @@ PhoneLinkState::PhoneLinkState(QObject *parent)
 {
 }
 
+InstallerState::InstallerState(QObject *parent)
+    : ServiceState(QStringLiteral("installer"), QStringLiteral("state"), {}, parent)
+{
+}
+
 PetalDropState::PetalDropState(QObject *parent)
     : ServiceState(QStringLiteral("petaldrop"), QStringLiteral("state"), {}, parent)
 {

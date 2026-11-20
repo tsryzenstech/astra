@@ -18,6 +18,7 @@ qt_add_executable(astrad
     displayservice.cpp displayservice.h
     hardwareservice.cpp hardwareservice.h
     initcontrol.h
+    installerservice.cpp installerservice.h
     jsonstore.h
     locationservice.cpp locationservice.h
     locksettingsservice.cpp locksettingsservice.h
@@ -41,6 +42,7 @@ qt_add_executable(astrad
     network/bluez.cpp network/bluez.h
     network/dbusutil.h
     network/iwd.cpp network/iwd.h
+    network/nm.cpp network/nm.h
     network/modemmanager.cpp network/modemmanager.h
     network/networkservice.cpp network/networkservice.h
     network/backends.cpp

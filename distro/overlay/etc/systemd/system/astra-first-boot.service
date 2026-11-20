@@ -1,0 +1,15 @@
+[Unit]
+Description=astraOS first start on this machine (GPU driver)
+After=network-online.target
+Wants=network-online.target
+Before=astra-session.service
+ConditionPathExists=!/var/lib/astra/first-boot-done
+ConditionPathExists=!/run/astra/live
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astra/first-boot.sh
+TimeoutStartSec=900
+
+[Install]
+WantedBy=graphical.target

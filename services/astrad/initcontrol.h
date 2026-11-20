@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include <astra/form.h>
 #include <astra/paths.h>
 
 #include <QByteArray>
 #include <QFile>
+#include <QProcess>
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -16,6 +18,16 @@ namespace astrad {
 // "restart <svc>", "reboot [bootloader|recovery]", "poweroff".
 inline bool sendToInit(const QByteArray &command)
 {
+    // astraOS Desktop: systemd is PID 1, not astra's init: the power requests go to it.
+    if (astra::Form::isDesktop()) {
+        if (astra::Paths::isDevelopmentRoot())
+            return false;
+        if (command.startsWith("reboot"))
+            return QProcess::startDetached(QStringLiteral("systemctl"), {QStringLiteral("reboot")});
+        if (command == "poweroff")
+            return QProcess::startDetached(QStringLiteral("systemctl"), {QStringLiteral("poweroff")});
+        return false;   // services are systemd's
+    }
     const int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
     if (fd < 0)
         return false;

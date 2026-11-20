@@ -4,7 +4,7 @@
 // Radio backends used by NetworkService. Each one has a real implementation
 // on top of the standard Linux daemons (D-Bus): iwd, BlueZ and ModemManager.
 //
-//   Wi-Fi       iwd            (net.connman.iwd)
+//   Wi-Fi       iwd            (net.connman.iwd), or NetworkManager on astraOS Desktop
 //   Bluetooth   BlueZ          (org.bluez)
 //   Cellular    ModemManager   (org.freedesktop.ModemManager1): data, calls, SMS
 

@@ -18,7 +18,9 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QLoggingCategory>
+#include <QJsonDocument>
 #include <QNetworkReply>
+#include <QStandardPaths>
 
 #include <unistd.h>
 
@@ -143,6 +145,27 @@ void PackageManager::scan()
         }
     }
 
+    // Linux programs of the system listed as apps: /Applications/<Name>.legacy.json with {package, name, icon (a path),
+    // legacy: {exec, args, appId, user}}. They have a Dock icon and a window like any app, and no sandbox of astra.
+    if (Form::isDesktop()) {
+        QDirIterator legacy(Paths::applications(), {QStringLiteral("*.legacy.json")}, QDir::Files);
+        while (legacy.hasNext()) {
+            QFile f(legacy.next());
+            if (!f.open(QIODevice::ReadOnly))
+                continue;
+            QJsonObject manifest = QJsonDocument::fromJson(f.readAll()).object();
+            const QString pkg = manifest.value(K("package")).toString();
+            const QString exec = manifest.value(K("legacy")).toObject().value(K("exec")).toString();
+            if (pkg.isEmpty() || exec.isEmpty() || QStandardPaths::findExecutable(exec).isEmpty())
+                continue;   // not installed on this system
+            manifest.insert(K("target"), K("desktop"));
+            const QString icon = manifest.value(K("icon")).toString();
+            manifest.remove(K("icon"));
+            installShortcut(manifest, icon, K("root"));
+            seenSystem.insert(pkg);
+        }
+    }
+
     // System packages removed by an OTA disappear; their data is kept.
     const QStringList known = m_packages.keys();
     for (const QString &pkg : known) {
@@ -238,7 +261,8 @@ bool PackageManager::installFrom(const QString &apkgPath, bool system, bool priv
     }
 
     // Runtime permissions keep the user's previous choices across updates.
-    // Privileged apps get theirs pre-granted, like Android's system apps.
+    // Privileged apps get theirs pre-granted, like Android's system apps; on astraOS Desktop so do all the
+    // apps of the system (Files has its files from the first start, nothing asks).
     QJsonObject runtime;
     const QJsonObject previous = existing.value(K("runtime")).toObject();
     for (const QJsonValue &v : manifest.value(K("permissions")).toArray()) {
@@ -246,7 +270,7 @@ bool PackageManager::installFrom(const QString &apkgPath, bool system, bool priv
         if (!permissions::isRuntime(perm))
             continue;
         runtime.insert(perm, previous.contains(perm) ? previous.value(perm)
-                                                     : QJsonValue(privileged ? K("granted") : K("ask")));
+                                                     : QJsonValue(privileged || (system && Form::isDesktop()) ? K("granted") : K("ask")));
     }
 
     const uid_t uid = existing.isEmpty() ? allocateUid() : uid_t(existing.value(K("uid")).toInt());
@@ -386,6 +410,8 @@ QJsonObject PackageManager::info(const QString &package) const
         // window, a desktop app one it can resize within "desktop" (width, height, minWidth, minHeight).
         {K("target"), Form::normalizeTarget(m.value(K("target")).toString())},
         {K("desktop"), m.value(K("desktop")).toObject()},
+        // A Linux program of the system (a browser, a terminal) that is not an astra app: { exec, args, appId, user }.
+        {K("legacy"), m.value(K("legacy")).toObject()},
         {K("codePath"), code},
         {K("dataDir"), Paths::dataData() + QLatin1Char('/') + package},
         {K("uid"), r.value(K("uid"))},

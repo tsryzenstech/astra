@@ -27,7 +27,10 @@ Item {
     function windowFor(pkg) {
         let w = windows[pkg]
         if (!w) {
-            const info = Packages.get(pkg)
+            let info = Packages.get(pkg)
+            // A Linux program that is not listed as an app: a plain resizable window.
+            if (!info.package)
+                info = { package: pkg, name: pkg, target: "desktop", background: "#141416", iconUrl: "", legacy: { appId: pkg } }
             w = windowComponent.createObject(layer, { packageName: pkg, info: info, host: layer })
             place(w)
             windows[pkg] = w
@@ -154,6 +157,16 @@ Item {
         w.destroy()
     }
 
+    // The package of a window: its app_id is the package name for an astra app; a Linux program listed as an app
+    // (/Applications/<Name>.legacy.json) says its app_id there.
+    function packageForAppId(appId) {
+        if (Packages.get(appId).package)
+            return appId
+        const wanted = appId.toLowerCase()
+        const entry = Packages.list().find(p => p.legacy && p.legacy.appId && p.legacy.appId.toLowerCase() === wanted)
+        return entry ? entry.package : appId
+    }
+
     // Wayland: a new toplevel. Its app_id (the package name) can arrive after creation.
     function addToplevel(toplevel, xdgSurface) {
         let attached = false
@@ -162,7 +175,7 @@ Item {
                 return
             attached = true
             console.info("window:", toplevel.appId, "title:", toplevel.title)
-            const pkg = toplevel.appId
+            const pkg = packageForAppId(toplevel.appId)
             let w = windows[pkg]
             if (!w) {
                 // Started without the Dock (a notification, another app): it opens in place.

@@ -9,6 +9,8 @@
  *   logo <file>                 (relative to the desc.txt directory)
  *   background #RRGGBB
  *   logo_width_percent <1-100>  (logo width relative to the screen width)
+ *   logo_height_percent <1-100> (optional: the logo is not taller than this share of the screen height;
+ *                                astraOS Desktop uses it with a small logo_width_percent)
  *
  * Control: writing "stop" to /run/astra/bootanim.ctl (a FIFO) fades the logo
  * out, releases the display and exits. The FIFO disappears right before exit.
@@ -43,6 +45,7 @@ struct config {
     char logo[1024];
     uint32_t background;
     int logo_width_percent;
+    int logo_height_percent; /* 0: no limit */
 };
 
 struct image {
@@ -84,6 +87,7 @@ static void load_config(const char *desc_path, struct config *cfg)
     snprintf(cfg->logo, sizeof(cfg->logo), "%s/logo.png", dir);
     cfg->background = 0x000000;
     cfg->logo_width_percent = 50;
+    cfg->logo_height_percent = 0;
 
     FILE *f = fopen(desc_path, "r");
     if (!f)
@@ -98,6 +102,8 @@ static void load_config(const char *desc_path, struct config *cfg)
             cfg->background = (uint32_t)strtoul(value + 1, NULL, 16);
         else if (!strcmp(key, "logo_width_percent"))
             cfg->logo_width_percent = atoi(value);
+        else if (!strcmp(key, "logo_height_percent"))
+            cfg->logo_height_percent = atoi(value);
     }
     fclose(f);
     if (cfg->logo_width_percent < 1 || cfg->logo_width_percent > 100)
@@ -157,6 +163,10 @@ static void render(struct surface *s, const struct config *cfg, const struct ima
 
     int dw = s->width * cfg->logo_width_percent / 100;
     int dh = dw * logo->height / logo->width;
+    if (cfg->logo_height_percent > 0 && cfg->logo_height_percent <= 100 && dh > s->height * cfg->logo_height_percent / 100) {
+        dh = s->height * cfg->logo_height_percent / 100;
+        dw = dh * logo->width / logo->height;
+    }
     int ox = (s->width - dw) / 2, oy = (s->height - dh) / 2;
     float scale = (float)logo->width / (float)dw;
 

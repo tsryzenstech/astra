@@ -1,0 +1,15 @@
+{
+    "package": "com.astra.installer",
+    "name": "Installer",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Install astraOS on a disk of this computer.",
+    "target": "desktop",
+    "desktop": { "width": 720, "height": 520, "minWidth": 600, "minHeight": 420 },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#141416",
+    "category": "system",
+    "launcher": { "visible": true },
+    "permissions": [ "astra.permission.MANAGE_DISKS", "astra.permission.POWER" ]
+}

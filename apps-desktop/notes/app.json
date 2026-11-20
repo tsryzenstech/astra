@@ -1,0 +1,43 @@
+{
+    "package": "com.astra.notes",
+    "name": "Notes",
+    "names": {
+        "it": "Note"
+    },
+    "version": "1.0.0",
+    "versionCode": 1,
+    "description": "Capture ideas, lists and sketches.",
+    "descriptions": {
+        "it": "Annota idee, liste e schizzi."
+    },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#141416",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.NEARBY_DEVICES"
+    ],
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Notes",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small"
+            ]
+        }
+    ],
+    "share": [
+        "text/plain"
+    ],
+    "target": "desktop",
+    "desktop": {
+        "width": 900,
+        "height": 600,
+        "minWidth": 620,
+        "minHeight": 380
+    }
+}

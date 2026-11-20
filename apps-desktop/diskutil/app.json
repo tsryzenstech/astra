@@ -1,0 +1,15 @@
+{
+    "package": "com.astra.diskutil",
+    "name": "Disk Utility",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Erase, format and partition disks.",
+    "target": "desktop",
+    "desktop": { "width": 860, "height": 560, "minWidth": 600, "minHeight": 420 },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#141416",
+    "category": "system",
+    "launcher": { "visible": true },
+    "permissions": [ "astra.permission.MANAGE_DISKS", "astra.permission.POWER" ]
+}

@@ -1,0 +1,52 @@
+{
+    "package": "com.astra.gallery",
+    "name": "Gallery",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "All your photos and videos, beautifully organised.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#141416",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.MEDIA",
+        "astra.permission.NEARBY_DEVICES"
+    ],
+    "widgets": [
+        {
+            "id": "home",
+            "name": "Gallery",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small",
+                "medium",
+                "large"
+            ]
+        }
+    ],
+    "names": {
+        "it": "Galleria"
+    },
+    "descriptions": {
+        "it": "Tutte le tue foto e i tuoi video, organizzati alla perfezione."
+    },
+    "appearance": "dark",
+    "opens": [
+        "image/*",
+        "video/*"
+    ],
+    "share": [
+        "image/*",
+        "video/*"
+    ],
+    "target": "desktop",
+    "desktop": {
+        "width": 1000,
+        "height": 650,
+        "minWidth": 640,
+        "minHeight": 420
+    }
+}

@@ -53,7 +53,7 @@ WaylandCompositor {
                 Image {
                     id: logo
                     anchors.centerIn: parent
-                    width: parent.width * 0.5
+                    width: Host.desktop ? Math.min(parent.width * 0.14, parent.height * 0.16 * 3) : parent.width * 0.5
                     fillMode: Image.PreserveAspectFit
                     source: Host.bootLogo
                     opacity: 0.55
