@@ -306,20 +306,17 @@ void HardwareService::writeChargerReport()
     QFile out(Paths::dataSystem() + QStringLiteral("/charger-diag.txt"));
     if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return;
-    out.write(QDateTime::currentDateTime().toString(Qt::ISODate).toUtf8() + "
-");
+    out.write(QDateTime::currentDateTime().toString(Qt::ISODate).toUtf8() + "\n");
     const QDir ps(Paths::resolve(QStringLiteral("/sys/class/power_supply")));
     for (const QString &e : ps.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::System)) {
-        out.write("--- " + e.toUtf8() + "
-");
+        out.write("--- " + e.toUtf8() + "\n");
         const QDir d(ps.filePath(e));
         for (const QString &f : d.entryList(QDir::Files | QDir::System, QDir::Name)) {
             if (f == QLatin1String("uevent"))
                 continue;
             const QByteArray v = readSys(d.filePath(f));
             if (!v.isEmpty() && v.size() < 200)
-                out.write(f.toUtf8() + "=" + v + "
-");
+                out.write(f.toUtf8() + "=" + v + "\n");
         }
     }
 }
