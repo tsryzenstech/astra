@@ -563,6 +563,7 @@ Item {
     SetupWizard {
         anchors.fill: parent
         z: 25
+        keyboardInset: apps.keyboardInset
         onFinished: lockScreen.finishUnlock(0)
     }
 

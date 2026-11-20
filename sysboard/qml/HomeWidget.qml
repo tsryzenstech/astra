@@ -52,13 +52,22 @@ Item {
         visible: !root.widgetKey.startsWith("system/")
         anchors.fill: parent
         radius: Theme.cardRadius
-        color: Qt.rgba(0.08, 0.08, 0.1, 0.55)
-        border.color: Qt.rgba(1, 1, 1, 0.08)
+        // A widget can paint its own tile (the weather's sky, the calendar's dark card) by
+        // having tileTop and tileBottom colours; the others sit on the frosted card.
+        readonly property bool own: !!loader.item && loader.item.tileTop !== undefined
+        color: own ? "transparent" : Qt.rgba(0.08, 0.08, 0.1, 0.55)
+        gradient: own ? tile : null
+        border.color: Qt.rgba(1, 1, 1, own ? 0.04 : 0.08)
         clip: true
+        Gradient {
+            id: tile
+            GradientStop { position: 0.0; color: loader.item && loader.item.tileTop !== undefined ? loader.item.tileTop : "transparent" }
+            GradientStop { position: 1.0; color: loader.item && loader.item.tileBottom !== undefined ? loader.item.tileBottom : "transparent" }
+        }
         Loader {
             id: loader
             anchors.fill: parent
-            anchors.margins: 14
+            anchors.margins: loader.item && loader.item.tileTop !== undefined ? 16 : 14
             source: root.info.qmlUrl || ""
             onLoaded: if (item && item.hasOwnProperty("size")) item.size = Qt.binding(() => root.size)
         }

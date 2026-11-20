@@ -3,11 +3,15 @@ import QtQuick
 import Astra.Core
 import Astra.Controls
 
-// Home screen widget: today's date and your next events.
+// Home screen widget: today's date, and your next events (or a plus to make one).
 Item {
     id: root
     property string size: "small"
     property var events: []
+    // A dark card (HomeWidget paints it from these two).
+    readonly property color tileTop: "#262628"
+    readonly property color tileBottom: "#0E0E10"
+
     function reload() {
         const now = Date.now()
         Calendar.call("list", { from: now, to: now + 7 * 86400000 }, function(list) { root.events = list || [] })
@@ -17,24 +21,44 @@ Item {
     Timer { interval: 600000; repeat: true; running: true; onTriggered: root.reload() }
 
     Column {
-        Text { text: Qt.locale().toString(new Date(), "dddd").toUpperCase(); font.family: Theme.fontFamily; font.pixelSize: 11; font.weight: Font.Bold; color: "#FF453A" }
-        Text { text: new Date().getDate(); font.family: Theme.fontFamily; font.pixelSize: 38; font.weight: Font.Light; color: "white" }
+        spacing: 0
+        Text { text: Qt.locale().toString(new Date(), "dddd"); font.family: Theme.fontFamily; font.pixelSize: Theme.bodySize; font.weight: Font.Medium; color: "#FF3B30" }
+        Text { text: new Date().getDate(); font.family: Theme.fontFamily; font.pixelSize: 46; font.weight: Font.Normal; color: "white" }
     }
+
+    // Nothing planned: the words, and a red plus that opens the calendar.
+    Text {
+        visible: root.events.length === 0
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 8
+        text: qsTr("No Events")
+        font.family: Theme.fontFamily; font.pixelSize: Theme.bodySize; color: Qt.rgba(1, 1, 1, 0.85)
+    }
+    Rectangle {
+        visible: root.events.length === 0
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        width: 38; height: 38; radius: 19
+        color: "#FF3B30"
+        Icon { anchors.centerIn: parent; name: "plus"; size: 20; color: "white" }
+        MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: Packages.launch("com.astra.calendar", {}) }
+    }
+
     Column {
-        x: root.size === "small" ? 0 : parent.width * 0.38
-        y: root.size === "small" ? 70 : 0
+        visible: root.events.length > 0
+        x: root.size === "small" ? 0 : parent.width * 0.4
+        y: root.size === "small" ? 66 : 0
         width: parent.width - x
         spacing: 6
-        Text { visible: root.events.length === 0; text: qsTr("No events"); font.family: Theme.fontFamily; font.pixelSize: 13; color: Qt.rgba(1, 1, 1, 0.6) }
         Repeater {
             model: root.events.slice(0, root.size === "large" ? 6 : root.size === "medium" ? 3 : 1)
             delegate: Row {
                 required property var modelData
                 spacing: 8
-                Rectangle { width: 3; height: 32; radius: 1.5; color: "#FF7A00" }
+                Rectangle { width: 3; height: 32; radius: 1.5; color: "#FF9500" }
                 Column {
-                    Text { text: modelData.title; width: root.width * 0.55; elide: Text.ElideRight; font.family: Theme.fontFamily; font.pixelSize: 13; font.weight: Font.DemiBold; color: "white" }
-                    Text { text: modelData.allDay ? qsTr("All day") : Qt.locale().toString(new Date(modelData.start), "ddd HH:mm"); font.family: Theme.fontFamily; font.pixelSize: 11; color: Qt.rgba(1, 1, 1, 0.6) }
+                    Text { text: modelData.title; width: root.width * 0.55; elide: Text.ElideRight; font.family: Theme.fontFamily; font.pixelSize: Theme.bodySize; font.weight: Font.DemiBold; color: "white" }
+                    Text { text: modelData.allDay ? qsTr("All day") : Qt.locale().toString(new Date(modelData.start), "ddd HH:mm"); font.family: Theme.fontFamily; font.pixelSize: Theme.captionSize; color: Qt.rgba(1, 1, 1, 0.6) }
                 }
             }
         }

@@ -84,8 +84,8 @@ Item {
         LockFace {
             id: faceplate
             anchors.fill: parent
-            opacity: (1 - swipe.value) * (1 - music.progress)
-            y: -swipe.value * 120
+            contentOpacity: (1 - swipe.value) * (1 - music.progress)
+            contentLift: -swipe.value * 120
         }
 
         LockButton {
@@ -95,7 +95,7 @@ Item {
             anchors.verticalCenterOffset: -79
             iconName: "flashlight"
             checked: System.torch
-            opacity: faceplate.opacity
+            opacity: faceplate.contentOpacity
             onActivated: System.setTorch(!System.torch)
         }
 
@@ -106,7 +106,7 @@ Item {
             anchors.verticalCenter: parent.bottom
             anchors.verticalCenterOffset: -79
             iconName: "camera"
-            opacity: faceplate.opacity
+            opacity: faceplate.contentOpacity
             onActivated: root.authenticate(() => root.shell.launch("com.astra.camera"))
         }
 
@@ -115,7 +115,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.bottom
             anchors.verticalCenterOffset: -77
-            opacity: faceplate.opacity
+            opacity: faceplate.contentOpacity
             onExpandRequested: music.expanded = true
         }
     }
@@ -140,11 +140,16 @@ Item {
             moved = false
             velocity.reset()
             velocity.addPoint(m.x, m.y)
+            holdTimer.restart()
         }
         onPositionChanged: (m) => {
             velocity.addPoint(m.x, m.y)
             const dy = m.y - start.y
-            if (!moved && Math.abs(dy) > 10)
+            // A finger resting on glass drifts a few millimetres: that is not a swipe.
+            const drift = Math.hypot(m.x - start.x, dy)
+            if (drift > holdSlop)
+                holdTimer.stop()
+            if (!moved && Math.abs(dy) > 24)
                 moved = true
             if (!moved)
                 return
@@ -155,7 +160,9 @@ Item {
             else if (dy < 0)
                 swipe.value = Math.min(1, -dy / (root.height * 0.45))
         }
+        onCanceled: holdTimer.stop()
         onReleased: {
+            holdTimer.stop()
             const vy = velocity.velocity().y
             if (music.expanded) {
                 music.release(vy)
@@ -172,11 +179,16 @@ Item {
             }
         }
         // Held for three seconds on an empty place: the PIN (if any), then the lock screens to
-        // choose from and customise.
-        pressAndHoldInterval: 3000
-        onPressAndHold: {
-            if (!moved && !music.expanded)
-                root.verifyThen(() => root.shell.openLockPicker())
+        // choose from and customise. A timer of our own (a MouseArea's press-and-hold is cancelled by
+        // the first few pixels a finger drifts, which over three seconds always happen).
+        readonly property real holdSlop: 56
+        Timer {
+            id: holdTimer
+            interval: 3000
+            onTriggered: {
+                if (!surface.moved && !music.expanded && root.active && !root.pinPadVisible)
+                    root.verifyThen(() => root.shell.openLockPicker())
+            }
         }
     }
 

@@ -13,6 +13,9 @@ Item {
     property var slot: LockSlots.current
     property bool editing: false
     property bool showLock: true
+    // The wallpaper stays; what is drawn on it (the lock, the date, the clock, the widgets) can fade and lift.
+    property real contentOpacity: 1
+    property real contentLift: 0
     // Clock height: 1 (normal) up to maxStretch. The box of the clock follows it.
     readonly property real maxStretch: 2.3
     property real stretch: Math.max(1, Math.min(maxStretch, Number(slot.stretch || 1)))
@@ -38,104 +41,111 @@ Item {
         asynchronous: true
     }
 
-    Icon {
-        visible: root.showLock
-        name: "lock"
-        size: 22
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: 62
-        opacity: 0.85
-    }
-
-    // The date, above the clock.
     Item {
-        id: dateBox
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: 92
-        width: dateText.implicitWidth + 36
-        height: 34
-        Text {
-            id: dateText
-            anchors.centerIn: parent
-            text: SystemClock.longDate
-            font.family: Theme.fontFamily
-            font.pixelSize: 21
-            color: "white"
-        }
-        Rectangle {
-            visible: root.editing
-            anchors.fill: parent
-            radius: 17
-            color: "transparent"
-            border.width: 1.5
-            border.color: Qt.rgba(1, 1, 1, 0.45)
-        }
-    }
-
-    // The clock: its glyphs are stretched downwards, not just scaled, so a thin face grows tall.
-    Item {
-        id: clockBoxItem
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: root.clockTop
-        width: Math.min(root.width - 24, time.implicitWidth + 40)
-        height: root.clockBoxHeight
-
-        Text {
-            id: time
+        id: content
+        width: parent.width
+        height: parent.height
+        opacity: root.contentOpacity
+        y: root.contentLift
+        Icon {
+            visible: root.showLock
+            name: "lock"
+            size: 22
             anchors.horizontalCenter: parent.horizontalCenter
-            y: 0
-            text: SystemClock.time
-            font.family: root.slot.font || Theme.fontFamily
-            font.pixelSize: root.clockSize
-            font.weight: root.clockWeights[root.slot.weight || "SemiBold"] ?? Font.DemiBold
-            font.letterSpacing: -3
-            color: "white"
-            transformOrigin: Item.Top
-            transform: Scale { origin.x: time.width / 2; origin.y: 0; yScale: root.stretch }
+            y: 62
+            opacity: 0.85
         }
-        Rectangle {
-            visible: root.editing
-            anchors.fill: parent
-            radius: 22
-            color: "transparent"
-            border.width: 1.5
-            border.color: Qt.rgba(1, 1, 1, 0.45)
-        }
-    }
 
-    // The widgets.
-    Item {
-        id: widgetsBoxItem
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: root.widgetsTop
-        width: Math.max(root.editing ? 4 * 53 + 3 * 9.5 + 24 : 0, widgetRow.width + 24)
-        height: 53 + (root.editing ? 20 : 0)
-        Row {
-            id: widgetRow
-            anchors.centerIn: parent
-            spacing: 9.5
-            Repeater {
-                model: root.slot.widgets || []
-                delegate: Item {
-                    id: slotItem
-                    required property var modelData
-                    readonly property var info: Packages.count >= 0 ? Packages.widget(modelData) : ({})
-                    readonly property bool wide: info.size === "wide"
-                    visible: info.qmlUrl !== undefined
-                    width: wide ? 53 * 2 + 9.5 : 53
-                    height: 53
-                    Rectangle { anchors.fill: parent; radius: 13; color: Qt.rgba(0, 0, 0, 0.36) }
-                    Loader { anchors.fill: parent; anchors.margins: 6; source: slotItem.info.qmlUrl || "" }
-                }
+        // The date, above the clock.
+        Item {
+            id: dateBox
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: 92
+            width: dateText.implicitWidth + 36
+            height: 34
+            Text {
+                id: dateText
+                anchors.centerIn: parent
+                text: SystemClock.longDate
+                font.family: Theme.fontFamily
+                font.pixelSize: 21
+                color: "white"
+            }
+            Rectangle {
+                visible: root.editing
+                anchors.fill: parent
+                radius: 17
+                color: "transparent"
+                border.width: 1.5
+                border.color: Qt.rgba(1, 1, 1, 0.45)
             }
         }
-        Rectangle {
-            visible: root.editing
-            anchors.fill: parent
-            radius: 22
-            color: "transparent"
-            border.width: 1.5
-            border.color: Qt.rgba(1, 1, 1, 0.45)
+
+        // The clock: its glyphs are stretched downwards, not just scaled, so a thin face grows tall.
+        Item {
+            id: clockBoxItem
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: root.clockTop
+            width: Math.min(root.width - 24, time.implicitWidth + 40)
+            height: root.clockBoxHeight
+
+            Text {
+                id: time
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 0
+                text: SystemClock.time
+                font.family: root.slot.font || Theme.fontFamily
+                font.pixelSize: root.clockSize
+                font.weight: root.clockWeights[root.slot.weight || "SemiBold"] ?? Font.DemiBold
+                font.letterSpacing: -3
+                color: "white"
+                transformOrigin: Item.Top
+                transform: Scale { origin.x: time.width / 2; origin.y: 0; yScale: root.stretch }
+            }
+            Rectangle {
+                visible: root.editing
+                anchors.fill: parent
+                radius: 22
+                color: "transparent"
+                border.width: 1.5
+                border.color: Qt.rgba(1, 1, 1, 0.45)
+            }
+        }
+
+        // The widgets.
+        Item {
+            id: widgetsBoxItem
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: root.widgetsTop
+            width: Math.max(root.editing ? 4 * 53 + 3 * 9.5 + 24 : 0, widgetRow.width + 24)
+            height: 53 + (root.editing ? 20 : 0)
+            Row {
+                id: widgetRow
+                anchors.centerIn: parent
+                spacing: 9.5
+                Repeater {
+                    model: root.slot.widgets || []
+                    delegate: Item {
+                        id: slotItem
+                        required property var modelData
+                        readonly property var info: Packages.count >= 0 ? Packages.widget(modelData) : ({})
+                        readonly property bool wide: info.size === "wide"
+                        visible: info.qmlUrl !== undefined
+                        width: wide ? 53 * 2 + 9.5 : 53
+                        height: 53
+                        Rectangle { anchors.fill: parent; radius: 13; color: Qt.rgba(0, 0, 0, 0.36) }
+                        Loader { anchors.fill: parent; anchors.margins: 6; source: slotItem.info.qmlUrl || "" }
+                    }
+                }
+            }
+            Rectangle {
+                visible: root.editing
+                anchors.fill: parent
+                radius: 22
+                color: "transparent"
+                border.width: 1.5
+                border.color: Qt.rgba(1, 1, 1, 0.45)
+            }
         }
     }
 }

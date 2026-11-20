@@ -5,6 +5,8 @@
 
 #include <QTimer>
 
+class QSocketNotifier;
+
 namespace astrad {
 
 class SettingsService;
@@ -35,6 +37,12 @@ private:
     // Charging from a wall charger at the rate it can give (the charger IC
     // starts at USB's 500 mA when it cannot tell what is plugged in).
     void tuneCharger();
+    // The kernel says when a charger comes or goes (a uevent of the power_supply class): the
+    // battery is read at once, then every second for a while, instead of at the next tick.
+    void watchPower();
+    void powerEvent();
+    // What the chargers and the battery say, in /data/system/charger-diag.txt.
+    void writeChargerReport();
     void setBrightness(double value);
     void writeBrightness();
     void setTorch(bool on);
@@ -56,7 +64,9 @@ private:
     qint64 m_lastCount = 0;    // when the charge was last counted
     qint64 m_restSince = 0;    // since when the battery rests (little current)
     qint64 m_lastSave = 0;
-    int m_notHost = 0;         // polls on a charger that is not a computer
+    int m_fastTicks = 0;       // one-second polls left after a power event
+    qint64 m_pluggedAt = 0;    // when the charger was seen
+    QSocketNotifier *m_uevents = nullptr;
     bool m_chargerTuned = false;
     bool m_torchOn = false;
 };

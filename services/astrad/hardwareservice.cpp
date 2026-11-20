@@ -12,8 +12,11 @@
 #include <QJsonDocument>
 #include <QFile>
 #include <QLoggingCategory>
+#include <QSocketNotifier>
 
 #include <fcntl.h>
+#include <linux/netlink.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 Q_LOGGING_CATEGORY(lcHw, "astrad.hardware")
@@ -29,12 +32,16 @@ QByteArray readSys(const QString &path)
     return f.open(QIODevice::ReadOnly) ? f.readAll().trimmed() : QByteArray();
 }
 
+// Unbuffered: a sysfs attribute that refuses the value (EINVAL, out of range) says so here, and a
+// buffered QFile would only find out when it is closed.
 bool writeSys(const QString &path, const QByteArray &value)
 {
-    QFile f(path);
-    if (!f.open(QIODevice::WriteOnly))
+    const int fd = ::open(QFile::encodeName(path).constData(), O_WRONLY | O_CLOEXEC);
+    if (fd < 0)
         return false;
-    return f.write(value) == value.size();
+    const ssize_t n = ::write(fd, value.constData(), size_t(value.size()));
+    ::close(fd);
+    return n == value.size();
 }
 
 // First entry of a sysfs class whose name contains one of the hints.
@@ -91,6 +98,8 @@ HardwareService::HardwareService(Server *server, SettingsService *settings, QObj
     m_batteryTimer.setInterval(10000);
     connect(&m_batteryTimer, &QTimer::timeout, this, &HardwareService::pollBattery);
     m_batteryTimer.start();
+    if (!Paths::isDevelopmentRoot())
+        watchPower();
 }
 
 QJsonObject HardwareService::battery() const
@@ -113,9 +122,24 @@ QJsonObject HardwareService::battery() const
             }
         }
     }
+    // A charger in the socket counts at once: its detection (and the battery's own "Charging")
+    // can take seconds, and a phone that is plugged in is charging as far as anyone looking at it knows.
+    bool plugged = false;
+    {
+        const QDir ps(Paths::resolve(QStringLiteral("/sys/class/power_supply")));
+        for (const QString &e : ps.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::System)) {
+            const QString dir = ps.filePath(e);
+            const QByteArray type = readSys(dir + QStringLiteral("/type"));
+            if (type != "Battery" && type != "Wireless" && type != "UPS" && readSys(dir + QStringLiteral("/online")) == "1")
+                plugged = true;
+            if (type == "Wireless" && readSys(dir + QStringLiteral("/online")) == "1")
+                plugged = true;
+        }
+    }
     QJsonObject b{
         {QStringLiteral("level"), int(num("capacity"))},
-        {QStringLiteral("charging"), status == "Charging" || status == "Full"},
+        {QStringLiteral("plugged"), plugged},
+        {QStringLiteral("charging"), plugged || status == "Charging" || status == "Full"},
         {QStringLiteral("present"), true},
         {QStringLiteral("status"), QString::fromLatin1(status)},
         {QStringLiteral("health"), QString::fromLatin1(readSys(m_batteryDir + QStringLiteral("/health")))},
@@ -232,34 +256,115 @@ void HardwareService::tuneCharger()
         const QByteArray types = readSys(dir + QStringLiteral("/usb_type"));
         if (types.isEmpty() || readSys(dir + QStringLiteral("/type")) != "USB")
             continue;
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
         if (readSys(dir + QStringLiteral("/online")) != "1") {
-            m_notHost = 0;
+            m_pluggedAt = 0;
             m_chargerTuned = false;
             return;
         }
+        if (m_pluggedAt == 0)
+            m_pluggedAt = now;
         const int open = types.indexOf('['), close = types.indexOf(']');
         const QByteArray selected = open >= 0 && close > open ? types.mid(open + 1, close - open - 1) : QByteArray();
-        // A computer enumerates the phone (the USB device is "configured");
-        // a charger does not. CDP ports give 1.5 A anyway.
+        // A computer enumerates the phone (the USB device is "configured") within a second or two of
+        // the plug; a charger never does. CDP ports give 1.5 A anyway.
         bool host = false;
         const QDir udc(Paths::resolve(QStringLiteral("/sys/class/udc")));
         for (const QString &u : udc.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::System))
             if (readSys(udc.filePath(u) + QStringLiteral("/state")) == "configured")
                 host = true;
-        m_notHost = host || selected == "CDP" ? 0 : m_notHost + 1;
-        // Twenty seconds without a computer: a wall charger, which gives 1.5 A at
-        // 5 V by the USB charging rules (the IC lowers it if the charger cannot).
-        if (m_notHost >= 2 && !m_chargerTuned) {
-            m_chargerTuned = true;
-            if (writeSys(dir + QStringLiteral("/current_max"), "1500000"))
-                qCInfo(lcHw) << "charger: not a computer (" << selected << "), charging at up to 1.5 A";
-        }
+        if (host && selected != "CDP")
+            return;                                 // a computer: what USB gives, 500 to 900 mA
+        if (m_chargerTuned || (!host && selected != "CDP" && now - m_pluggedAt < 1500))
+            return;                                 // not decided yet, or done
+        m_chargerTuned = true;
+        // The most the charger and the cable allow: the highest value the IC takes (it lowers the
+        // current by itself when the charger cannot give it). Power Delivery and Quick Charge
+        // chargers (the detected type says "PD", "PD_PPS", "C") may give 3 A or more.
+        const QList<QByteArray> steps = selected == "CDP" ? QList<QByteArray>{"1500000"}
+            : QList<QByteArray>{"3000000", "2500000", "2000000", "1500000"};
+        for (const QByteArray &v : steps)
+            if (writeSys(dir + QStringLiteral("/current_max"), v)) {
+                qCInfo(lcHw) << "charger:" << selected << "-> input limit" << v.toInt() / 1000 << "mA";
+                break;
+            }
+        // And the current into the battery, if the charger IC lets it be set.
+        if (!m_batteryDir.isEmpty() && QFile::exists(m_batteryDir + QStringLiteral("/constant_charge_current_max")))
+            for (const QByteArray &v : QList<QByteArray>{"3000000", "2500000", "2000000", "1500000"})
+                if (writeSys(m_batteryDir + QStringLiteral("/constant_charge_current_max"), v)) {
+                    qCInfo(lcHw) << "charger: battery charge current up to" << v.toInt() / 1000 << "mA";
+                    break;
+                }
+        QTimer::singleShot(5000, this, &HardwareService::writeChargerReport);
         return;
     }
 }
 
+// Every attribute of every power supply, for whoever has to find out why a phone charges slowly.
+void HardwareService::writeChargerReport()
+{
+    QFile out(Paths::dataSystem() + QStringLiteral("/charger-diag.txt"));
+    if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return;
+    out.write(QDateTime::currentDateTime().toString(Qt::ISODate).toUtf8() + "
+");
+    const QDir ps(Paths::resolve(QStringLiteral("/sys/class/power_supply")));
+    for (const QString &e : ps.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::System)) {
+        out.write("--- " + e.toUtf8() + "
+");
+        const QDir d(ps.filePath(e));
+        for (const QString &f : d.entryList(QDir::Files | QDir::System, QDir::Name)) {
+            if (f == QLatin1String("uevent"))
+                continue;
+            const QByteArray v = readSys(d.filePath(f));
+            if (!v.isEmpty() && v.size() < 200)
+                out.write(f.toUtf8() + "=" + v + "
+");
+        }
+    }
+}
+
+// The kernel's uevents (group 1 of the kobject netlink): a charger plugged in or out, the gauge
+// moving, are told as they happen.
+void HardwareService::watchPower()
+{
+    const int fd = ::socket(AF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
+    if (fd < 0)
+        return;
+    sockaddr_nl addr{};
+    addr.nl_family = AF_NETLINK;
+    addr.nl_groups = 1;
+    if (::bind(fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0) {
+        ::close(fd);
+        return;
+    }
+    m_uevents = new QSocketNotifier(fd, QSocketNotifier::Read, this);
+    connect(m_uevents, &QSocketNotifier::activated, this, [this, fd] {
+        bool power = false;
+        char buf[8192];
+        for (;;) {
+            const ssize_t n = ::recv(fd, buf, sizeof(buf), 0);
+            if (n <= 0)
+                break;
+            if (QByteArray::fromRawData(buf, int(n)).contains("SUBSYSTEM=power_supply"))
+                power = true;
+        }
+        if (power)
+            powerEvent();
+    });
+}
+
+void HardwareService::powerEvent()
+{
+    m_fastTicks = 25;
+    m_batteryTimer.setInterval(1000);
+    pollBattery();
+}
+
 void HardwareService::pollBattery()
 {
+    if (m_fastTicks > 0 && --m_fastTicks == 0)
+        m_batteryTimer.setInterval(10000);
     tuneCharger();
     QJsonObject b = battery();
     b.insert(QStringLiteral("level"), shownLevel(b));

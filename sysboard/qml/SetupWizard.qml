@@ -11,6 +11,9 @@ import Astra.Animation
 Rectangle {
     id: root
     signal finished()
+    // The height of the on-screen keyboard when it is up: the page makes room for it.
+    property real keyboardInset: 0
+    focus: true
 
     readonly property bool needed: Settings.ready && Settings.values["setup.done"] !== true
     readonly property var steps: ["hello", "language", "wifi", "mobile", "bluetooth", "location", "astraid", "pin", "appearance", "done"]
@@ -20,7 +23,14 @@ Rectangle {
     readonly property var cell: Network.state.cellular || ({})
     readonly property var bt: Network.state.bluetooth || ({})
 
+    // Puts the keyboard away: a step that was typing in a field does not keep it open.
+    function dismissKeyboard() {
+        root.forceActiveFocus()
+        Qt.inputMethod.hide()
+    }
+
     function next() {
+        dismissKeyboard()
         let s = step + 1
         // Hardware that isn't there is skipped.
         while (s < steps.length - 1 && ((steps[s] === "wifi" && !wifi.available) || (steps[s] === "mobile" && !cell.available)
@@ -30,7 +40,7 @@ Rectangle {
         page.value = 0.0
         page.animateTo(1, 0)
     }
-    function back() { if (step > 0) { step--; page.value = 0; page.animateTo(1, 0) } }
+    function back() { dismissKeyboard(); if (step > 0) { step--; page.value = 0; page.animateTo(1, 0) } }
     function finish() {
         Settings.setValue("setup.done", true)
         root.finished()
@@ -97,7 +107,8 @@ Rectangle {
         id: content
         anchors.fill: parent
         anchors.topMargin: Theme.statusBarHeight + 70
-        anchors.bottomMargin: 150
+        anchors.bottomMargin: root.keyboardInset > 0 ? root.keyboardInset + 12 : 150
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
         opacity: page.value
         transform: Translate { x: (1 - page.value) * 60 }
 
@@ -159,7 +170,7 @@ Rectangle {
             }
             ListView {
                 width: parent.width
-                height: Math.min(contentHeight, root.height * 0.42)
+                height: Math.min(contentHeight, root.keyboardInset > 0 ? 96 : root.height * 0.42)
                 clip: true
                 spacing: 8
                 model: root.wifi.powered ? (root.wifi.networks || []) : []
@@ -202,6 +213,7 @@ Rectangle {
                     onAccepted: {
                         Network.call("wifiConnect", { id: wifiPassword.net.id, passphrase: text }, null)
                         wifiPassword.visible = false
+                        root.dismissKeyboard()
                     }
                     Text { anchors.fill: parent; verticalAlignment: Text.AlignVCenter; visible: !parent.text; text: qsTr("Password for %1").arg(wifiPassword.net ? wifiPassword.net.ssid : ""); font: parent.font; color: Qt.rgba(1, 1, 1, 0.45) }
                 }
@@ -310,7 +322,7 @@ Rectangle {
                 visible: !Lock.hasPin
                 text: qsTr("Set PIN")
                 enabled: /^\d{4,6}$/.test(pin.text)
-                onClicked: Lock.setPin("", pin.text, (ok, error) => { pinError.text = ok ? "" : (error || ""); if (ok) root.next() })
+                onClicked: { root.dismissKeyboard(); Lock.setPin("", pin.text, (ok, error) => { pinError.text = ok ? "" : (error || ""); if (ok) root.next() }) }
             }
         }
 
