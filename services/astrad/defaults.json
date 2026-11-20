@@ -132,5 +132,10 @@
     "keyboard.recent_emoji": [],
     "display.aod": false,
     "display.charge_animation": true,
+    "petaldrop.receive": "mydevices",
+    "phonelinker.enabled": false,
+    "phonelinker.notifications": true,
+    "phonelinker.contacts": true,
+    "phonelinker.photos": true,
     "setup.done": false
 }

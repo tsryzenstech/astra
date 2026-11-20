@@ -29,6 +29,8 @@ qt_add_executable(astrad
     notificationservice.cpp notificationservice.h
     packagemanager.cpp packagemanager.h
     permissions.h
+    petaldropservice.cpp petaldropservice.h
+    phonelinkservice.cpp phonelinkservice.h
     server.cpp server.h
     settingsservice.cpp settingsservice.h
     systemservice.cpp systemservice.h

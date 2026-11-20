@@ -107,7 +107,9 @@ int NotificationService::post(const QString &package, const QString &title, cons
     while (m_items.size() > kMaxNotifications)
         m_items.removeLast();
     save();
-    m_server->broadcast(QStringLiteral("notifications.posted"), decorate(n));
+    const QJsonObject view = decorate(n);
+    m_server->broadcast(QStringLiteral("notifications.posted"), view);
+    Q_EMIT posted(view);
     return n.value(QLatin1String("id")).toInt();
 }
 

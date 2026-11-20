@@ -12,7 +12,8 @@
         "visible": true
     },
     "permissions": [
-        "astra.permission.MEDIA"
+        "astra.permission.MEDIA",
+        "astra.permission.NEARBY_DEVICES"
     ],
     "widgets": [
         {

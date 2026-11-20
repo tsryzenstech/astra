@@ -24,6 +24,8 @@
 #include "network/networkservice.h"
 #include "notificationservice.h"
 #include "packagemanager.h"
+#include "petaldropservice.h"
+#include "phonelinkservice.h"
 #include "server.h"
 #include "settingsservice.h"
 #include "systemservice.h"
@@ -214,7 +216,9 @@ int main(int argc, char **argv)
     CalendarService calendar(&server, &notifications);
     CloudyService cloudy(&server);
     AccountService account(&server, &settings, &notifications, &contacts, &location, &hardware, &network, &alarms);
-    contacts.setChangedHook([&account] { account.contactsChanged(); });
+    PhoneLinkService phoneLink(&server, &settings, &account, &notifications, &contacts);
+    PetalDropService petalDrop(&server, &settings, &account, &dialogs, &notifications);
+    contacts.setChangedHook([&account, &phoneLink] { account.contactsChanged(); phoneLink.contactsChanged(); });
     // Find My Device > Lock: SysBoard locks the phone.
     QObject::connect(&account, &AccountService::lockRequested, &server, [&server](const QString &message) {
         server.broadcast(QStringLiteral("system.lock"), QJsonObject{{QStringLiteral("message"), message}});
@@ -275,6 +279,8 @@ int main(int argc, char **argv)
     server.registerService(QStringLiteral("update"), &update);
     server.registerService(QStringLiteral("nfc"), &nfc);
     server.registerService(QStringLiteral("developer"), &developer);
+    server.registerService(QStringLiteral("phonelink"), &phoneLink);
+    server.registerService(QStringLiteral("petaldrop"), &petalDrop);
 
     if (!server.listen(Paths::astradSocket()))
         return 1;

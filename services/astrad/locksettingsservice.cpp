@@ -3,6 +3,7 @@
 #include "jsonstore.h"
 #include "permissions.h"
 
+#include <astra/form.h>
 #include <astra/paths.h>
 #include <astra/protocol.h>
 
@@ -26,6 +27,9 @@ QByteArray derive(const QString &pin, const QByteArray &salt)
 
 bool validPin(const QString &pin)
 {
+    // The secret of astraOS Desktop is a password (4 to 128 characters), the phone's a PIN of 4 to 8 digits.
+    if (Form::isDesktop())
+        return pin.size() >= 4 && pin.size() <= 128;
     static const QRegularExpression re(QStringLiteral("^[0-9]{4,8}$"));
     return re.match(pin).hasMatch();
 }
@@ -107,7 +111,7 @@ QJsonValue LockSettingsService::handle(const QString &call, const QJsonObject &p
         caller.require(QLatin1String(permissions::MANAGE_LOCK));
         const QString pin = params.value(QLatin1String("pin")).toString();
         if (!pin.isEmpty() && !validPin(pin))
-            throw RpcError{protocol::InvalidParams, QStringLiteral("the PIN must be 4 to 8 digits")};
+            throw RpcError{protocol::InvalidParams, QStringLiteral("the PIN must be 4 to 8 digits (a password of 4 to 128 characters on the desktop)")};
         if (!check(params.value(QLatin1String("current")).toString()))
             throw RpcError{protocol::PermissionDenied, QStringLiteral("wrong current PIN")};
         store(pin);

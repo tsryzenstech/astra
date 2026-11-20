@@ -52,7 +52,9 @@ Page {
         { text: qsTr("General Customization"), words: "general customization home layout icons", file: "GeneralPage.qml", icon: "settings" },
         { text: qsTr("Cloudy"), words: "cloudy assistant ai", file: "HeyCloudyPage.qml", icon: "sparkles" },
         { text: qsTr("Store Purchases"), words: "store purchases acquisti market", file: "PurchasesPage.qml", icon: "bag" },
-        { text: qsTr("AstraID"), words: "astraid account login accedi", file: "AccountPage.qml", icon: "person" }
+        { text: qsTr("AstraID"), words: "astraid account login accedi", file: "AccountPage.qml", icon: "person" },
+        { text: qsTr("Phone Linker"), words: "phone linker link computer desktop collega telefono contacts photos notifications", file: "PhoneLinkPage.qml", icon: "phone" },
+        { text: qsTr("PetalDrop"), words: "petaldrop airdrop share send nearby condividi invia", file: "PetalDropPage.qml", icon: "share" }
     ]
     readonly property var found: {
         const q = page.query.trim().toLowerCase()
@@ -172,6 +174,20 @@ Page {
         ListItem { text: qsTr("Privacy Options"); chevron: true; onClicked: page.open("PrivacyPage.qml") }
         ListItem { text: qsTr("Themes"); chevron: true; onClicked: page.open("ThemesPage.qml") }
         ListItem { text: qsTr("Cards"); chevron: true; separator: false; onClicked: page.open("CardsPage.qml") }
+    }
+
+    ListGroup {
+        visible: page.query.trim() === ""
+        title: qsTr("Devices")
+        ListItem {
+            visible: System.property("ro.astra.form", "phone") === "desktop"
+            height: visible ? implicitHeight : 0
+            text: qsTr("Desktop")
+            chevron: true
+            onClicked: page.open("DesktopPage.qml")
+        }
+        ListItem { text: qsTr("Phone Linker"); chevron: true; onClicked: page.open("PhoneLinkPage.qml") }
+        ListItem { text: qsTr("PetalDrop"); chevron: true; separator: false; onClicked: page.open("PetalDropPage.qml") }
     }
 
     ListGroup {

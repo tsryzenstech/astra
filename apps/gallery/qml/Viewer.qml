@@ -301,7 +301,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 34
-        width: 236
+        width: 290
         height: 56
         radius: 28
         color: Qt.rgba(0.16, 0.16, 0.18, 0.92)
@@ -311,6 +311,12 @@ Item {
         Row {
             anchors.centerIn: parent
             spacing: 18
+            IconButton {
+                size: 42
+                color: "transparent"
+                iconName: "share"
+                onClicked: if (root.current) share.open([root.current.path], root.current.video ? "video/*" : "image/*")
+            }
             IconButton {
                 size: 42
                 color: "transparent"
@@ -396,4 +402,7 @@ Item {
             }
         }
     }
+
+    // Share: other apps, and the devices nearby with PetalDrop.
+    ShareSheet { id: share }
 }

@@ -105,6 +105,29 @@ public:
     explicit AccountState(QObject *parent = nullptr);
 };
 
+// Phone Linker (singleton "PhoneLink", Settings). state: { kind, signedIn, enabled, linked, peer, candidates,
+// features: { notifications, contacts, photos }, lastSync, error }. PhoneLink.call("link", { peer: id }, cb), "unlink", "refresh".
+class PhoneLinkState : public ServiceState
+{
+    Q_OBJECT
+    QML_NAMED_ELEMENT(PhoneLink)
+    QML_SINGLETON
+public:
+    explicit PhoneLinkState(QObject *parent = nullptr);
+};
+
+// PetalDrop (singleton "PetalDrop", apps with NEARBY_DEVICES). state: { receive, name, kind, port, peers, transfers }.
+// PetalDrop.call("peers" | "send" { peer, files } | "cancel" { id }, ..., cb); its events: "transfer" { id, peer, state,
+// sent, total, error } ("connecting", "waiting", "sending", "finishing", "done", "declined", "failed", "cancelled"), "received".
+class PetalDropState : public ServiceState
+{
+    Q_OBJECT
+    QML_NAMED_ELEMENT(PetalDrop)
+    QML_SINGLETON
+public:
+    explicit PetalDropState(QObject *parent = nullptr);
+};
+
 // Cloudy's on-device model (singleton "CloudyEngine", Cloudy only). state:
 // { models, engine, downloading, progress, running, ready, port, error }
 class CloudyState : public ServiceState

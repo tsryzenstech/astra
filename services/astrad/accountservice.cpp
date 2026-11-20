@@ -10,6 +10,7 @@
 #include "permissions.h"
 #include "settingsservice.h"
 
+#include <astra/form.h>
 #include <astra/paths.h>
 #include <astra/properties.h>
 #include <astra/protocol.h>
@@ -73,6 +74,26 @@ AccountService::AccountService(Server *server, SettingsService *settings, Notifi
     }
 }
 
+bool AccountService::signedIn() const
+{
+    return !m_account.value(K("token")).toString().isEmpty();
+}
+
+QString AccountService::kind() const
+{
+    return Form::isDesktop() ? K("desktop") : K("phone");
+}
+
+int AccountService::deviceId() const
+{
+    return m_account.value(K("deviceId")).toInt();
+}
+
+QString AccountService::userName() const
+{
+    return m_account.value(K("name")).toString();
+}
+
 QString AccountService::server() const
 {
     const QString s = m_account.value(K("server")).toString();
@@ -88,6 +109,8 @@ QJsonObject AccountService::state() const
             {K("email"), m_account.value(K("email"))},
             {K("name"), m_account.value(K("name"))},
             {K("server"), server()},
+            {K("kind"), kind()},
+            {K("deviceId"), m_account.value(K("deviceId"))},
             {K("findMy"), m_account.value(K("findMy")).toBool(true)},
             {K("contactsBackup"), m_account.value(K("contactsBackup")).toBool(true)},
             {K("lastBackup"), m_account.value(K("lastBackup"))},
@@ -139,6 +162,7 @@ void AccountService::signedOut()
     // Without an AstraID the phone has no owner's name: "Not Logged In".
     m_settings->setValue(K("account.name"), QString());
     announce();
+    Q_EMIT accountChanged();
 }
 
 void AccountService::startPolling()
@@ -328,9 +352,11 @@ QJsonValue AccountService::handle(const QString &call, const QJsonObject &params
             {K("email"), params.value(K("email")).toString().trimmed()},
             {K("password"), params.value(K("password")).toString()},
             {K("name"), params.value(K("name")).toString()},
-            {K("device"), QJsonObject{{K("name"), m_settings->value(K("account.name")).toString().isEmpty()
-                                                     ? Properties::get(K("ro.product.model"), K("astraOS phone"))
-                                                     : QStringLiteral("%1's phone").arg(m_settings->value(K("account.name")).toString())},
+            {K("device"), QJsonObject{{K("kind"), kind()},
+                                      {K("name"), m_settings->value(K("account.name")).toString().isEmpty()
+                                                     ? Properties::get(K("ro.product.model"), Form::isDesktop() ? K("astraOS desktop") : K("astraOS phone"))
+                                                     : (Form::isDesktop() ? QStringLiteral("%1's desktop") : QStringLiteral("%1's phone"))
+                                                           .arg(m_settings->value(K("account.name")).toString())},
                                       {K("model"), Properties::get(K("ro.product.model"), QSysInfo::machineHostName())},
                                       {K("os"), QStringLiteral("astraOS %1").arg(Properties::get(K("ro.astra.version")))}}}};
         m_account.remove(K("token"));
@@ -358,6 +384,7 @@ QJsonValue AccountService::handle(const QString &call, const QJsonObject &params
             if (m_account.value(K("contactsBackup")).toBool(true))
                 backup();
             announce();
+            Q_EMIT accountChanged();
             pending.resolve(state());
         });
         return Deferred;

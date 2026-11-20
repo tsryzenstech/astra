@@ -11,6 +11,7 @@ import Astra.Controls
 //   { page: "privacy" } { page: "display" } { page: "about" } { page: "update" }
 //   { page: "developer" } { page: "language" } { page: "notifications" }
 //   { page: "nfc" }                        NFC (from the notification of a tag)
+//   { page: "phonelinker" } { page: "petaldrop" } { page: "desktop" }   (the last one on astraOS Desktop)
 Rectangle {
     id: app
     color: Theme.background
@@ -39,7 +40,10 @@ Rectangle {
         apps: "AppsPage.qml",
         datetime: "DateTimePage.qml",
         accessibility: "AccessibilityPage.qml",
-        account: "AccountPage.qml"
+        account: "AccountPage.qml",
+        phonelinker: "PhoneLinkPage.qml",
+        petaldrop: "PetalDropPage.qml",
+        desktop: "DesktopPage.qml"
     })
 
     PageStack {

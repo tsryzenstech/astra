@@ -27,8 +27,10 @@ class SettingsService;
 //  - Contacts backup: only the address book (no photos, videos, audio or
 //    files), encrypted on the server with a key of the account.
 // The session token stays in /data/system/account.json (system only).
-//   account.state -> {signedIn, email, name, server, findMy, contactsBackup, lastBackup, lastReport}
+//   account.state -> {signedIn, email, name, server, kind, deviceId, findMy, contactsBackup, lastBackup, lastReport}
 //   account.signIn {email, password, register?, name?, server?}   account.signOut
+//       The device signs in as what it is: a "phone" or, on astraOS Desktop, a "desktop" (astra::Form). AstraID
+//       knows both, and Phone Linker and PetalDrop (phonelinkservice.h, petaldropservice.h) use that.
 //   account.setFindMy {on}  account.setContactsBackup {on}
 //   account.backupNow  account.restoreContacts -> {added}              MANAGE_SETTINGS
 //   account.request {method, path, body} -> {status, body}              apps with INTERNET:
@@ -44,15 +46,24 @@ public:
 
     void contactsChanged();
 
+    // The AstraID server with this device's token, for the system services that talk to it (Phone Linker,
+    // PetalDrop). Apps never get the token: they use account.request.
+    QNetworkReply *request(const QByteArray &verb, const QString &path, const QJsonValue &body = QJsonValue());
+    bool signedIn() const;
+    QString kind() const;                 // "phone" or "desktop"
+    int deviceId() const;
+    QString userName() const;
+
 Q_SIGNALS:
     void lockRequested(const QString &message);
+    // Signed in or out (the account changed): services that follow it start or stop.
+    void accountChanged();
 
 private:
     QJsonObject state() const;
     void save();
     void announce();
     QString server() const;
-    QNetworkReply *request(const QByteArray &verb, const QString &path, const QJsonValue &body = QJsonValue());
     void startPolling();
     void poll();
     void run(const QJsonObject &command);

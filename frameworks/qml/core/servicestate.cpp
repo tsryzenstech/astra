@@ -134,6 +134,16 @@ AccountState::AccountState(QObject *parent)
 {
 }
 
+PhoneLinkState::PhoneLinkState(QObject *parent)
+    : ServiceState(QStringLiteral("phonelink"), QStringLiteral("state"), QStringLiteral("phonelink.changed"), parent)
+{
+}
+
+PetalDropState::PetalDropState(QObject *parent)
+    : ServiceState(QStringLiteral("petaldrop"), QStringLiteral("state"), {}, parent)
+{
+}
+
 CloudyState::CloudyState(QObject *parent)
     : ServiceState(QStringLiteral("cloudy"), QStringLiteral("state"), QStringLiteral("cloudy.changed"), parent)
 {

@@ -14,5 +14,9 @@
     "%n more taps to turn on Developer Options.": {
         "one": "%n more tap to turn on Developer Options.",
         "other": "%n more taps to turn on Developer Options."
+    },
+    "After %n minutes": {
+        "one": "After %n minutes",
+        "other": "After %n minutes"
     }
 }

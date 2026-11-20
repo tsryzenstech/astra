@@ -28,6 +28,11 @@ public:
     bool dismissId(int id);
     void removeOngoing(const QString &package);
 
+Q_SIGNALS:
+    // A notification was posted (as SysBoard gets it, with the app's name and icon): Phone Linker sends a
+    // phone's to the desktop.
+    void posted(const QJsonObject &notification);
+
 private:
     void save();
     static void applyOptions(QJsonObject &n, const QJsonObject &params);

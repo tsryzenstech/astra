@@ -5,6 +5,7 @@
 #include "permissions.h"
 #include "settingsservice.h"
 
+#include <astra/form.h>
 #include <astra/paths.h>
 #include <astra/properties.h>
 #include <astra/protocol.h>
@@ -40,9 +41,17 @@ QString applyDir()
 {
     return otaDir() + QStringLiteral("/apply");
 }
+// The files of an update: a phone's super and esp partitions (applied by the first stage of init), or on
+// astraOS Desktop the one tree of /system and /Applications (applied by astra-ota-apply.service, distro/).
+QStringList fileKeys()
+{
+    return Form::isDesktop() ? QStringList{QStringLiteral("system")} : QStringList{QStringLiteral("super"), QStringLiteral("esp")};
+}
 // What each downloaded file becomes in /data/ota/apply (core/init/ota.h).
 QString unpackedName(const QString &file)
 {
+    if (file == QLatin1String("system"))
+        return QStringLiteral("system.tar");
     return file == QLatin1String("super") ? QStringLiteral("super.img") : QStringLiteral("esp.fat");
 }
 QNetworkRequest githubRequest(const QUrl &url, const char *accept)
@@ -212,8 +221,9 @@ void UpdateService::checkManifest(const QJsonObject &rel, bool automatic)
         const QString device = Properties::get(K("ro.product.device"), K("generic"));
         const qint64 ours = Properties::getInt(K("ro.astra.ota.time"), 0);
         const QJsonObject files = m.value(K("files")).toObject();
-        const bool complete = urls.contains(files.value(K("super")).toObject().value(K("name")).toString()) &&
-                              urls.contains(files.value(K("esp")).toObject().value(K("name")).toString());
+        bool complete = true;
+        for (const QString &key : fileKeys())
+            complete = complete && urls.contains(files.value(key).toObject().value(K("name")).toString());
         if (m.value(K("device")).toString() != device || qint64(m.value(K("time")).toDouble()) <= ours ||
             m.value(K("tag")).toString() == Properties::get(K("ro.astra.ota.tag")) || !complete) {
             m_available = {};
@@ -222,7 +232,7 @@ void UpdateService::checkManifest(const QJsonObject &rel, bool automatic)
         }
         qint64 size = 0;
         QJsonObject withUrls;
-        for (const QString &key : {K("super"), K("esp")}) {
+        for (const QString &key : fileKeys()) {
             QJsonObject f = files.value(key).toObject();
             f.insert(K("url"), urls.value(f.value(K("name")).toString()));
             size += qint64(f.value(K("size")).toDouble());
@@ -261,7 +271,7 @@ void UpdateService::download()
     const QJsonObject files = m_available.value(K("files")).toObject();
     m_total = 0;
     qint64 needed = 256ll << 20;
-    for (const QString &key : {K("super"), K("esp")}) {
+    for (const QString &key : fileKeys()) {
         const QJsonObject f = files.value(key).toObject();
         m_total += qint64(f.value(K("size")).toDouble());
         needed += qint64(f.value(K("size")).toDouble()) + qint64(f.value(K("raw_size")).toDouble());
@@ -274,7 +284,7 @@ void UpdateService::download()
         fail(K("Not enough free space: the update needs %1 MB").arg(needed >> 20));
         return;
     }
-    m_queue = {K("super"), K("esp")};
+    m_queue = fileKeys();
     m_done = 0;
     m_progress = 0;
     setStatus(K("downloading"));
@@ -349,7 +359,7 @@ void UpdateService::downloadNext()
 // Unpacks each file into /data/ota/apply and checks what the first stage will write.
 void UpdateService::prepare()
 {
-    m_queue = {K("super"), K("esp")};
+    m_queue = fileKeys();
     m_progress = 1;
     setStatus(K("preparing"));
     unpackNext();
@@ -418,6 +428,12 @@ void UpdateService::install()
     setStatus(K("installing"));
     // Let the event reach SysBoard (it shows that the phone restarts) first.
     QTimer::singleShot(1500, this, [this] {
+        if (Form::isDesktop()) {
+            // systemd restarts; at the next start astra-ota-apply.service puts the new /system and /Applications in place.
+            if (Paths::isDevelopmentRoot() || !QProcess::startDetached(K("systemctl"), {K("reboot")}))
+                fail(K("Restart the computer to install"));
+            return;
+        }
         if (!sendToInit("reboot"))
             fail(K("init is not reachable: restart the phone to install"));
     });
