@@ -12,6 +12,16 @@ export QML2_IMPORT_PATH=/system/framework/qml
 export LD_LIBRARY_PATH=/system/lib
 export QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_INTEGRATION=eglfs_kms QT_QPA_EGLFS_KMS_ATOMIC=1 QT_QPA_EGLFS_HIDECURSOR=1
 
+# astra.env.NAME=VALUE on the kernel command line, and /etc/astra/session.env: environment for astrad and SysBoard
+# (the way to try graphics settings on a machine without rebuilding anything).
+for arg in $(cat /proc/cmdline); do
+    case "$arg" in astra.env.*) export "${arg#astra.env.}" ;; esac
+done
+[ -r /etc/astra/session.env ] && . /etc/astra/session.env
+# astra.debug on the kernel command line: Qt platform and EGL logs, on the console.
+if grep -q astra.debug /proc/cmdline; then exec >/dev/console 2>&1; fi
+grep -q astra.debug /proc/cmdline && export ASTRA_INPUT_DEBUG=1 QT_LOGGING_RULES="qt.qpa.*=true;qt.waylandcompositor.*=true" EGL_LOG_LEVEL=debug LIBGL_DEBUG=verbose
+
 /system/bin/astrad &
 ASTRAD=$!
 trap 'kill "$ASTRAD" 2>/dev/null || true' EXIT TERM INT

@@ -37,7 +37,7 @@ not smooth: the "smooth from the first frame" goal needs a real test on real GPU
 
 ## Updates
 
-Like the phone: GitHub releases of the image's repository (`OTA_REPOSITORY`, default `tsryzenstech/astra_desktop`: **that
+Like the phone: GitHub releases of the image's repository (`OTA_REPOSITORY`, default `tsryzenstech/astra`: **that
 repository has to be created**), each with `ota.json` and `astraOS-<tag>-desktop-system.tar.gz`:
 
 ```json

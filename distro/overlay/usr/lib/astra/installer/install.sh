@@ -8,13 +8,16 @@
 #   --source DIR       what to copy (default: the live system's file system, /run/live/rootfs/filesystem.squashfs)
 #   --user NAME        the Linux user that owns the home directory (default: astra)
 #   --hostname NAME    (default: astra-desktop)
+#   --dual             another system stays on the disk: GRUB shows its menu at every start (and finds the other systems);
+#                      without it the system starts silently, with no menu
+#   --bootdisk DISK    with --root and no EFI partition: the disk whose boot sector gets GRUB (BIOS)
 #   --no-bootloader    do not install GRUB (tests)
 #
 # Prints "PROGRESS <percent> <what is being done>" lines; the last one is "PROGRESS 100 done", or "ERROR <message>"
 # and a non zero exit status.
 set -euo pipefail
 
-DISK="" ROOT="" ESP="" SOURCE=/run/live/rootfs/filesystem.squashfs USERNAME=astra HOST=astra-desktop BOOT=1
+DISK="" ROOT="" ESP="" BOOTDISK="" DUAL=0 SOURCE=/run/live/rootfs/filesystem.squashfs USERNAME=astra HOST=astra-desktop BOOT=1
 while [ $# -gt 0 ]; do
     case "$1" in
         --disk) DISK=$2; shift 2 ;;
@@ -23,6 +26,8 @@ while [ $# -gt 0 ]; do
         --source) SOURCE=$2; shift 2 ;;
         --user) USERNAME=$2; shift 2 ;;
         --hostname) HOST=$2; shift 2 ;;
+        --dual) DUAL=1; shift ;;
+        --bootdisk) BOOTDISK=$2; shift 2 ;;
         --no-bootloader) BOOT=0; shift ;;
         *) echo "ERROR unknown option $1"; exit 2 ;;
     esac
@@ -123,8 +128,29 @@ if [ "$BOOT" = 1 ]; then
         # Removable path too: firmware that forgets its boot entries still finds it.
         chroot "$TARGET" grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable >/dev/null 2>&1 || true
     fi
-    if [ -n "$DISK" ] && command -v grub-install >/dev/null; then
-        chroot "$TARGET" grub-install --target=i386-pc "$DISK" >/dev/null 2>&1 || echo "note: no BIOS bootloader (the disk boots with UEFI only)"
+    BD=${DISK:-$BOOTDISK}
+    if [ -n "$BD" ] && command -v grub-install >/dev/null; then
+        chroot "$TARGET" grub-install --target=i386-pc "$BD" >/dev/null 2>&1 || echo "note: no BIOS bootloader (the disk boots with UEFI only)"
+    fi
+    # A quiet start: no text on the screen at any time (the boot animation, then the shell), and no menu.
+    mkdir -p "$TARGET/etc/default"
+    touch "$TARGET/etc/default/grub"
+    sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/d; /^GRUB_TIMEOUT/d; /^GRUB_TERMINAL/d; /^GRUB_DISABLE_OS_PROBER/d; /^GRUB_RECORDFAIL/d' "$TARGET/etc/default/grub"
+    echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=0 systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0 plymouth.enable=0"' >> "$TARGET/etc/default/grub"
+    if [ "$DUAL" = 1 ]; then
+        # Another system on the disk: the menu is there at every start, with the other systems in it.
+        printf 'GRUB_TIMEOUT=5
+GRUB_TIMEOUT_STYLE=menu
+GRUB_DISABLE_OS_PROBER=false
+GRUB_DISTRIBUTOR="astraOS"
+' >> "$TARGET/etc/default/grub"
+    else
+        # The only system: no menu, no text, it starts by itself.
+        printf 'GRUB_TIMEOUT=0
+GRUB_TIMEOUT_STYLE=hidden
+GRUB_RECORDFAIL_TIMEOUT=0
+GRUB_DISABLE_OS_PROBER=true
+' >> "$TARGET/etc/default/grub"
     fi
     progress 95 "Preparing the first start"
     chroot "$TARGET" update-initramfs -u >/dev/null 2>&1 || true

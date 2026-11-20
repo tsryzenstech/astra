@@ -15,6 +15,10 @@ Restart=always
 RestartSec=1
 TTYPath=/dev/tty1
 StandardInput=tty-force
+# Nothing of astra is ever written to the screen: the logs are in the journal (astra.debug on the kernel command line
+# sends them to the console).
+StandardOutput=journal
+StandardError=journal
 TTYReset=yes
 TTYVHangup=yes
 Environment=QT_LOGGING_RULES=*.debug=false

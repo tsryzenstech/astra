@@ -14,7 +14,7 @@ Item {
         { package: "com.astra.installer", label: qsTr("Install astraOS"), detail: qsTr("Put astraOS on a disk of this computer") },
         { package: "com.astra.diskutil", label: qsTr("Disk Utility"), detail: qsTr("Erase, format and partition disks") },
         { package: "org.astra.browser", label: qsTr("Browser"), detail: qsTr("Get help online, download what you need") },
-        { package: "org.astra.terminal", label: qsTr("Terminal"), detail: qsTr("Commands, for the ones who know") }
+        { package: "com.astra.terminal", label: qsTr("Terminal"), detail: qsTr("Commands, for the ones who know") }
     ]
     property string selected: "com.astra.installer"
 

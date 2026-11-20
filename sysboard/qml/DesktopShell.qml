@@ -62,7 +62,7 @@ Item {
         windows.toggle(pkg)
     }
     function openActivities() {
-        if (locked)
+        if (locked || Host.installer)
             return
         panels.close()
         activities.toggle()
@@ -149,7 +149,7 @@ Item {
             id: windows
             anchors.fill: parent
             shell: shell
-            workArea: Qt.rect(0, menuBar.height, width, height - menuBar.height - dock.height - 22)
+            workArea: Qt.rect(0, menuBar.height, width, height - menuBar.height - (Host.installer ? 12 : dock.height + 22))
         }
 
         DesktopActivities {
@@ -169,6 +169,7 @@ Item {
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 12
             // Out of the way when a maximised window covers the bottom, back when the pointer comes.
+            visible: !Host.installer     // the recovery environment has the Utilities card, not a Dock
             opacity: shell.locked ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: 240 } }
             enabled: !shell.locked
@@ -403,7 +404,7 @@ Item {
     }
 
     // ---- shortcuts (they work while an app has the focus) ---------------------------------
-    Shortcut { sequences: ["Meta+Space", "Ctrl+Space"]; onActivated: shell.openActivities() }
+    Shortcut { sequences: ["Meta+Space", "Ctrl+Space"]; enabled: !Host.installer; onActivated: shell.openActivities() }
     Shortcut { sequences: ["Ctrl+Alt+L", "Meta+L"]; onActivated: shell.lock() }
     Shortcut { sequences: ["Alt+Tab"]; onActivated: shell.cycleWindows() }
     Shortcut { sequences: ["Ctrl+Q"]; enabled: !shell.locked && windows.activeWindow !== null

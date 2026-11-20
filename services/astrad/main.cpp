@@ -30,6 +30,7 @@
 #include "server.h"
 #include "settingsservice.h"
 #include "systemservice.h"
+#include "terminalservice.h"
 #include "updateservice.h"
 #include "weatherservice.h"
 
@@ -280,6 +281,8 @@ int main(int argc, char **argv)
     server.registerService(QStringLiteral("update"), &update);
     server.registerService(QStringLiteral("nfc"), &nfc);
     server.registerService(QStringLiteral("developer"), &developer);
+    TerminalService terminal(&server);
+    server.registerService(QStringLiteral("terminal"), &terminal);
     InstallerService installer(&server);
     server.registerService(QStringLiteral("installer"), &installer);
     server.registerService(QStringLiteral("phonelink"), &phoneLink);

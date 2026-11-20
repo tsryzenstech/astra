@@ -50,16 +50,20 @@ WaylandCompositor {
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
 
+                Image { id: natural; source: Host.bootLogo; visible: false }
                 Image {
                     id: logo
                     anchors.centerIn: parent
-                    width: Host.desktop ? Math.min(parent.width * 0.14, parent.height * 0.16 * 3) : parent.width * 0.5
+                    // (the natural size comes from a copy of the picture without a size of its own: no binding loop)
+                    readonly property real aspect: natural.implicitHeight > 0 ? natural.implicitWidth / natural.implicitHeight : 3
+                    // Desktop: exactly the boot animation's logo (same size, full strength), so nothing seems to change.
+                    width: Host.desktop ? Math.min(parent.width * 0.14, parent.height * 0.16 * aspect) : parent.width * 0.5
                     fillMode: Image.PreserveAspectFit
                     source: Host.bootLogo
-                    opacity: 0.55
+                    opacity: Host.desktop ? 1 : 0.55
                 }
                 SequentialAnimation {
-                    running: splash.visible
+                    running: splash.visible && !Host.desktop
                     loops: Animation.Infinite
                     OpacityAnimator { target: logo; from: 0.55; to: 1; duration: 1100; easing.type: Easing.InOutSine }
                     OpacityAnimator { target: logo; from: 1; to: 0.55; duration: 1100; easing.type: Easing.InOutSine }

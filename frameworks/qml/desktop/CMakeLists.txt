@@ -8,10 +8,13 @@ qt_add_qml_module(astradesktop
     PLUGIN_TARGET astradesktop
     OUTPUT_DIRECTORY ${ASTRA_QML_OUTPUT}/Astra/Desktop
     IMPORTS Astra.Animation Astra.Core Astra.Controls
+    SOURCES
+        terminalview.cpp terminalview.h
+        vtscreen.cpp vtscreen.h
     QML_FILES
         ContextMenu.qml
         SidebarItem.qml
         ToolButton.qml
 )
-target_link_libraries(astradesktop PRIVATE Qt6::Quick)
+target_link_libraries(astradesktop PRIVATE astra Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick)
 astra_install_qml_module(astradesktop Astra/Desktop)

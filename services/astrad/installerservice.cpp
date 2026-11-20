@@ -87,7 +87,7 @@ bool InstallerService::validPath(const QString &path)
 QJsonArray InstallerService::disks() const
 {
     QProcess p;
-    p.start(K("lsblk"), {K("-J"), K("-b"), K("-p"), K("-o"), K("NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS,MODEL,RM,PTTYPE,PARTLABEL")});
+    p.start(K("lsblk"), {K("-J"), K("-b"), K("-p"), K("-o"), K("NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS,MODEL,RM,PTTYPE,PARTLABEL,PARTTYPE")});
     if (!p.waitForFinished(10000))
         return {};
     const QJsonArray devices = QJsonDocument::fromJson(p.readAllStandardOutput()).object().value(K("blockdevices")).toArray();
@@ -116,7 +116,9 @@ QJsonArray InstallerService::disks() const
             used += size;
             parts.append(QJsonObject{{K("path"), c.value(K("name"))}, {K("name"), QFileInfo(c.value(K("name")).toString()).fileName()},
                                      {K("size"), double(size)}, {K("fstype"), c.value(K("fstype")).toString()},
-                                     {K("label"), c.value(K("label")).toString(c.value(K("partlabel")).toString())}, {K("mountpoint"), mount}});
+                                     {K("label"), c.value(K("label")).toString(c.value(K("partlabel")).toString())}, {K("mountpoint"), mount},
+                                     // the EFI system partition other systems boot from (a dual boot reuses it)
+                                     {K("esp"), c.value(K("parttype")).toString().compare(QStringLiteral("c12a7328-f81f-11d2-ba4b-00a0c93ec93b"), Qt::CaseInsensitive) == 0}});
         }
         const qint64 size = qint64(d.value(K("size")).toVariant().toLongLong());
         out.append(QJsonObject{{K("path"), name}, {K("name"), QFileInfo(name).fileName()}, {K("model"), d.value(K("model")).toString().trimmed()},
@@ -290,7 +292,13 @@ QJsonValue InstallerService::handle(const QString &call, const QJsonObject &para
             args << K("--root") << root;
             if (params.contains(K("esp")))
                 args << K("--esp") << device("esp");
+            if (params.contains(K("bootdisk")))
+                args << K("--bootdisk") << device("bootdisk");
+            if (params.value(K("dual")).toBool())
+                args << K("--dual");
         }
+        if (params.contains(K("disk")) && params.value(K("dual")).toBool())
+            throw RpcError{protocol::InvalidParams, K("a dual boot does not erase the disk")};
         const QString user = cleanLabel(params.value(K("user")).toString(K("astra")), 24).toLower().remove(QLatin1Char(' '));
         if (!user.isEmpty())
             args << K("--user") << user;

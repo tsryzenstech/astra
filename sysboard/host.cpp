@@ -245,6 +245,10 @@ void SysBoardHost::compositorReady(QQuickWindow *window)
 
 void SysBoardHost::shellLoaded()
 {
+    // The boot animation of the desktop holds its logo until the shell has drawn (core/bootanimation).
+    QFile ready(Paths::runtimeDir() + QStringLiteral("/shell.ready"));
+    if (ready.open(QIODevice::WriteOnly))
+        ready.close();
     // First frame with the whole shell: the GPU path works (see main.cpp).
     connect(m_window, &QQuickWindow::frameSwapped, this, [] {
         QFile::remove(Paths::runtimeDir() + QStringLiteral("/sysboard.starting"));
@@ -414,6 +418,14 @@ bool SysBoardHost::forwardTouch(QWaylandQuickItem *item, QTouchEvent *event)
 
 bool SysBoardHost::eventFilter(QObject *watched, QEvent *event)
 {
+    // ASTRA_INPUT_DEBUG=1 (astra.debug on the kernel command line): what the input devices deliver, for the first events.
+    static const bool inputDebug = qEnvironmentVariableIntValue("ASTRA_INPUT_DEBUG") == 1;
+    static int inputLogged = 0;
+    if (inputDebug && inputLogged < 80 && (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::KeyPress ||
+                                            event->type() == QEvent::MouseMove || event->type() == QEvent::TouchBegin)) {
+        ++inputLogged;
+        qInfo("sysboard: input event %d on %s", int(event->type()), watched ? watched->metaObject()->className() : "?");
+    }
     if (event->type() == QEvent::TouchBegin || event->type() == QEvent::TouchUpdate ||
         event->type() == QEvent::TouchEnd || event->type() == QEvent::TouchCancel) {
         if (auto *item = qobject_cast<QWaylandQuickItem *>(watched))

@@ -1,0 +1,17 @@
+{
+    "package": "com.astra.terminal",
+    "name": "Terminal",
+    "names": { "it": "Terminale" },
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "A shell, as you.",
+    "descriptions": { "it": "Una shell, come te." },
+    "target": "desktop",
+    "desktop": { "width": 820, "height": 520, "minWidth": 360, "minHeight": 220 },
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#151517",
+    "category": "system",
+    "launcher": { "visible": true },
+    "permissions": [ "astra.permission.TERMINAL" ]
+}

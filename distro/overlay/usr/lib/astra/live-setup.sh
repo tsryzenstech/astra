@@ -17,3 +17,14 @@ cat > /data/system/settings.json <<'JSON'
     "theme.mode": "dark"
 }
 JSON
+
+# Unattended installation (tests, deployments): astra.autoinstall=/dev/vda on the kernel command line installs on that disk
+# once the system is up, then powers off. The log is in /var/log/astra-autoinstall.log (and on the serial console).
+for arg in $(cat /proc/cmdline); do
+    case "$arg" in
+        astra.autoinstall=*)
+            disk=${arg#astra.autoinstall=}
+            systemd-run --no-block --unit=astra-autoinstall /bin/sh -c "sleep 25; /usr/lib/astra/installer/install.sh --disk $disk 2>&1 | tee /var/log/astra-autoinstall.log > /dev/ttyS0; echo AUTOINSTALL-FINISHED > /dev/ttyS0; systemctl poweroff"
+            ;;
+    esac
+done

@@ -61,8 +61,12 @@ install -d "$ROOTFS"/{data,home}
 ln -sfn home "$ROOTFS/Users"
 # Qt, the one astra was built with: only the libraries the astra programs and the plugins need, next to astra's own.
 "$SRC/distro/collect-qt.sh" "$ROOTFS" "$QT_DIR"
-cp -a "$SRC/distro/overlay/." "$ROOTFS/"
+cp -rT --no-preserve=mode,ownership "$SRC/distro/overlay" "$ROOTFS"
 chmod +x "$ROOTFS"/usr/lib/astra/*.sh "$ROOTFS"/usr/lib/astra/installer/*.sh
+# What came from the build tree (on a Windows drive under WSL, everything is owned by one user and writable by all).
+chown -R root:root "$ROOTFS/system" "$ROOTFS/Applications"
+chmod -R go-w "$ROOTFS/system" "$ROOTFS/Applications"
+chmod 755 "$ROOTFS/etc" "$ROOTFS/usr" "$ROOTFS/usr/lib" "$ROOTFS/usr/lib/astra" 2>/dev/null || true
 find "$ROOTFS/system" -type f \( -name '*.so*' -o -perm -u+x \) -exec sh -c 'file -b "$1" | grep -q "^ELF" && strip --strip-unneeded "$1" 2>/dev/null' _ {} \; || true
 
 mountpoints
@@ -78,7 +82,7 @@ printf '127.0.0.1 localhost\n127.0.1.1 astra-desktop\n' > "$ROOTFS/etc/hosts"
     echo "ro.product.model=astraOS Desktop"
     echo "ro.product.manufacturer=astra"
     echo "ro.astra.form=desktop"
-    echo "ro.astra.ota.repo=${OTA_REPOSITORY:-tsryzenstech/astra_desktop}"
+    echo "ro.astra.ota.repo=${OTA_REPOSITORY:-tsryzenstech/astra}"
     echo "ro.astra.ota.channel=$([ "$CHANNEL" = stable ] && echo stable || echo prerelease)"
     echo "ro.astra.ota.time=$(date +%s)"
     echo "ro.astra.ota.tag=${OTA_TAG:-$VERSION}"
@@ -134,17 +138,17 @@ rm -rf "$ISO"
 mkdir -p "$ISO/live" "$ISO/boot/grub"
 cp "$ROOTFS"/boot/vmlinuz-* "$ISO/live/vmlinuz"
 cp "$ROOTFS"/boot/initrd.img-* "$ISO/live/initrd.img"
-mksquashfs "$ROOTFS" "$ISO/live/filesystem.squashfs" -comp zstd -Xcompression-level 12 -noappend \
-           -e proc sys dev run tmp boot/initrd.img-\* -quiet
+# (proc, sys, dev... are empty here: the directories must exist, they are the mount points of the live boot)
+mksquashfs "$ROOTFS" "$ISO/live/filesystem.squashfs" -comp zstd -Xcompression-level 12 -noappend -quiet
 cat > "$ISO/boot/grub/grub.cfg" <<'GRUB'
 set timeout=3
 set default=0
 menuentry "astraOS Desktop: install or recover" {
-    linux /live/vmlinuz boot=live components astra.live=1 quiet splash
+    linux /live/vmlinuz boot=live components astra.live=1 quiet loglevel=0 systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0 plymouth.enable=0
     initrd /live/initrd.img
 }
 menuentry "astraOS Desktop: install or recover (safe graphics)" {
-    linux /live/vmlinuz boot=live components astra.live=1 nomodeset
+    linux /live/vmlinuz boot=live components astra.live=1 quiet loglevel=0 systemd.show_status=false vt.global_cursor_default=0 nomodeset
     initrd /live/initrd.img
 }
 GRUB

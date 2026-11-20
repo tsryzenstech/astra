@@ -27,6 +27,7 @@ Item {
         spacing: 18
         visible: !root.locked
         Text {
+            visible: !Host.installer
             id: activities
             text: qsTr("Activities")
             font.family: Theme.fontFamily

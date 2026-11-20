@@ -9,6 +9,7 @@
  *   logo <file>                 (relative to the desc.txt directory)
  *   background #RRGGBB
  *   logo_width_percent <1-100>  (logo width relative to the screen width)
+ *   fade_out <0|1>              (default 1; 0: the logo stays as it is when SysBoard takes over, the shell shows the same one)
  *   logo_height_percent <1-100> (optional: the logo is not taller than this share of the screen height;
  *                                astraOS Desktop uses it with a small logo_width_percent)
  *
@@ -46,6 +47,7 @@ struct config {
     uint32_t background;
     int logo_width_percent;
     int logo_height_percent; /* 0: no limit */
+    int fade_out;            /* 1: fade the logo out when SysBoard takes over; 0: hold it until the shell has drawn */
 };
 
 struct image {
@@ -88,6 +90,7 @@ static void load_config(const char *desc_path, struct config *cfg)
     cfg->background = 0x000000;
     cfg->logo_width_percent = 50;
     cfg->logo_height_percent = 0;
+    cfg->fade_out = 1;
 
     FILE *f = fopen(desc_path, "r");
     if (!f)
@@ -102,6 +105,8 @@ static void load_config(const char *desc_path, struct config *cfg)
             cfg->background = (uint32_t)strtoul(value + 1, NULL, 16);
         else if (!strcmp(key, "logo_width_percent"))
             cfg->logo_width_percent = atoi(value);
+        else if (!strcmp(key, "fade_out"))
+            cfg->fade_out = atoi(value) != 0;
         else if (!strcmp(key, "logo_height_percent"))
             cfg->logo_height_percent = atoi(value);
     }
@@ -430,12 +435,24 @@ int main(int argc, char **argv)
         }
     }
 
-    /* Short fade-out so the hand-over to SysBoard does not look like a cut. */
-    for (int step = 9; step >= 0; step--) {
-        render(&s, &cfg, &logo, (float)step / 10.0f);
+    if (cfg.fade_out) {
+        /* Short fade-out so the hand-over to SysBoard does not look like a cut. */
+        for (int step = 9; step >= 0; step--) {
+            render(&s, &cfg, &logo, (float)step / 10.0f);
+            if (use_drm)
+                drm_present(&s, 0);
+            usleep(16000);
+        }
+    } else {
+        /* The logo must not go away before the shell's own is there (removing the buffer of a display in use
+         * turns it black): let SysBoard take the display over (no master, no control FIFO) and keep the
+         * picture until it says it has drawn (it creates /run/astra/shell.ready), at most 20 s. */
         if (use_drm)
-            drm_present(&s, 0);
-        usleep(16000);
+            drmDropMaster(s.drm_fd);
+        unlink(CONTROL_FIFO);
+        for (int i = 0; i < 200 && access("/run/astra/shell.ready", F_OK) != 0; i++)
+            usleep(100000);
+        unlink("/run/astra/shell.ready");
     }
 
     if (use_drm)

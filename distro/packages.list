@@ -7,9 +7,22 @@ systemd-sysv
 systemd-timesyncd
 udev
 dbus
+dbus-user-session
 kmod
 linux-image-amd64
 firmware-linux
+firmware-linux-nonfree
+firmware-misc-nonfree
+firmware-amd-graphics
+firmware-intel-graphics
+firmware-intel-misc
+firmware-iwlwifi
+firmware-realtek
+firmware-atheros
+firmware-brcm80211
+firmware-sof-signed
+amd64-microcode
+intel-microcode
 grub-efi-amd64
 initramfs-tools
 sudo
@@ -23,6 +36,8 @@ libdrm2
 libdrm-amdgpu1
 libdrm-intel1
 libegl1
+libopengl0
+libglx0
 libgbm1
 libgl1-mesa-dri
 libglx-mesa0
@@ -94,10 +109,14 @@ rsync
 grub-pc-bin
 grub-efi-amd64-bin
 grub-common
+os-prober
 efibootmgr
 procps
 util-linux
 # the browser and the terminal of the recovery environment (Linux programs listed as apps in /Applications)
 firefox-esr
-foot
 fonts-noto-core
+
+# input: touchpads (I2C HID, SMBus), keyboards, mice, tablets, and the tools to see what the kernel found
+libinput-tools
+evtest

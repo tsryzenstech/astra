@@ -103,7 +103,9 @@ int main(int argc, char **argv)
         setDefaultEnv("QT_QPA_PLATFORM", "eglfs");
         setDefaultEnv("QT_QPA_EGLFS_INTEGRATION", "eglfs_kms");
         setDefaultEnv("QT_QPA_EGLFS_KMS_ATOMIC", "1");
-        setDefaultEnv("QT_QPA_EGLFS_HIDECURSOR", "1");
+        // The phone has no pointer; the desktop has one, and it must be seen.
+        if (!astra::Form::isDesktop())
+            setDefaultEnv("QT_QPA_EGLFS_HIDECURSOR", "1");
         // The render thread loses effects: on the phone the battery glyph and, on
         // each start, a different few icons never appeared, while the same QML
         // alone drew them. It also takes the shell 20 s to load instead of 4.
@@ -130,7 +132,10 @@ int main(int argc, char **argv)
         const QString marker = Paths::runtimeDir() + QStringLiteral("/sysboard.starting");
         if (!QFileInfo::exists(QStringLiteral("/dev/dri/renderD128")) || QFileInfo::exists(marker)) {
             qWarning("sysboard: using software rendering");
-            setDefaultEnv("MESA_LOADER_DRIVER_OVERRIDE", "kms_swrast");
+            // The phone's Mesa renders into the KMS buffer (kms_swrast); Debian's Mesa on a GPU without a render node
+            // (a virtual machine) only starts with its plain software rasteriser.
+            setDefaultEnv("MESA_LOADER_DRIVER_OVERRIDE", astra::Form::isDesktop() ? "swrast" : "kms_swrast");
+            setDefaultEnv("LIBGL_ALWAYS_SOFTWARE", "1");
             setDefaultEnv("GALLIUM_DRIVER", "llvmpipe");
         }
         QDir().mkpath(Paths::runtimeDir());

@@ -152,23 +152,45 @@ lists the devices nearby and the system sends. `astrad`: `petaldropservice.cpp`,
 * **Not done**: the transfer is not encrypted on the wire (integrity yes, secrecy no); Bluetooth/AWDL-style discovery
   when there is no common network; sending through the server to a device far away.
 
+## The ISO, the installer and recovery
+
+`distro/build.sh iso` makes `astraOS-<version>-desktop.iso`: a live Debian (live-boot, squashfs, GRUB for BIOS and UEFI) that
+starts with `astra.live=1` on the kernel command line. `astra-live.service` then marks the system as live (`/run/astra/live`),
+creates the `astra-live` user and settings that skip the setup and the lock, and SysBoard starts in **recovery mode**
+(`Host.installer`): no widgets, no lock, a Dock with the Installer, Disk Utility, Browser and Terminal, and a Utilities card in
+the middle (Install astraOS, Disk Utility, Browser, Terminal, Restart, Shut Down), as the macOS recovery does.
+
+* **Install astraOS** (`apps-desktop/installer`): Welcome, the disk, the question ("Erase and install?", with what is lost), the
+  progress, Restart. The work is `astrad`'s `installer` service (`installerservice.cpp`, permission `MANAGE_DISKS`, only in the live
+  system, never on the disk the system runs from, only on devices lsblk lists) and `distro/overlay/usr/lib/astra/installer/install.sh`:
+  GPT with a BIOS boot partition, an EFI partition and the system (ext4), `rsync` of the live file system, `fstab` by UUID, the host
+  name, the Linux user that owns the home directory, GRUB for UEFI (and the removable path) and BIOS. The installed system starts
+  with the usual setup wizard (a new `/data`, no `first-boot-done`).
+* **Disk Utility** (`apps-desktop/diskutil`): disks and volumes, erase (ext4, FAT32, exFAT, NTFS, swap), add and delete partitions,
+  mount and unmount. Each change asks first.
+* **Browser, Terminal**: Linux programs listed as apps. `/Applications/<Name>.legacy.json` gives the package, name, icon and
+  `legacy: {exec, args, appId, user}`; the package manager lists it, astrad starts it as that user on SysBoard's Wayland
+  socket, and the window is matched to the package by `app_id`. Any other Wayland program draws a plain resizable window.
+  The recovery browser is Firefox ESR: **Planet** needs Qt WebEngine, which the Qt astra is built with here does not have.
+
 ## Updates (OTA)
 
-Phones update from the GitHub releases of their device repository (`docs/VERSIONING.md`). A desktop does the same
-from the release of the desktop image repository (`OTA_REPOSITORY` of the image, `ro.astra.ota.repo`; the
-channel is the build's, Delta for pre-releases and Stable for releases, as on the phone). A release carries
-`ota.json` and `astraOS-<tag>-desktop-system.tar.zst`: `/system` and `/Applications`. The update service
-downloads and verifies it, and a unit at the next boot swaps the trees (`/system.new` → `/system`, atomically, the old
-one kept as `/system.old` for a rollback). The kernel, firmware and drivers come from Debian through `apt` (the
-distribution's own updates), not from astraOS's OTA.
+Like the phone: GitHub releases of this repository's releases (`OTA_REPOSITORY`, `ro.astra.ota.repo`, default `tsryzenstech/astra`; the workflow is
+`.github/workflows/desktop-iso.yml`, **not committed until the desktop is finished**), pre-releases `<version>-rev<N>` and releases
+`<version>`, the channel is the build's. Each release carries the ISO, `astraOS-<tag>-desktop-system.tar.gz` (`/system` and
+`/Applications`) and `ota.json` (`distro/build.sh ota`). The update service downloads and checks it, "Install and restart" runs
+`systemctl reboot`, and `astra-ota-apply.service` swaps the trees with renames at the next start (the old ones stay as `*.old`).
+The kernel, firmware and drivers are Debian's and update with `apt`.
 
-## Image
+## Desktop details
 
-`distro/` (see its README): `build.sh` builds the Debian root file system with `mmdebstrap`, installs the
-astra tree (`cmake --install` with `-DASTRA_FORM=desktop`), the systemd units, the package list (kernel,
-firmware, Mesa, PipeWire, NetworkManager, the NVIDIA/AMD/Intel drivers), and writes a UEFI-bootable image (`.img`)
-for a USB stick. The boot animation is the phone's (`core/bootanimation`, shown by a systemd unit before
-SysBoard, and handed over as on the phone).
+* The widgets on the left of the desktop: at most **two**, or one **giant folder** (a tall tile with apps); drag to reorder, right
+  click for Remove / Move / Add Widget / Add Giant Folder (`desktop.widgets`). The lock screen has no widgets.
+* The menu bar always has Bluetooth, Wi-Fi and a battery glyph (dimmed when there is nothing to report) and opens the Control Center.
+* Notification banners are cards at the top right; dialogs (permissions, confirmations) are small cards in the middle.
+* The boot animation is the phone's, smaller (`logo_width_percent`, `logo_height_percent` in the desktop's `desc.txt`).
+* Runtime permissions of the system's own apps are granted from the start (Files has its files at once).
+* Wi-Fi: NetworkManager (`network/nm.cpp`); Bluetooth: BlueZ; power: `systemctl`; NVIDIA: `first-boot.sh` installs Debian's driver.
 
 ## Milestones
 

@@ -3,6 +3,7 @@
 #include "permissions.h"
 #include "settingsservice.h"
 
+#include <astra/form.h>
 #include <astra/paths.h>
 #include <astra/properties.h>
 #include <astra/protocol.h>
@@ -153,6 +154,13 @@ QJsonObject HardwareService::battery() const
         b.insert(QStringLiteral("capacityPercent"), int(100 * full / design));
     if (design > 0)
         b.insert(QStringLiteral("designCapacity"), double(design) / 1e3); // mAh
+    // Laptops: no "capacity" file, but the energy (or the charge) now and when full.
+    if (readSys(m_batteryDir + QStringLiteral("/capacity")).isEmpty()) {
+        const qint64 now = num("energy_now") > 0 ? num("energy_now") : num("charge_now");
+        const qint64 fullNow = num("energy_full") > 0 ? num("energy_full") : num("charge_full");
+        if (now > 0 && fullNow > 0)
+            b.insert(QStringLiteral("level"), int(qBound<qint64>(Q_INT64_C(0), 100 * now / fullNow, Q_INT64_C(100))));
+    }
     // Some fuel gauges expose capacity only through the level class.
     if (b.value(QStringLiteral("level")).toInt() == 0 && readSys(m_batteryDir + QStringLiteral("/capacity")).isEmpty()) {
         const QByteArray lvl = readSys(m_batteryDir + QStringLiteral("/capacity_level"));
@@ -190,6 +198,10 @@ QString stateFile()
 // corrected by the voltage when the battery rests and kept across restarts.
 int HardwareService::shownLevel(const QJsonObject &raw)
 {
+    // A computer's battery (astraOS Desktop) is not the phone's single Li-ion cell: its voltage (11 to 15 V) says nothing
+    // through the phone's curve (it read 100 % always). The kernel's own figure is what is shown.
+    if (Form::isDesktop())
+        return qBound(0, raw.value(QLatin1String("level")).toInt(), 100);
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     const double volts = raw.value(QLatin1String("voltage")).toDouble();
     const double mA = raw.value(QLatin1String("current")).toDouble();   // + into the battery

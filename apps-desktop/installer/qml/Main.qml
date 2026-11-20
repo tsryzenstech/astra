@@ -14,9 +14,10 @@ Rectangle {
     property int step: 0                       // 0 welcome, 1 disk, 2 confirm, 3 installing, 4 done, 5 failed
     property var disks: []
     property string chosen: ""                 // a disk path
-    property string mode: "erase"              // "erase": the whole disk; "partition": one partition of it
-    property string rootPartition: ""
-    property string espPartition: ""
+    property string mode: "erase"              // "erase": the whole disk, astraOS alone; "dual": next to what is on the disk
+    property string rootPartition: ""          // dual: the partition astraOS goes on ("new": one made in the free space)
+    property real newSizeGB: 40
+    readonly property var esp: disk ? (disk.partitions.find(p => p.esp) || null) : null
     property real percent: 0
     property string text: ""
     property string error: ""
@@ -35,8 +36,24 @@ Rectangle {
         step = 3
         percent = 0
         text = qsTr("Starting...")
-        const params = mode === "erase" ? { disk: chosen } : { root: rootPartition, esp: espPartition || undefined }
-        Installer.call("install", params, function(result, err) { if (err) { app.error = err; app.step = 5 } })
+        const go = (root) => {
+            const params = mode === "erase" ? { disk: chosen }
+                : { root: root, esp: esp ? esp.path : undefined, bootdisk: chosen, dual: true }
+            Installer.call("install", params, function(result, err) { if (err) { app.error = err; app.step = 5 } })
+        }
+        if (mode === "dual" && rootPartition === "new") {
+            // The partition is made in the free space first, then it is the one astraOS goes on.
+            text = qsTr("Making the partition...")
+            Installer.call("createPartition", { disk: chosen, size: newSizeGB * 1e9, format: "ext4", label: "astraOS" }, function(result, err) {
+                if (err) { app.error = err; app.step = 5; return }
+                Installer.call("disks", {}, function(list) {
+                    const d = (list || []).find(x => x.path === chosen)
+                    go(d && d.partitions.length ? d.partitions[d.partitions.length - 1].path : "")
+                })
+            })
+        } else {
+            go(mode === "dual" ? rootPartition : "")
+        }
     }
     Connections {
         target: Installer
@@ -73,7 +90,7 @@ Rectangle {
         ListView {
             anchors.top: sub1.bottom
             anchors.topMargin: 16
-            anchors.bottom: buttons1.top
+            anchors.bottom: modeBox.visible ? modeBox.top : buttons1.top
             anchors.bottomMargin: 16
             width: parent.width
             spacing: 10
@@ -104,6 +121,64 @@ Rectangle {
                 MouseArea { anchors.fill: parent; enabled: card.usable; onClicked: { app.chosen = card.modelData.path; app.mode = "erase" } }
             }
         }
+        // Alone, or next to what is on the disk.
+        Column {
+            id: modeBox
+            visible: app.chosen !== ""
+            anchors.bottom: buttons1.top
+            anchors.bottomMargin: 12
+            width: parent.width
+            spacing: 8
+            Row {
+                spacing: 8
+                Repeater {
+                    model: [ { id: "erase", label: qsTr("Erase the disk (astraOS alone)") }, { id: "dual", label: qsTr("Install next to another system (dual boot)") } ]
+                    delegate: Rectangle {
+                        required property var modelData
+                        height: 36; width: modeText.implicitWidth + 32; radius: 18
+                        color: app.mode === modelData.id ? Theme.accent : Theme.surfaceRaised
+                        Text { id: modeText; anchors.centerIn: parent; text: modelData.label; font.family: Theme.fontFamily; font.pixelSize: Theme.captionSize
+                               color: app.mode === modelData.id ? Theme.accentText : Theme.text }
+                        MouseArea { anchors.fill: parent; onClicked: { app.mode = modelData.id; if (modelData.id === "dual" && app.rootPartition === "") app.rootPartition = app.disk && app.disk.free > 25e9 ? "new" : "" } }
+                    }
+                }
+            }
+            Text {
+                visible: app.mode === "erase"
+                width: parent.width; wrapMode: Text.Wrap
+                text: qsTr("astraOS starts by itself, without a menu.")
+                font.family: Theme.fontFamily; font.pixelSize: Theme.captionSize; color: Theme.textSecondary
+            }
+            Column {
+                visible: app.mode === "dual"
+                width: parent.width
+                spacing: 6
+                Text { width: parent.width; wrapMode: Text.Wrap
+                       text: qsTr("The other systems stay. The boot menu appears at every start, to choose which one starts. Choose where astraOS goes (it is erased):")
+                       font.family: Theme.fontFamily; font.pixelSize: Theme.captionSize; color: Theme.textSecondary }
+                Flow {
+                    width: parent.width
+                    spacing: 6
+                    Repeater {
+                        model: (app.disk ? app.disk.partitions.filter(p => !p.esp && p.size > 8e9) : []).concat(app.disk && app.disk.free > 25e9 ? [{ path: "new", name: qsTr("New partition (%1 free)").arg(app.size(app.disk.free)), size: 0 }] : [])
+                        delegate: Rectangle {
+                            required property var modelData
+                            height: 34; width: partText.implicitWidth + 28; radius: 17
+                            color: app.rootPartition === modelData.path ? Theme.accent : Theme.surfaceRaised
+                            Text { id: partText; anchors.centerIn: parent; text: modelData.path === "new" ? modelData.name : modelData.name + " " + app.size(modelData.size) + (modelData.fstype ? " " + modelData.fstype : "")
+                                   font.family: Theme.fontFamily; font.pixelSize: Theme.captionSize; color: app.rootPartition === modelData.path ? Theme.accentText : Theme.text }
+                            MouseArea { anchors.fill: parent; onClicked: app.rootPartition = modelData.path }
+                        }
+                    }
+                }
+                Row {
+                    visible: app.rootPartition === "new"
+                    spacing: 10
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Size: %1 GB").arg(Math.round(app.newSizeGB)); font.family: Theme.fontFamily; font.pixelSize: Theme.captionSize; color: Theme.text }
+                    Slider { width: 240; from: 20; to: Math.max(21, Math.floor((app.disk ? app.disk.free : 0) / 1e9)); value: app.newSizeGB; onMoved: app.newSizeGB = value }
+                }
+            }
+        }
         EmptyState { visible: app.disks.length === 0; anchors.centerIn: parent; iconName: "storage"; title: qsTr("No disk found"); message: qsTr("Connect a disk and press Refresh.") }
         Row {
             id: buttons1
@@ -112,7 +187,7 @@ Rectangle {
             spacing: 10
             Button { text: qsTr("Back"); primary: false; onClicked: app.step = 0 }
             Button { text: qsTr("Refresh"); primary: false; onClicked: app.refresh() }
-            Button { text: qsTr("Continue"); enabled: app.chosen !== ""; onClicked: app.step = 2 }
+            Button { text: qsTr("Continue"); enabled: app.chosen !== "" && (app.mode === "erase" || app.rootPartition !== ""); onClicked: app.step = 2 }
         }
     }
 
@@ -124,16 +199,19 @@ Rectangle {
         width: Math.min(460, parent.width - 64)
         Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "warning"; size: 48; color: Theme.warning }
         Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
-               text: qsTr("Erase “%1” and install astraOS?").arg(app.disk ? (app.disk.model || app.disk.name) : "")
+               text: app.mode === "erase" ? qsTr("Erase “%1” and install astraOS?").arg(app.disk ? (app.disk.model || app.disk.name) : "")
+                                          : qsTr("Install astraOS next to your other systems?")
                font.family: Theme.fontFamily; font.pixelSize: Theme.titleSize; font.weight: Font.DemiBold; color: Theme.text }
         Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
-               text: qsTr("Everything on this disk (%1) will be erased and cannot be recovered.").arg(app.disk ? app.size(app.disk.size) : "")
+               text: app.mode === "erase" ? qsTr("Everything on this disk (%1) will be erased and cannot be recovered.").arg(app.disk ? app.size(app.disk.size) : "")
+                     : app.rootPartition === "new" ? qsTr("A partition of %1 GB is made in the free space. The other systems are not touched; the boot menu appears at every start.").arg(Math.round(app.newSizeGB))
+                     : qsTr("The partition %1 is erased and astraOS goes on it. The other systems are not touched; the boot menu appears at every start.").arg(app.rootPartition)
                font.family: Theme.fontFamily; font.pixelSize: Theme.bodySize; color: Theme.textSecondary }
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 10
             Button { text: qsTr("Back"); primary: false; onClicked: app.step = 1 }
-            Button { text: qsTr("Erase and Install"); onClicked: app.start() }
+            Button { text: app.mode === "erase" ? qsTr("Erase and Install") : qsTr("Install"); onClicked: app.start() }
         }
     }
 

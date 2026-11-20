@@ -5,8 +5,9 @@ set -eu
 getent group media_rw >/dev/null || groupadd -g 1023 media_rw
 getent group astra-system >/dev/null || groupadd -r astra-system
 getent passwd astra-system >/dev/null || useradd -r -g astra-system -d /data/system -s /usr/sbin/nologin astra-system
-install -d -m 0755 /dev/socket /run/astra /run/astra/display
-install -d -o astra-system -g astra-system -m 0770 /run/astra/display
+install -d -m 0755 /dev/socket
+# SysBoard (astra-system) writes its display configuration and markers in /run/astra, as it does on the phone.
+install -d -o astra-system -g astra-system -m 0755 /run/astra /run/astra/display
 install -d -m 0771 /data /data/system /data/app /data/data /data/media
 # Shared storage (/sdcard) is the first user's home: group media_rw can read and write what apps with the
 # Photos, videos and music permission may, as on the phone.

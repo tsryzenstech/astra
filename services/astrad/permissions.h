@@ -44,6 +44,7 @@ constexpr const char MEDIA_CONTROL[] = "astra.permission.MEDIA_CONTROL";
 constexpr const char HARDWARE[] = "astra.permission.HARDWARE";
 constexpr const char POWER[] = "astra.permission.POWER";
 constexpr const char DEVELOPER[] = "astra.permission.DEVELOPER";
+constexpr const char TERMINAL[] = "astra.permission.TERMINAL";   // astraOS Desktop: a shell as the user (the Terminal app)
 constexpr const char MANAGE_DISKS[] = "astra.permission.MANAGE_DISKS";   // astraOS Desktop: the Installer and Disk Utility
 
 enum class Level { Normal, Runtime, Privileged };
@@ -82,6 +83,7 @@ inline const QList<Info> &all()
         {HARDWARE, Level::Privileged, 0, "Control hardware", "flashlight"},
         {POWER, Level::Privileged, 0, "Reboot the device", "power"},
         {DEVELOPER, Level::Privileged, 0, "Developer options", "code"},
+        {TERMINAL, Level::Privileged, 0, "Run commands as the user", "code"},
         {MANAGE_DISKS, Level::Privileged, 0, "Erase and format disks, install astraOS", "storage"},
     };
     return table;
