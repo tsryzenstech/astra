@@ -1,0 +1,61 @@
+{
+    "package": "com.astra.settings",
+    "name": "Settings",
+    "version": "0.1.0",
+    "versionCode": 1,
+    "description": "Configure astraOS on this computer.",
+    "main": "qml/Main.qml",
+    "icon": "icon.svg",
+    "background": "#000000",
+    "category": "system",
+    "launcher": {
+        "visible": true
+    },
+    "permissions": [
+        "astra.permission.MANAGE_SETTINGS",
+        "astra.permission.MANAGE_LOCK",
+        "astra.permission.MANAGE_PACKAGES",
+        "astra.permission.MANAGE_NOTIFICATIONS",
+        "astra.permission.MEDIA_CONTROL",
+        "astra.permission.MEDIA",
+        "astra.permission.HARDWARE",
+        "astra.permission.POWER",
+        "astra.permission.MANAGE_NETWORK",
+        "astra.permission.MANAGE_THEMES",
+        "astra.permission.DEVELOPER",
+        "astra.permission.INTERNET"
+    ],
+    "widgets": [
+        {
+            "id": "battery",
+            "name": "Battery",
+            "qml": "widgets/Battery.qml",
+            "size": "small",
+            "names": {
+                "it": "Batteria"
+            }
+        },
+        {
+            "id": "home",
+            "name": "Settings",
+            "qml": "widgets/Home.qml",
+            "home": [
+                "small",
+                "medium"
+            ]
+        }
+    ],
+    "names": {
+        "it": "Impostazioni"
+    },
+    "descriptions": {
+        "it": "Configura astraOS."
+    },
+    "target": "desktop",
+    "desktop": {
+        "width": 1020,
+        "height": 680,
+        "minWidth": 760,
+        "minHeight": 520
+    }
+}

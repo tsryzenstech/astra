@@ -2,10 +2,14 @@
 #pragma once
 
 #include <QHash>
+#include <QList>
 #include <QObject>
 #include <QPointF>
+#include <QVariantMap>
 
 class QPointingDevice;
+class XkbKeyboard;
+struct libinput_device;
 class QSocketNotifier;
 struct libinput;
 struct libinput_event;
@@ -22,6 +26,10 @@ public:
 
     // False when libinput cannot be started (no udev, no permission on /dev/input).
     bool start();
+    // Settings > Keyboard and Trackpad: { layout, variant, naturalScroll, tapToClick, pointerSpeed }.
+    void setConfig(const QVariantMap &config);
+    // Whether the keyboard is ours (xkbcommon) rather than Qt's evdev plugin.
+    bool keyboardReady() const;
 
 Q_SIGNALS:
     // Where the pointer is, and whether it is the thing in use (a touch hides it).
@@ -39,6 +47,7 @@ private:
     void scroll(libinput_event *event, int source);
     void touch(libinput_event *event, int type);
     QRectF screen() const;
+    void configure(libinput_device *device);
 
     libinput *m_li = nullptr;
     QSocketNotifier *m_notifier = nullptr;
@@ -49,4 +58,7 @@ private:
     struct Finger { int slot; QPointF pos; int state; };
     QHash<int, Finger> m_fingers;
     int m_pointers = 0, m_touches = 0;
+    XkbKeyboard *m_keyboard = nullptr;
+    QList<libinput_device *> m_touchpads;
+    QVariantMap m_config;
 };

@@ -221,6 +221,14 @@ bool PackageManager::installFrom(const QString &apkgPath, bool system, bool priv
         return false;
     }
     const QJsonObject existing = m_packages.value(pkg);
+    // The desktop build of an app is never replaced by its phone build (a phone window with the phone's layout): Market on a
+    // desktop offers an app's phone build only to the ones that have no desktop build.
+    if (!existing.isEmpty() && Form::isDesktop() &&
+        Form::normalizeTarget(existing.value(K("manifest")).toObject().value(K("target")).toString()) == QLatin1String("desktop") &&
+        Form::normalizeTarget(manifest.value(K("target")).toString()) != QLatin1String("desktop")) {
+        *error = QStringLiteral("%1 is installed as a desktop app: its phone version does not replace it").arg(pkg);
+        return false;
+    }
     // System apps are also on Market: a newer version from there (or from the
     // system itself, ADU) replaces the image's until the image has a newer one.
     // Nothing else may replace a system app: it would get its rights.

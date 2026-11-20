@@ -162,6 +162,14 @@ bool SysBoardHost::desktop() const
     return astra::Form::isDesktop();
 }
 
+void SysBoardHost::setInputConfig(const QVariantMap &config)
+{
+    if (m_config == config)
+        return;
+    m_config = config;
+    Q_EMIT inputConfigChanged(m_config);
+}
+
 void SysBoardHost::setPointer(const QPointF &position, bool visible)
 {
     if (m_pointerPosition == position && m_pointerVisible == visible)

@@ -71,6 +71,8 @@ class ApplicationInfo : public QObject
     QML_SINGLETON
 
     Q_PROPERTY(QString packageName READ packageName CONSTANT)
+    // An app of astraOS Desktop's own ("target": "desktop"), in a window with no phone chrome.
+    Q_PROPERTY(bool desktopApp READ desktopApp CONSTANT)
     Q_PROPERTY(QVariantMap args READ args NOTIFY argsChanged)
     Q_PROPERTY(QString dataDir READ dataDir CONSTANT)
     Q_PROPERTY(QString mediaDir READ mediaDir CONSTANT)
@@ -82,6 +84,7 @@ public:
     explicit ApplicationInfo(QObject *parent = nullptr);
     QColor accent() const;
     QString packageName() const;
+    bool desktopApp() const { return qEnvironmentVariableIntValue("ASTRA_APP_DESKTOP") == 1; }
     QVariantMap args() const { return m_args; }
     QString dataDir() const;
     QString mediaDir() const; // shared user storage (/data/media/0, a.k.a. /sdcard)

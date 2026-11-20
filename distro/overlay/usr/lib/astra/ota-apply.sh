@@ -33,6 +33,8 @@ mv /system /system.old
 mv /system.new /system
 if [ -d /Applications ]; then mv /Applications /Applications.old; fi
 mv /Applications.new /Applications
+# An installed system does not carry the recovery tools (the update's /Applications has them, it is the ISO's too).
+[ -f /etc/astra/installed ] && sh /usr/lib/astra/remove-live-apps.sh / || true
 rm -f "$APPLY/system.tar"
 cp "$APPLY/ota.json" /system/ota.json 2>/dev/null || true
 echo applied > "$STATE"

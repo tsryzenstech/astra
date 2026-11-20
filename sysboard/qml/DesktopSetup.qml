@@ -220,7 +220,12 @@ Rectangle {
                     Settings.setValue("desktop.user.name", userName.text.trim())
                     Lock.setPin("", userPassword.text, (ok, error) => {
                         userError.text = ok ? "" : (error || "")
-                        if (ok) { root.userReady = true; root.next() }
+                        if (ok) {
+                            // The Linux account of this computer takes the name too (there is no account called "astra" after this).
+                            System.call("system.setUserName", { name: userName.text.trim(), fullName: userName.text.trim() }, (r, e) => {})
+                            root.userReady = true
+                            root.next()
+                        }
                     })
                 }
             }
@@ -360,6 +365,16 @@ Rectangle {
             }
         }
     }
+    // The keyboard works from the first screen: the wizard has the focus, and the name field on the step that asks for one.
+    function takeFocus() {
+        if (current === "user" && !Lock.hasPin)
+            userName.forceActiveFocus()
+        else
+            root.forceActiveFocus()
+    }
+    onNeededChanged: if (needed) Qt.callLater(takeFocus)
+    onStepChanged: Qt.callLater(takeFocus)
+    Component.onCompleted: if (needed) Qt.callLater(takeFocus)
     Keys.onReturnPressed: if (root.canContinue && !(root.current === "user" && !Lock.hasPin)) root.current === "done" ? root.finish() : root.next()
 
     component Title: Text { font.family: Theme.fontFamily; font.pixelSize: 38 * root.k; font.weight: Font.Bold; color: "white"; width: parent ? parent.width : 300; wrapMode: Text.WordWrap }
@@ -397,6 +412,7 @@ Rectangle {
         border.color: input.activeFocus ? Qt.rgba(1, 1, 1, 0.5) : Qt.rgba(1, 1, 1, 0.16)
         function forceActiveFocus() { input.forceActiveFocus() }
         TextInput {
+            activeFocusOnTab: true
             id: input
             anchors.fill: parent
             anchors.leftMargin: 18

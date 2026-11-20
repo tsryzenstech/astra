@@ -6,6 +6,7 @@
 #include "permissions.h"
 #include "settingsservice.h"
 
+#include <astra/form.h>
 #include <astra/global.h>
 #include <astra/paths.h>
 #include <astra/properties.h>
@@ -14,13 +15,18 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QLoggingCategory>
+#include <QProcess>
+#include <QRegularExpression>
 #include <QStorageInfo>
 #include <QThread>
 #include <QTimeZone>
 #include <QTimer>
 
+#include <pwd.h>
+#include <sys/stat.h>
 #include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
@@ -156,6 +162,70 @@ void SystemService::bootCompleted()
     m_server->broadcast(K("system.bootCompleted"), true);
 }
 
+QJsonObject SystemService::renameUser(const QString &requested, const QString &fullName)
+{
+    auto fail = [](const QString &message) { return QJsonObject{{K("ok"), false}, {K("error"), message}}; };
+    if (!Form::isDesktop() || Paths::isDevelopmentRoot() || QFile::exists(K("/run/astra/live")))
+        return QJsonObject{{K("ok"), true}, {K("unchanged"), true}};
+    // A Linux user name: lowercase letters, digits, "_" and "-", starting with a letter.
+    QString name;
+    for (const QChar c : requested.normalized(QString::NormalizationForm_D).toLower()) {
+        if ((c >= QLatin1Char('a') && c <= QLatin1Char('z')) || (c >= QLatin1Char('0') && c <= QLatin1Char('9')) || c == QLatin1Char('_') || c == QLatin1Char('-'))
+            name += c;
+    }
+    if (name.isEmpty() || !name.at(0).isLetter())
+        name.prepend(QLatin1String("user"));
+    name = name.left(30);
+    // The account today: the owner of the shared storage.
+    struct stat st {};
+    const QByteArray media = QFile::encodeName(QFileInfo(Paths::userMedia()).canonicalFilePath());
+    if (media.isEmpty() || ::stat(media.constData(), &st) != 0 || st.st_uid == 0)
+        return fail(K("There is no account to rename"));
+    const passwd *current = getpwuid(st.st_uid);
+    if (!current)
+        return fail(K("There is no account to rename"));
+    const QString old = QString::fromLocal8Bit(current->pw_name);
+    if (old != name) {
+        QString candidate = name;
+        for (int n = 2; getpwnam(candidate.toLocal8Bit().constData()) && n < 100; ++n)
+            candidate = name + QString::number(n);
+        name = candidate;
+    }
+    auto run = [](const QString &program, const QStringList &args) {
+        QProcess p;
+        p.start(program, args);
+        if (!p.waitForFinished(30000) || p.exitCode() != 0)
+            return QString::fromLocal8Bit(p.readAllStandardError()).trimmed().isEmpty() ? QStringLiteral("failed") : QString::fromLocal8Bit(p.readAllStandardError()).trimmed();
+        return QString();
+    };
+    if (old != name) {
+        // Nothing of the old account runs now (the setup is the first thing after the install).
+        QString err = run(K("usermod"), {K("-l"), name, K("-d"), K("/home/") + name, K("-m"), old});
+        if (!err.isEmpty())
+            return fail(err);
+        run(K("groupmod"), {K("-n"), name, old});
+        // Shared storage is the first user's home.
+        QFile::remove(Paths::userMedia());
+        QFile::link(K("/home/") + name, Paths::userMedia());
+    }
+    if (!fullName.trimmed().isEmpty())
+        run(K("usermod"), {K("-c"), fullName.trimmed().left(60), name});
+    // The Linux programs listed as apps run as this account.
+    const QStringList legacy = QDir(K("/Applications")).entryList({K("*.legacy.json")}, QDir::Files);
+    for (const QString &f : legacy) {
+        QFile file(K("/Applications/") + f);
+        if (file.open(QIODevice::ReadOnly)) {
+            QByteArray data = file.readAll();
+            file.close();
+            data.replace(QByteArray("\"") + old.toUtf8() + QByteArray("\""), QByteArray("\"") + name.toUtf8() + QByteArray("\""));
+            if (file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+                file.write(data);
+        }
+    }
+    m_settings->setValue(K("desktop.user.linux"), name);
+    return QJsonObject{{K("ok"), true}, {K("name"), name}, {K("previous"), old}};
+}
+
 QJsonValue SystemService::handle(const QString &call, const QJsonObject &params, const Caller &caller)
 {
     if (call == QLatin1String("ping"))
@@ -196,6 +266,12 @@ QJsonValue SystemService::handle(const QString &call, const QJsonObject &params,
     }
     if (call == QLatin1String("lastTimeSync"))
         return double(m_time.lastSync());
+    if (call == QLatin1String("setUserName")) {
+        // astraOS Desktop, the setup: the Linux account of this computer takes the user's name (the image ships one called
+        // "astra"; after the setup there is no such account, only the user's).
+        caller.requireSystem();
+        return renameUser(params.value(K("name")).toString(), params.value(K("fullName")).toString());
+    }
     if (call == QLatin1String("setDeviceName")) {
         caller.require(QLatin1String(permissions::MANAGE_SETTINGS));
         m_settings->setValue(K("system.device_name"), params.value(K("name")).toString().trimmed().left(40));

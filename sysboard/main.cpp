@@ -194,15 +194,19 @@ int main(int argc, char **argv)
 
 #ifdef ASTRA_HAVE_INPUTBRIDGE
     if (astra::Form::isDesktop() && !Paths::isDevelopmentRoot()) {
-        // The keyboard: Qt's evdev one (the layout is the build's US one; the setup's layout choice is not applied yet).
-        QGenericPluginFactory::create(QStringLiteral("evdevkeyboard"), QString());
+        // Pointers, touchpads, touch and the keyboard (layouts, xkbcommon): libinput. Qt's own evdev plugins are the way back
+        // when libinput cannot start.
         auto *bridge = new InputBridge(&app);
         QObject::connect(bridge, &InputBridge::pointerChanged, SysBoardHost::instance(), &SysBoardHost::setPointer);
+        QObject::connect(SysBoardHost::instance(), &SysBoardHost::inputConfigChanged, bridge, &InputBridge::setConfig);
         if (!bridge->start()) {
-            // No libinput (no udev, no access to /dev/input): Qt's evdev mouse and touch, which read a plain mouse.
             qWarning("sysboard: libinput did not start, falling back to evdev");
+            QGenericPluginFactory::create(QStringLiteral("evdevkeyboard"), QString());
             QGenericPluginFactory::create(QStringLiteral("evdevmouse"), QString());
             QGenericPluginFactory::create(QStringLiteral("evdevtouch"), QString());
+        } else if (!bridge->keyboardReady()) {
+            qWarning("sysboard: no xkb layouts (xkb-data), keyboard through Qt's evdev plugin");
+            QGenericPluginFactory::create(QStringLiteral("evdevkeyboard"), QString());
         }
     }
 #endif

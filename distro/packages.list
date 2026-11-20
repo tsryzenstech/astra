@@ -122,4 +122,5 @@ fonts-noto-cjk
 
 # input: touchpads (I2C HID, SMBus), keyboards, mice, tablets, and the tools to see what the kernel found
 libinput-tools
+xkb-data
 evtest

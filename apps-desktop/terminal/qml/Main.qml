@@ -24,5 +24,28 @@ Rectangle {
         property bool autostart: true
         Component.onCompleted: { forceActiveFocus(); start() }
         onExited: Application.quit()
+        TapHandler {
+            acceptedButtons: Qt.RightButton
+            onTapped: (point) => {
+                const p = term.mapToItem(app, point.position.x, point.position.y)
+                menu.popup(p.x, p.y, [
+                    { id: "copy", label: qsTr("Copy"), icon: "copy" },
+                    { id: "paste", label: qsTr("Paste") },
+                    { separator: true },
+                    { id: "bigger", label: qsTr("Bigger"), icon: "zoom-in" },
+                    { id: "smaller", label: qsTr("Smaller") } ])
+            }
+        }
+    }
+    ContextMenu {
+        id: menu
+        anchors.fill: parent
+        onTriggered: (id) => {
+            if (id === "copy") term.copy()
+            else if (id === "paste") term.paste()
+            else if (id === "bigger") term.zoom(1)
+            else if (id === "smaller") term.zoom(-1)
+            term.forceActiveFocus()
+        }
     }
 }

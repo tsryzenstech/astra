@@ -11,6 +11,10 @@ WaylandCompositor {
 
     socketName: Host.socketName
 
+    // The layout of the desktop's keyboard (Settings > Keyboard) for every app: they get the keymap and the raw key codes.
+    Binding { target: server.defaultSeat.keymap; property: "layout"; value: Host.keyboardLayout; when: Host.desktop }
+    Binding { target: server.defaultSeat.keymap; property: "variant"; value: Host.keyboardVariant; when: Host.desktop }
+
     WaylandOutput {
         id: output
         sizeFollowsWindow: true

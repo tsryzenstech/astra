@@ -31,7 +31,10 @@ Item {
     property bool maximized: false
     readonly property bool focused: host.activeWindow === win
     readonly property bool phone: (info.target || "mobile") !== "desktop"
-    readonly property bool resizable: !phone && !maximized
+    // The installer of the recovery environment: it cannot be closed, minimised, maximised, moved or resized (it ends by
+    // restarting the computer).
+    readonly property bool fixed: Host.installer && packageName === "com.astra.installer"
+    readonly property bool resizable: !phone && !maximized && !fixed
     readonly property string title: toplevel && toplevel.title ? toplevel.title : (info.name || packageName)
     // A Linux program of the system: its window is a plain one, sized by the program.
     readonly property bool legacy: !!(info.legacy && info.legacy.appId)
@@ -80,6 +83,8 @@ Item {
         presence.animateTo(1, 0)
     }
     function minimize() {
+        if (fixed)
+            return
         minimized = true
         presence.animateTo(0, 0)
         host.windowMinimized(win)
@@ -87,9 +92,18 @@ Item {
     function closeAnimated() {
         presence.animateTo(0, 0)
     }
+    // Maximising and restoring glide: the frame's geometry is animated for a moment (never while it is dragged).
+    property bool glide: false
+    Timer { id: glideEnd; interval: 340; onTriggered: win.glide = false }
+    Behavior on x { enabled: win.glide; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+    Behavior on y { enabled: win.glide; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+    Behavior on width { enabled: win.glide; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+    Behavior on height { enabled: win.glide; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
     function toggleMaximized() {
-        if (!resizable && !maximized)
+        if (fixed || (!resizable && !maximized))
             return
+        glide = true
+        glideEnd.restart()
         if (maximized) {
             maximized = false
             x = restored.x; y = restored.y; width = restored.width; height = restored.height
@@ -119,6 +133,8 @@ Item {
     onWidthChanged: if (!phone) resizeTimer.restart()
     onHeightChanged: if (!phone) resizeTimer.restart()
     Timer { id: resizeTimer; interval: 16; onTriggered: win.resize() }
+    // A window that has just appeared has the keyboard (the user did not have to click it).
+    onHasSurfaceChanged: if (hasSurface && focused) Qt.callLater(function() { surfaceItem.takeFocus() })
     onFocusedChanged: {
         if (toplevel && !phone)
             resize()
@@ -228,7 +244,7 @@ Item {
                         startPos = Qt.point(win.x, win.y)
                     }
                     onPositionChanged: (m) => {
-                        if (!pressed)
+                        if (!pressed || win.fixed)
                             return
                         const p = mapToItem(win.host, m.x, m.y)
                         if (win.maximized && Math.hypot(p.x - origin.x, p.y - origin.y) > 8) {
@@ -254,6 +270,7 @@ Item {
                     height: 5
                     radius: 2.5
                     color: win.phone || Theme.dark || win.info.appearance === "dark" ? "white" : "black"
+                    visible: !win.fixed
                     opacity: (win.focused ? 0.5 : 0.22) * (1 - buttons.opacity)
                 }
                 Row {
@@ -261,6 +278,7 @@ Item {
                     x: 14
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 8
+                    visible: !win.fixed
                     opacity: drag.containsMouse || closeDot.hovered || minDot.hovered || maxDot.hovered ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 140 } }
                     component Dot: Rectangle {

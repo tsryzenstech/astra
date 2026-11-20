@@ -25,6 +25,8 @@ public:
 
 private:
     QJsonObject info() const;
+    // astraOS Desktop: gives the Linux account that owns the shared storage the user's name (see systemservice.cpp).
+    QJsonObject renameUser(const QString &name, const QString &fullName);
     void bootCompleted();
     void applyTimezone(const QString &tz);
 

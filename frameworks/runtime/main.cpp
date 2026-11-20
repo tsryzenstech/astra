@@ -229,6 +229,8 @@ int main(int argc, char **argv)
     view.setTitle(QGuiApplication::applicationDisplayName());
     QObject::connect(view.engine(), &QQmlEngine::quit, &app, &QGuiApplication::quit);
 
+    // A desktop app has no phone status bar over its top (Theme.statusBarHeight is 0 for it).
+    qputenv("ASTRA_APP_DESKTOP", astra::Form::isDesktop() && info.value(QLatin1String("target")).toString() == QLatin1String("desktop") ? "1" : "0");
     view.setSource(QUrl::fromLocalFile(info.value(QLatin1String("main")).toString()));
     if (view.status() == QQuickView::Error) {
         for (const QQmlError &e : view.errors())

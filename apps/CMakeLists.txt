@@ -1,5 +1,9 @@
 include(AstraApp)
 
+# The apps that have a desktop build made of the mobile app's files (apps-desktop/CMakeLists.txt, astra_add_desktop_app NARROW):
+# the image for astraOS Desktop carries that build instead of the phone's.
+set(ASTRA_NARROW_DESKTOP_APPS calculator clock weather calendar contacts tune recorder tips themes email maps aispace astraid meetup market)
+
 astra_add_app(settings PRIVILEGED)
 astra_add_app(camera)
 astra_add_app(clock)

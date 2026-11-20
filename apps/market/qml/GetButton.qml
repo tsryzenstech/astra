@@ -12,7 +12,7 @@ Rectangle {
     property bool prominent: false
     readonly property int have: store.installedVersion(entry.package)
     readonly property bool busy: !!store.installing[entry.package]
-    readonly property bool update: have > 0 && (entry.versionCode || 1) > have
+    readonly property bool update: have > 0 && store.hasUpdate(entry)
     readonly property string label: busy ? "" : have === 0 ? qsTr("GET") : update ? qsTr("UPDATE") : qsTr("OPEN")
 
     width: busy ? height : Math.max(prominent ? 96 : 74, text.implicitWidth + 32)

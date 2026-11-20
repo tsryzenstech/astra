@@ -260,4 +260,6 @@ Item {
         }
     }
     onActiveChanged: if (active) { reveal = false; field.forceActiveFocus() }
+    // The keyboard works as soon as the lock screen is there (at the start there is no change of `active` to say so).
+    Timer { running: root.active; interval: 500; repeat: false; onTriggered: field.forceActiveFocus() }
 }

@@ -9,6 +9,7 @@
 #include <QSize>
 #include <QTimer>
 #include <QUrl>
+#include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
 
 class QLocalServer;
@@ -42,6 +43,9 @@ class SysBoardHost : public QObject
     // The desktop's pointer, drawn by the shell itself (Qt's eglfs cursor is not reliable on every GPU path).
     Q_PROPERTY(QPointF pointerPosition READ pointerPosition NOTIFY pointerChanged)
     Q_PROPERTY(bool pointerVisible READ pointerVisible NOTIFY pointerChanged)
+    // Settings > Keyboard: the layout the compositor's keymap (and so every app) has.
+    Q_PROPERTY(QString keyboardLayout READ keyboardLayout NOTIFY inputConfigChanged)
+    Q_PROPERTY(QString keyboardVariant READ keyboardVariant NOTIFY inputConfigChanged)
 
 public:
     static SysBoardHost *instance();
@@ -62,6 +66,10 @@ public:
     QPointF pointerPosition() const { return m_pointerPosition; }
     bool pointerVisible() const { return m_pointerVisible; }
     void setPointer(const QPointF &position, bool visible);
+    QString keyboardLayout() const { return m_config.value(QStringLiteral("layout"), QStringLiteral("us")).toString(); }
+    QString keyboardVariant() const { return m_config.value(QStringLiteral("variant")).toString(); }
+    // { layout, variant, naturalScroll, tapToClick, pointerSpeed } from the settings (DesktopShell.qml).
+    Q_INVOKABLE void setInputConfig(const QVariantMap &config);
 
     // Blocks until the boot animation released the display (max ~1.5 s).
     static void stopBootAnimation();
@@ -79,6 +87,7 @@ public:
 
 Q_SIGNALS:
     void pointerChanged();
+    void inputConfigChanged(const QVariantMap &config);
     // Hardware buttons (development trees: F12 power, F11 volume up, F10 volume down)
     void powerKeyPressed();        // short press
     void powerKeyLongPressed();    // held for 600 ms: power menu
@@ -104,6 +113,7 @@ private:
     QLocalServer *m_automation = nullptr;
     bool m_screenOn = true;
     QPointF m_pointerPosition;
+    QVariantMap m_config;
     bool m_pointerVisible = false;
 
     // Button state

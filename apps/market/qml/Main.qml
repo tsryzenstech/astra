@@ -21,11 +21,21 @@ Rectangle {
     property var installing: ({})            // package -> true
     property string tab: "today"             // today | apps | search | updates
     readonly property var installed: Packages.count >= 0 ? Packages.list() : []
-    readonly property var updates: catalog.filter(e => { const v = installedVersion(e.package); return v > 0 && (e.versionCode || 1) > v })
+    readonly property var updates: catalog.filter(e => hasUpdate(e))
 
     // Settings arrive a moment after start: reload when the address changes.
     onServerChanged: load()
 
+    // An update is a newer build of the same kind: a desktop app (astraOS Desktop) is never "updated" with the phone version
+    // of the app that Market offers when it has no desktop build.
+    function hasUpdate(entry) {
+        const p = installed.find(i => i.package === entry.package)
+        if (!p)
+            return false
+        if ((p.target || "mobile") === "desktop" && (entry.target || "mobile") !== "desktop")
+            return false
+        return (entry.versionCode || 1) > (p.versionCode || 1)
+    }
     function installedVersion(pkg) {
         const p = installed.find(i => i.package === pkg)
         return p ? (p.versionCode || 1) : 0

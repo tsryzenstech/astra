@@ -111,6 +111,19 @@ Rectangle {
             }
             HoverHandler { id: hover }
             TapHandler { onTapped: { app.viewing = cell.index; app.forceActiveFocus() } }
+            TapHandler {
+                acceptedButtons: Qt.RightButton
+                onTapped: (point) => {
+                    const p = cell.mapToItem(app, point.position.x, point.position.y)
+                    menu.index = cell.index
+                    menu.popup(p.x, p.y, [
+                        { id: "open", label: qsTr("Open"), icon: "image" },
+                        { id: "favorite", label: app.isFavorite(cell.modelData.path) ? qsTr("Remove from Favorites") : qsTr("Add to Favorites"), icon: "heart" },
+                        { id: "share", label: qsTr("Share"), icon: "share" },
+                        { separator: true },
+                        { id: "delete", label: qsTr("Delete"), icon: "trash", danger: true } ])
+                }
+            }
         }
     }
     EmptyState {
@@ -157,4 +170,18 @@ Rectangle {
         }
     }
     ShareSheet { id: share }
+    ContextMenu {
+        id: menu
+        anchors.fill: parent
+        property int index: -1
+        onTriggered: (id) => {
+            const item = app.shown[index]
+            if (!item) return
+            if (id === "open") app.viewing = index
+            else if (id === "favorite") app.toggleFavorite(item.path)
+            else if (id === "share") share.open([item.path], "image/*")
+            else if (id === "delete") { app.viewing = index; app.remove() }
+            app.forceActiveFocus()
+        }
+    }
 }

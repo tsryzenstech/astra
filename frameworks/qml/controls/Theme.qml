@@ -84,8 +84,8 @@ QtObject {
     readonly property int footnoteSize: font(11)
 
     // Metrics
-    readonly property real statusBarHeight: 47
-    readonly property real homeIndicatorHeight: 30
+    readonly property real statusBarHeight: Application.desktopApp ? 0 : 47
+    readonly property real homeIndicatorHeight: Application.desktopApp ? 0 : 30
     readonly property real margin: 16
     readonly property real spacing: 10
     readonly property real rowHeight: 58

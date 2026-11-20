@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "inputbridge.h"
+#include "xkbkeyboard.h"
 
 #include <QGuiApplication>
 #include <QPointingDevice>
@@ -34,7 +35,43 @@ const libinput_interface kInterface = {openRestricted, closeRestricted};
 
 } // namespace
 
-InputBridge::InputBridge(QObject *parent) : QObject(parent) {}
+InputBridge::InputBridge(QObject *parent) : QObject(parent)
+{
+    m_keyboard = new XkbKeyboard(this);
+    m_keyboard->setLayout(QStringLiteral("us"));
+}
+
+bool InputBridge::keyboardReady() const { return m_keyboard && m_keyboard->ready(); }
+
+void InputBridge::setConfig(const QVariantMap &config)
+{
+    m_config = config;
+    if (m_keyboard)
+        m_keyboard->setLayout(config.value(QStringLiteral("layout"), QStringLiteral("us")).toString(),
+                              config.value(QStringLiteral("variant")).toString());
+    for (libinput_device *d : std::as_const(m_touchpads))
+        configure(d);
+}
+
+// A touchpad behaves like a Mac's by default (tap, two finger scroll and click, natural scrolling) and Settings changes it.
+void InputBridge::configure(libinput_device *dev)
+{
+    if (libinput_device_config_tap_get_finger_count(dev) > 0) {
+        libinput_device_config_tap_set_enabled(dev, m_config.value(QStringLiteral("tapToClick"), true).toBool()
+                                                        ? LIBINPUT_CONFIG_TAP_ENABLED : LIBINPUT_CONFIG_TAP_DISABLED);
+        libinput_device_config_tap_set_drag_enabled(dev, LIBINPUT_CONFIG_DRAG_ENABLED);
+        if (libinput_device_config_scroll_get_methods(dev) & LIBINPUT_CONFIG_SCROLL_2FG)
+            libinput_device_config_scroll_set_method(dev, LIBINPUT_CONFIG_SCROLL_2FG);
+        if (libinput_device_config_scroll_has_natural_scroll(dev))
+            libinput_device_config_scroll_set_natural_scroll_enabled(dev, m_config.value(QStringLiteral("naturalScroll"), true).toBool());
+        if (libinput_device_config_click_get_methods(dev) & LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER)
+            libinput_device_config_click_set_method(dev, LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER);
+        if (libinput_device_config_dwt_is_available(dev))
+            libinput_device_config_dwt_set_enabled(dev, LIBINPUT_CONFIG_DWT_ENABLED);
+    }
+    if (libinput_device_config_accel_is_available(dev))
+        libinput_device_config_accel_set_speed(dev, qBound(-1.0, m_config.value(QStringLiteral("pointerSpeed"), 0.0).toDouble(), 1.0));
+}
 
 InputBridge::~InputBridge()
 {
@@ -99,6 +136,8 @@ void InputBridge::deviceRemoved(libinput_event *event)
         --m_pointers;
     if (libinput_device_has_capability(dev, LIBINPUT_DEVICE_CAP_TOUCH) && m_touches > 0)
         --m_touches;
+    if (m_touchpads.removeOne(dev))
+        libinput_device_unref(dev);
     announceDevices();
 }
 
@@ -124,20 +163,11 @@ void InputBridge::deviceAdded(libinput_event *event)
     }
     if (!pointer)
         return;
-    // A touchpad (it taps) behaves like a Mac's: tap to click, two finger scroll and click, natural scrolling, and it
-    // does not move under the palm or while typing.
-    if (libinput_device_config_tap_get_finger_count(dev) > 0) {
-        libinput_device_config_tap_set_enabled(dev, LIBINPUT_CONFIG_TAP_ENABLED);
-        libinput_device_config_tap_set_drag_enabled(dev, LIBINPUT_CONFIG_DRAG_ENABLED);
-        if (libinput_device_config_scroll_get_methods(dev) & LIBINPUT_CONFIG_SCROLL_2FG)
-            libinput_device_config_scroll_set_method(dev, LIBINPUT_CONFIG_SCROLL_2FG);
-        if (libinput_device_config_scroll_has_natural_scroll(dev))
-            libinput_device_config_scroll_set_natural_scroll_enabled(dev, 1);
-        if (libinput_device_config_click_get_methods(dev) & LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER)
-            libinput_device_config_click_set_method(dev, LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER);
-        if (libinput_device_config_dwt_is_available(dev))
-            libinput_device_config_dwt_set_enabled(dev, LIBINPUT_CONFIG_DWT_ENABLED);
+    if (libinput_device_config_tap_get_finger_count(dev) > 0 && !m_touchpads.contains(dev)) {
+        libinput_device_ref(dev);
+        m_touchpads.append(dev);
     }
+    configure(dev);
 }
 
 void InputBridge::moveTo(const QPointF &pos)
@@ -286,6 +316,12 @@ void InputBridge::handle(libinput_event *event)
         const QRectF r = screen();
         moveTo(QPointF(r.left() + libinput_event_pointer_get_absolute_x_transformed(p, int(r.width())),
                        r.top() + libinput_event_pointer_get_absolute_y_transformed(p, int(r.height()))));
+        break;
+    }
+    case LIBINPUT_EVENT_KEYBOARD_KEY: {
+        libinput_event_keyboard *k = libinput_event_get_keyboard_event(event);
+        if (m_keyboard)
+            m_keyboard->key(libinput_event_keyboard_get_key(k), libinput_event_keyboard_get_key_state(k) == LIBINPUT_KEY_STATE_PRESSED);
         break;
     }
     case LIBINPUT_EVENT_POINTER_BUTTON: {

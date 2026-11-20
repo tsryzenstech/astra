@@ -18,6 +18,11 @@ Item {
     // their own (astraOS Desktop sets the width and the position of the column).
     property real contentWidth: width
     property real contentLeft: 0
+    // astraOS Desktop: the Notification Center (it opens from the clock) is a column in the middle of the screen and
+    // the Control Center a column on the right, each in its own place and with nothing blurred under them.
+    readonly property bool columns: contentWidth < width
+    property real notificationsLeft: (width - contentWidth) / 2
+    readonly property real columnLift: 84
 
     readonly property real reveal: revealSpring.value
     readonly property real page: pageSpring.value        // 0 = notifications, 1 = controls
@@ -45,6 +50,8 @@ Item {
         revealSpring.animateTo(open ? 1 : 0, vy / 280)
     }
     function open(kind) {
+        if (panels.columns && Host.installer)
+            return      // the recovery environment has no centers
         pageSpring.snap(kind === "controls" ? 1 : 0)
         opened = true
         revealSpring.animateTo(1, 0)
@@ -58,6 +65,7 @@ Item {
     }
 
     BlurLayer {
+        visible: !panels.columns
         anchors.fill: parent
         source: panels.blurSource
         amount: Math.min(1, panels.reveal)
@@ -122,23 +130,27 @@ Item {
     }
 
     Item {
-        x: panels.contentLeft
-        width: panels.contentWidth
+        x: panels.columns ? 0 : panels.contentLeft
+        // On the desktop the columns start higher (they are cards near the bar, not a full phone screen).
+        y: panels.columns ? -panels.columnLift : 0
+        width: panels.columns ? panels.width : panels.contentWidth
         height: panels.height
-        clip: panels.contentWidth < panels.width
+        clip: !panels.columns && panels.contentWidth < panels.width
 
         NotificationCenter {
-            x: -panels.page * panels.contentWidth
+            x: panels.columns ? panels.notificationsLeft : -panels.page * panels.contentWidth
             width: panels.contentWidth
             height: panels.height
+            visible: !panels.columns || panels.page < 0.5
             panel: panels
             shell: panels.shell
         }
 
         ControlCenter {
-            x: (1 - panels.page) * panels.contentWidth
+            x: panels.columns ? panels.contentLeft : (1 - panels.page) * panels.contentWidth
             width: panels.contentWidth
             height: panels.height
+            visible: !panels.columns || panels.page >= 0.5
             panel: panels
             shell: panels.shell
         }

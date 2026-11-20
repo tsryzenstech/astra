@@ -26,7 +26,7 @@ Item {
         opened = true
         search.forceActiveFocus()
     }
-    function close() { opened = false }
+    function close() { opened = false; search.focus = false }
     function toggle() { opened ? close() : open() }
 
     readonly property string query: search.text.trim().toLowerCase()
@@ -56,7 +56,8 @@ Item {
     Item {
         anchors.fill: parent
         opacity: Math.min(1, root.reveal * 1.5)
-        scale: 0.96 + 0.04 * Math.min(1, root.reveal)
+        transformOrigin: Item.Bottom
+        scale: 0.9 + 0.1 * Math.min(1.05, root.reveal)
 
         Rectangle {
             id: searchBox
@@ -101,7 +102,11 @@ Item {
                 delegate: Item {
                     id: card
                     required property var modelData
+                    required property int index
                     readonly property real ratio: Math.max(0.5, Math.min(2, modelData.width / Math.max(1, modelData.height)))
+                    readonly property real enter: Math.max(0, root.reveal * 1.6 - index * 0.05)
+                    opacity: Math.min(1, enter * 1.4)
+                    scale: 0.7 + 0.3 * Math.min(1.1, enter)
                     width: 190 * Math.min(1.35, ratio) * (ratio < 1 ? 1.0 : 1)
                     height: width / ratio
                     Rectangle {
@@ -152,12 +157,17 @@ Item {
             delegate: Item {
                 id: cell
                 required property var modelData
+                required property int index
                 width: grid.cellWidth
                 height: grid.cellHeight
+                // Each icon pops in a little after the one before it, from below, with the spring's overshoot.
+                readonly property real enter: Math.max(0, root.reveal * 1.7 - Math.min(index, 30) * 0.03)
+                opacity: Math.min(1, enter * 1.4)
+                transform: Translate { y: (1 - Math.min(1.15, cell.enter)) * 36 }
                 Column {
                     anchors.centerIn: parent
                     spacing: 8
-                    scale: tap.pressed ? 0.93 : 1
+                    scale: (tap.pressed ? 0.93 : 1) * (0.55 + 0.45 * Math.min(1.12, cell.enter))
                     Behavior on scale { NumberAnimation { duration: 90 } }
                     AppIcon { anchors.horizontalCenter: parent.horizontalCenter; size: 68; source: cell.modelData.iconUrl || "" }
                     Text {

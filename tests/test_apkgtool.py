@@ -104,7 +104,14 @@ class ApkgToolTest(unittest.TestCase):
         for name in sorted(os.listdir(apps)) if os.path.isdir(apps) else []:
             if os.path.isfile(os.path.join(apps, name, "app.json")):
                 out = os.path.join(self.tmp, name + ".apkg")
-                manifest, _, _ = apkgtool.pack(os.path.join(apps, name), out)
+                src = os.path.join(apps, name)
+                mobile = os.path.join(SOURCE, "apps", name)
+                if not os.path.isfile(os.path.join(src, "icon.svg")) and os.path.isdir(mobile):
+                    # A desktop build that keeps the mobile app's files (astra_add_desktop_app SHARE): laid over a copy of them.
+                    src = os.path.join(self.tmp, "merged-" + name)
+                    shutil.copytree(mobile, src)
+                    shutil.copytree(os.path.join(apps, name), src, dirs_exist_ok=True)
+                manifest, _, _ = apkgtool.pack(src, out)
                 self.assertEqual(manifest.get("target"), "desktop", name)
                 apkgtool.Package(out).verify()
 

@@ -29,6 +29,8 @@ Rectangle {
         anchors.rightMargin: 16
         verticalAlignment: TextInput.AlignVCenter
         clip: true
+        // Tab (and Shift+Tab) move from one field to the next, as on a desktop.
+        activeFocusOnTab: true
         font.family: Theme.fontFamily
         font.pixelSize: Theme.bodySize
         color: Theme.text

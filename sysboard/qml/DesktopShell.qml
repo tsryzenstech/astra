@@ -182,8 +182,8 @@ Item {
         locked: shell.locked
         appName: windows.activeWindow && !windows.activeWindow.minimized ? windows.activeWindow.info.name || "" : ""
         onActivitiesClicked: shell.openActivities()
-        onClockClicked: { activities.close(); panels.open("notifications") }
-        onStatusClicked: { activities.close(); panels.open("controls") }
+        onClockClicked: if (!Host.installer) { activities.close(); panels.open("notifications") }
+        onStatusClicked: if (!Host.installer) { activities.close(); panels.open("controls") }
         z: 31   // over the lock screen too: the status is always there
     }
 
@@ -196,6 +196,15 @@ Item {
         blurSource: screenContent
         contentWidth: 393
         contentLeft: parent.width - 393 - 14
+    }
+
+    DesktopSearch {
+        id: search
+        anchors.fill: parent
+        anchors.topMargin: menuBar.height - 4
+        z: 4
+        shell: shell
+        blurSource: screenContent
     }
 
     // ---- the widgets' menu: remove, move, add --------------------------------------------------
@@ -395,20 +404,16 @@ Item {
         onTriggered: shell.lock()
     }
     // Any pointer movement or key restarts the timer.
-    MouseArea {
-        anchors.fill: parent
-        z: 99
-        hoverEnabled: true
-        propagateComposedEvents: true
-        acceptedButtons: Qt.NoButton
-        onPositionChanged: idle.restart()
-    }
+    // (A HoverHandler: a hover-enabled MouseArea over everything would take the hover away from the Dock, the menu bar and
+    // every button under it.)
+    HoverHandler { onPointChanged: idle.restart() }
 
     // ---- shortcuts (they work while an app has the focus) ---------------------------------
-    Shortcut { sequences: ["Meta+Space", "Ctrl+Space"]; enabled: !Host.installer; onActivated: shell.openActivities() }
+    Shortcut { sequences: ["Meta+Space", "Ctrl+Space"]; enabled: !Host.installer && !shell.locked; onActivated: { activities.close(); panels.close(); search.toggle() } }
+    Shortcut { sequences: ["Meta+A", "Ctrl+Up"]; enabled: !Host.installer && !shell.locked; onActivated: { search.close(); shell.openActivities() } }
     Shortcut { sequences: ["Ctrl+Alt+L", "Meta+L"]; onActivated: shell.lock() }
     Shortcut { sequences: ["Alt+Tab"]; onActivated: shell.cycleWindows() }
-    Shortcut { sequences: ["Ctrl+Q"]; enabled: !shell.locked && windows.activeWindow !== null
+    Shortcut { sequences: ["Ctrl+Q"]; enabled: !shell.locked && windows.activeWindow !== null && !windows.activeWindow.fixed
                onActivated: windows.closeWindow(windows.activeWindow) }
     function cycleWindows() {
         if (locked)
@@ -473,7 +478,18 @@ Item {
              : Number(Settings.values["developer.animation_scale"] ?? 1)
     }
 
-    Component.onCompleted: bootTimer.start()
+    // The keyboard layout, the touchpad and the pointer: Settings > Keyboard and Trackpad (libinput, sysboard/inputbridge.cpp).
+    function applyInput() {
+        const layout = String(Settings.values["desktop.keyboard.layout"] || "us").split(":")
+        Host.setInputConfig({
+            layout: layout[0], variant: layout[1] || "",
+            naturalScroll: Settings.values["desktop.touchpad.natural"] !== false,
+            tapToClick: Settings.values["desktop.touchpad.tap"] !== false,
+            pointerSpeed: Number(Settings.values["desktop.pointer.speed"] ?? 0)
+        })
+    }
+    Connections { target: Settings; function onValuesChanged() { shell.applyInput() } }
+    Component.onCompleted: { bootTimer.start(); applyInput() }
     Timer {
         id: bootTimer
         interval: 400

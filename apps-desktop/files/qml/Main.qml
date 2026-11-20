@@ -109,6 +109,62 @@ Rectangle {
     }
     function entryAt(p) { return entries.find(e => e.path === p) }
 
+    // ---- dragging the selection onto a folder (or a place in the sidebar) ----------------------
+    property bool dragging: false
+    property point dragOrigin
+    property point dragPos
+    property bool dragCopy: false
+    function dragPress(p) { dragOrigin = p }
+    function dragMove(p, mods) {
+        if (renaming !== "" || selectedPaths.length === 0)
+            return
+        if (!dragging && Math.hypot(p.x - dragOrigin.x, p.y - dragOrigin.y) > 10)
+            dragging = true
+        if (dragging) {
+            dragPos = p
+            dragCopy = !!(mods & Qt.ControlModifier)
+        }
+    }
+    function dragEnd() {
+        if (dragging) {
+            ghost.Drag.drop()
+            dragging = false
+        }
+    }
+    function dropOn(dest, copy) {
+        const paths = selectedPaths.filter(p => p !== dest && dest !== p.slice(0, p.lastIndexOf("/")) && !dest.startsWith(p + "/"))
+        if (paths.length === 0)
+            return
+        copy ? Files.copy(paths, dest) : Files.move(paths, dest)
+        reload()
+    }
+
+    // ---- rubber band: drag on an empty place to select what the rectangle touches ------------------
+    property bool banding: false
+    property rect band: Qt.rect(0, 0, 0, 0)
+    property var bandBase: ({})
+    function bandSelect() {
+        const s = Object.assign({}, bandBase)
+        const r = band
+        if (!gridView) {
+            const rowH = 36, top = 30 - list.contentY, left = list.anchors.leftMargin
+            for (let i = 0; i < entries.length; ++i) {
+                const y = top + i * rowH
+                if (y < r.y + r.height && y + rowH > r.y && left < r.x + r.width && left + list.width > r.x)
+                    s[entries[i].path] = true
+            }
+        } else {
+            const cols = Math.max(1, Math.floor(grid.width / grid.cellWidth))
+            for (let i = 0; i < entries.length; ++i) {
+                const x = grid.anchors.margins + (i % cols) * grid.cellWidth + 4
+                const y = grid.anchors.margins + Math.floor(i / cols) * grid.cellHeight - grid.contentY + 4
+                if (x < r.x + r.width && x + grid.cellWidth - 8 > r.x && y < r.y + r.height && y + grid.cellHeight - 8 > r.y)
+                    s[entries[i].path] = true
+            }
+        }
+        selected = s
+    }
+
     function select(e, mods) {
         if (mods & Qt.ShiftModifier && anchorPath) {
             const a = entries.findIndex(x => x.path === anchorPath), b = entries.findIndex(x => x.path === e.path)
@@ -286,6 +342,11 @@ Rectangle {
                     iconName: modelData.icon
                     selected: app.path === modelData.path
                     onClicked: app.go(modelData.path)
+                    DropArea {
+                        anchors.fill: parent
+                        keys: ["astra-files"]
+                        onDropped: app.dropOn(parent.modelData.path, app.dragCopy)
+                    }
                 }
             }
         }
@@ -348,6 +409,7 @@ Rectangle {
                 color: Theme.surfaceRaised
                 Icon { x: 10; anchors.verticalCenter: parent.verticalCenter; name: "search"; size: 16; color: Theme.textTertiary }
                 TextInput {
+                    activeFocusOnTab: true
                     id: search
                     anchors.fill: parent
                     anchors.leftMargin: 34
@@ -377,9 +439,27 @@ Rectangle {
 
         // Empty area: clears the selection; right click: the folder's menu.
         MouseArea {
+            id: emptyArea
             anchors.fill: parent
             acceptedButtons: Qt.LeftButton | Qt.RightButton
-            onPressed: (m) => { app.forceActiveFocus(); app.renaming = ""; if (m.button === Qt.LeftButton) app.selected = ({}) }
+            property point start
+            onPressed: (m) => {
+                app.forceActiveFocus(); app.renaming = ""
+                if (m.button !== Qt.LeftButton) return
+                start = Qt.point(m.x, m.y)
+                const additive = (m.modifiers & (Qt.ControlModifier | Qt.ShiftModifier)) !== 0
+                app.bandBase = additive ? Object.assign({}, app.selected) : ({})
+                if (!additive) app.selected = ({})
+            }
+            onPositionChanged: (m) => {
+                if (!pressed || !(m.buttons & Qt.LeftButton)) return
+                if (!app.banding && Math.hypot(m.x - start.x, m.y - start.y) < 6) return
+                app.banding = true
+                app.band = Qt.rect(Math.min(start.x, m.x), Math.min(start.y, m.y), Math.abs(m.x - start.x), Math.abs(m.y - start.y))
+                app.bandSelect()
+            }
+            onReleased: app.banding = false
+            onCanceled: app.banding = false
             onClicked: (m) => { if (m.button === Qt.RightButton) { app.selected = ({}); menu.target = null; menu.popup(m.x + content.x, m.y + content.y, app.menuFor(null)) } }
         }
 
@@ -446,10 +526,25 @@ Rectangle {
                        text: app.kindText(row.modelData); font.family: Theme.fontFamily; font.pixelSize: Theme.captionSize
                        color: row.isSelected ? Theme.accentText : Theme.textSecondary }
                 HoverHandler { id: hover }
+                DropArea {
+                    anchors.fill: parent
+                    keys: ["astra-files"]
+                    enabled: row.modelData.dir && !row.isSelected
+                    onDropped: app.dropOn(row.modelData.path, app.dragCopy)
+                    Rectangle { anchors.fill: parent; radius: Theme.radiusSmall; color: "transparent"; border.width: 2; border.color: Theme.accent; visible: parent.containsDrag }
+                }
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onPressed: (m) => { app.forceActiveFocus(); if (m.button === Qt.RightButton && row.isSelected) return; app.select(row.modelData, m.modifiers) }
+                    onPositionChanged: (m) => { if (pressed && (m.buttons & Qt.LeftButton)) app.dragMove(mapToItem(app, m.x, m.y), m.modifiers) }
+                    onReleased: app.dragEnd()
+                    onCanceled: app.dragEnd()
+                    onPressed: (m) => {
+                        app.forceActiveFocus(); app.dragPress(mapToItem(app, m.x, m.y))
+                        if (m.button === Qt.RightButton && row.isSelected) return
+                        if (row.isSelected && !(m.modifiers & (Qt.ControlModifier | Qt.ShiftModifier))) return   // keeps a multiple selection to drag it
+                        app.select(row.modelData, m.modifiers)
+                    }
                     onDoubleClicked: (m) => { if (m.button === Qt.LeftButton) app.open(row.modelData) }
                     onClicked: (m) => { if (m.button === Qt.RightButton) { menu.target = row.modelData; menu.popup(m.x + row.x + content.x + list.anchors.leftMargin, row.y - list.contentY + m.y + content.y + 30, app.menuFor(row.modelData)) } }
                 }
@@ -489,13 +584,59 @@ Rectangle {
                     }
                 }
                 HoverHandler { id: cellHover }
+                DropArea {
+                    anchors.fill: parent
+                    keys: ["astra-files"]
+                    enabled: cell.modelData.dir && !cell.isSelected
+                    onDropped: app.dropOn(cell.modelData.path, app.dragCopy)
+                    Rectangle { anchors.fill: parent; anchors.margins: 4; radius: Theme.radius; color: "transparent"; border.width: 2; border.color: Theme.accent; visible: parent.containsDrag }
+                }
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onPressed: (m) => { app.forceActiveFocus(); if (m.button === Qt.RightButton && cell.isSelected) return; app.select(cell.modelData, m.modifiers) }
+                    onPositionChanged: (m) => { if (pressed && (m.buttons & Qt.LeftButton)) app.dragMove(mapToItem(app, m.x, m.y), m.modifiers) }
+                    onReleased: app.dragEnd()
+                    onCanceled: app.dragEnd()
+                    onPressed: (m) => {
+                        app.forceActiveFocus(); app.dragPress(mapToItem(app, m.x, m.y))
+                        if (m.button === Qt.RightButton && cell.isSelected) return
+                        if (cell.isSelected && !(m.modifiers & (Qt.ControlModifier | Qt.ShiftModifier))) return
+                        app.select(cell.modelData, m.modifiers)
+                    }
                     onDoubleClicked: (m) => { if (m.button === Qt.LeftButton) app.open(cell.modelData) }
                     onClicked: (m) => { if (m.button === Qt.RightButton) { menu.target = cell.modelData; menu.popup(m.x + cell.x + grid.anchors.margins + content.x, m.y + cell.y - grid.contentY + grid.anchors.margins + content.y, app.menuFor(cell.modelData)) } }
                 }
+            }
+        }
+    }
+
+    // The rubber band and what is being dragged.
+    Rectangle {
+        x: content.x + app.band.x; y: content.y + app.band.y; width: app.band.width; height: app.band.height
+        visible: app.banding
+        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
+        border.width: 1
+        border.color: Theme.accent
+        z: 40
+    }
+    Item {
+        id: ghost
+        x: app.dragPos.x - 8; y: app.dragPos.y - 8
+        width: 16; height: 16
+        z: 50
+        visible: app.dragging
+        Drag.active: app.dragging
+        Drag.keys: ["astra-files"]
+        Drag.dragType: Drag.None
+        Rectangle {
+            x: 14; y: 14
+            width: ghostLabel.implicitWidth + 24; height: 28; radius: 14
+            color: Theme.accent
+            Text {
+                id: ghostLabel
+                anchors.centerIn: parent
+                text: (app.dragCopy ? "+ " : "") + qsTr("%n items", "", app.selectedPaths.length)
+                font.family: Theme.fontFamily; font.pixelSize: Theme.captionSize; font.weight: Font.DemiBold; color: Theme.accentText
             }
         }
     }
@@ -529,6 +670,7 @@ Rectangle {
             border.width: 2
             border.color: Theme.accent
             TextInput {
+                activeFocusOnTab: true
                 anchors.fill: parent
                 anchors.leftMargin: 8
                 anchors.rightMargin: 8

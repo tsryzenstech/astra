@@ -72,6 +72,7 @@ Rectangle {
             color: Theme.surfaceRaised
             Icon { x: 10; anchors.verticalCenter: parent.verticalCenter; name: "search"; size: 16; color: Theme.textTertiary }
             TextInput {
+                activeFocusOnTab: true
                 anchors.fill: parent; anchors.leftMargin: 34; anchors.rightMargin: 12
                 verticalAlignment: TextInput.AlignVCenter
                 font.family: Theme.fontFamily; font.pixelSize: Theme.bodySize; color: Theme.text; clip: true
@@ -106,6 +107,20 @@ Rectangle {
                 }
                 HoverHandler { id: hover }
                 TapHandler { onTapped: app.currentId = row.modelData.id }
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    onTapped: (point) => {
+                        app.currentId = row.modelData.id
+                        const p = row.mapToItem(app, point.position.x, point.position.y)
+                        menu.target = "note"
+                        menu.popup(p.x, p.y, [
+                            { id: "new", label: qsTr("New Note"), icon: "add-circle" },
+                            { id: "pin", label: row.modelData.pinned ? qsTr("Unpin") : qsTr("Pin"), icon: "bookmark" },
+                            { id: "share", label: qsTr("Share"), icon: "share" },
+                            { separator: true },
+                            { id: "delete", label: qsTr("Delete"), icon: "trash", danger: true } ])
+                    }
+                }
             }
         }
     }
@@ -147,6 +162,19 @@ Rectangle {
                 color: Theme.text
                 selectionColor: Theme.accent
                 onTextChanged: if (app.current && text !== app.current.text) app.update(app.currentId, { text: text })
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    onTapped: (point) => {
+                        const p = editor.mapToItem(app, point.position.x, point.position.y)
+                        menu.target = "editor"
+                        menu.popup(p.x, p.y, [
+                            { id: "cut", label: qsTr("Cut"), disabled: editor.selectedText === "" },
+                            { id: "copy", label: qsTr("Copy"), icon: "copy", disabled: editor.selectedText === "" },
+                            { id: "paste", label: qsTr("Paste"), disabled: !editor.canPaste },
+                            { separator: true },
+                            { id: "selectall", label: qsTr("Select All") } ])
+                    }
+                }
             }
         }
     }
@@ -158,4 +186,19 @@ Rectangle {
         title: qsTr("No Note Selected")
     }
     ShareSheet { id: share }
+    ContextMenu {
+        id: menu
+        anchors.fill: parent
+        property string target: ""
+        onTriggered: (id) => {
+            if (id === "new") app.create()
+            else if (id === "pin") app.update(app.currentId, { pinned: !app.current.pinned })
+            else if (id === "share") { Files.writeText(Files.appData + "/share.txt", app.current.text); share.open([Files.appData + "/share.txt"], "text/plain") }
+            else if (id === "delete") app.trash()
+            else if (id === "cut") editor.cut()
+            else if (id === "copy") editor.copy()
+            else if (id === "paste") editor.paste()
+            else if (id === "selectall") editor.selectAll()
+        }
+    }
 }

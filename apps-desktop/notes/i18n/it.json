@@ -1,8 +1,16 @@
 {
+    "Copy": "Copia",
+    "Cut": "Taglia",
+    "Delete": "Elimina",
     "Edited %1": "Modificata %1",
     "New Note": "Nuova nota",
     "No additional text": "Nessun testo aggiuntivo",
     "No Note Selected": "Nessuna nota selezionata",
+    "Paste": "Incolla",
+    "Pin": "Fissa",
     "Search": "Cerca",
-    "Tap to write": "Tocca per scrivere"
+    "Select All": "Seleziona tutto",
+    "Share": "Condividi",
+    "Tap to write": "Tocca per scrivere",
+    "Unpin": "Non fissare"
 }

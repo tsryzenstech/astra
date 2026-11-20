@@ -38,11 +38,11 @@ target_link_libraries(sysboard PRIVATE
 if(ASTRA_FORM STREQUAL "desktop")
     # Pointers, touchpads and touch screens of the desktop (inputbridge.cpp).
     find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LIBINPUT REQUIRED IMPORTED_TARGET libinput libudev)
+    pkg_check_modules(LIBINPUT REQUIRED IMPORTED_TARGET libinput libudev xkbcommon)
     if(Qt6_VERSION VERSION_GREATER_EQUAL 6.9)
         find_package(Qt6 REQUIRED COMPONENTS GuiPrivate)
     endif()
-    target_sources(sysboard PRIVATE inputbridge.cpp inputbridge.h)
+    target_sources(sysboard PRIVATE inputbridge.cpp inputbridge.h xkbkeyboard.cpp xkbkeyboard.h)
     target_link_libraries(sysboard PRIVATE PkgConfig::LIBINPUT Qt6::GuiPrivate)
     target_compile_definitions(sysboard PRIVATE ASTRA_HAVE_INPUTBRIDGE=1)
 endif()

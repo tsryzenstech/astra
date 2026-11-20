@@ -187,7 +187,7 @@ The kernel, firmware and drivers are Debian's and update with `apt`.
 Qt's eglfs input in astra's Qt build is evdev only: a keyboard and a plain mouse work, a **touchpad does not**. On the desktop SysBoard
 turns Qt's eglfs input off (`QT_QPA_EGLFS_DISABLE_INPUT`) and starts its own: **libinput** for pointers, touchpads and touch screens
 (`sysboard/inputbridge.cpp`: tap to click, two-finger scroll and click, natural scrolling, palm and typing rejection, acceleration, touch
-points) and Qt's evdev keyboard plugin. The pointer is an arrow drawn by the shell (`Main.qml`, `Host.pointerPosition`): Qt's own eglfs
+points) and the **keyboard** (libinput + xkbcommon: `sysboard/xkbkeyboard.cpp`, with the layout of Settings > Keyboard, applied to SysBoard and, through the compositor's keymap, to every app). Settings > Mouse & Trackpad sets tap to click, natural scrolling and the pointer speed. The pointer is an arrow drawn by the shell (`Main.qml`, `Host.pointerPosition`): Qt's own eglfs
 cursor did not show. If libinput cannot start, Qt's evdev mouse and touch plugins take over (no touchpad). The recovery card works with Up,
 Down and Return as well. `astra.debug` on the kernel command line logs what the devices deliver. Verified in QEMU (USB keyboard and
 mouse: keys, moves, clicks, typing in the Terminal); **not on a real touchpad**.
@@ -201,6 +201,36 @@ mouse: keys, moves, clicks, typing in the Terminal); **not on a real touchpad**.
 * The boot animation is the phone's, smaller (`logo_width_percent`, `logo_height_percent` in the desktop's `desc.txt`).
 * Runtime permissions of the system's own apps are granted from the start (Files has its files at once).
 * Wi-Fi: NetworkManager (`network/nm.cpp`); Bluetooth: BlueZ; power: `systemctl`; NVIDIA: `first-boot.sh` installs Debian's driver.
+* **Control Center and Notification Center** are cards over the desktop, with nothing blurred under them and the menu bar untouched: the
+  Notification Center opens from the clock, in the middle of the screen; the Control Center from the status icons, on the right. Neither
+  opens in the recovery (nor can the Installer's window be closed, minimised, maximised, moved or resized).
+* **Dock**: the icons swell under the pointer and push their neighbours aside (a smooth bell, the Dock widens), as on a Mac. Drag an icon
+  to put it elsewhere, drag it up and out to remove it; add apps from Activities (right click > Keep in Dock). The order is saved in
+  `desktop.dock`. Windows glide when they are maximised or restored; opening and closing are the springs of the phone.
+* **Activities** (the app list) opens with a staggered spring entrance. **Search** (Windows+Space, or Ctrl+Space) is a bar in the middle of
+  the screen, over the desktop with nothing blurred under it: apps, files in the user's storage, a quick calculation, and anything else goes to Planet as a web
+  search. Up and Down choose, Return opens. Activities is Ctrl+Up (or Meta+A).
+* **Tab** moves between text fields (`activeFocusOnTab` in the shared TextField and in the shell's own fields).
+* **The account**: the image ships one Linux account called `astra` (it owns the home directory). In the setup, when the user types a name,
+  astrad (`system.setUserName`) renames that account to the user's name (`usermod -l`, the home moves, shared storage is re-linked): after
+  the setup there is no `astra`, the Terminal's shell is the user's (it runs as the owner of the shared storage), and the Linux programs
+  listed as apps run as that user. In the live system the account is `astra-live`.
+* After an install the recovery tools (Installer, Disk Utility, the browser) are removed from `/Applications`; the Terminal stays
+  (`distro/overlay/usr/lib/astra/remove-live-apps.sh`, run by the installer and after each update).
+* **Market on a desktop** never replaces a desktop app with its phone build (it offers a phone build to apps that have no desktop one): the
+  client's updates list and astrad's `installFrom` both refuse it.
+
+## Desktop apps
+
+* **Written for the desktop** (`apps-desktop/`): Files (selection by click, Ctrl, Shift, Ctrl+A and by a rubber band; drag the selection onto a
+  folder or a place to move it, Ctrl to copy), Gallery, Notes, Terminal, Installer, Disk Utility, and **Settings** (a sidebar of sections next to
+  the section; it reuses the phone's pages in a column, plus Keyboard and Mouse & Trackpad). Right click opens a context menu in Files,
+  Gallery, Notes and the Terminal.
+* **The phone's apps as desktop builds** (`astra_add_desktop_app(... NARROW ...)` in `apps-desktop/CMakeLists.txt`): Calculator, Clock,
+  Weather, Calendar, Contacts, Music (Tune), Recorder, Tips, Themes, Mail, Maps, AI Space, AstraID, MeetUp and Market have the phone app's
+  files with a desktop manifest: a resizable window (no phone chrome; `Theme.statusBarHeight` is 0 for a desktop app) whose layout follows
+  the window. They are **not redesigned for a pointer** (no sidebars, no hover states): that is still to do, app by app. Planet (needs Qt
+  WebEngine), Camera, Phone, Messages and Home stay phone apps in a phone window.
 
 ## Milestones
 

@@ -122,6 +122,8 @@ chroot "$TARGET" getent passwd "$USERNAME" >/dev/null 2>&1 || \
 chroot "$TARGET" passwd -l "$USERNAME" >/dev/null 2>&1 || true
 # The Linux programs listed as apps (browser, terminal) run as that user, not as the live user.
 sed -i "s/\"astra-live\"/\"$USERNAME\"/" "$TARGET"/Applications/*.legacy.json 2>/dev/null || true
+# The recovery tools stay on the ISO: an installed system does not list the Installer, Disk Utility and the browser.
+sh "$TARGET/usr/lib/astra/remove-live-apps.sh" "$TARGET" || true
 # A system that starts fresh: the setup wizard and the first-boot step run again.
 rm -rf "$TARGET/data/system" "$TARGET/data/app" "$TARGET/data/data" "$TARGET/data/media" "$TARGET/data/ota"
 
