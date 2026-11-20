@@ -34,7 +34,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools cmake ninja-build \
-            python3-pip libdrm-dev libpng-dev zlib1g-dev libxkbcommon-dev libinput-dev libudev-dev libegl-dev libgl-dev libvulkan-dev pkg-config file
+            python3-pip libdrm-dev libpng-dev zlib1g-dev libxkbcommon-dev libinput-dev libudev-dev libgbm-dev libgles-dev libegl-dev libgl-dev libwayland-dev libvulkan-dev pkg-config file
           python3 -m pip install aqtinstall
           aqt install-qt linux desktop 6.8.3 linux_gcc_64 -m qtwaylandcompositor qtmultimedia -O "$HOME/Qt"
       - name: Version and tag
