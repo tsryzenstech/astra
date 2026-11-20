@@ -101,6 +101,8 @@ less
 live-boot
 squashfs-tools
 parted
+fdisk
+gdisk
 dosfstools
 e2fsprogs
 ntfs-3g
@@ -116,6 +118,7 @@ util-linux
 # the browser and the terminal of the recovery environment (Linux programs listed as apps in /Applications)
 firefox-esr
 fonts-noto-core
+fonts-noto-cjk
 
 # input: touchpads (I2C HID, SMBus), keyboards, mice, tablets, and the tools to see what the kernel found
 libinput-tools

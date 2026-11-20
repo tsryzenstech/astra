@@ -182,6 +182,16 @@ Like the phone: GitHub releases of this repository's releases (`OTA_REPOSITORY`,
 `systemctl reboot`, and `astra-ota-apply.service` swaps the trees with renames at the next start (the old ones stay as `*.old`).
 The kernel, firmware and drivers are Debian's and update with `apt`.
 
+## Input
+
+Qt's eglfs input in astra's Qt build is evdev only: a keyboard and a plain mouse work, a **touchpad does not**. On the desktop SysBoard
+turns Qt's eglfs input off (`QT_QPA_EGLFS_DISABLE_INPUT`) and starts its own: **libinput** for pointers, touchpads and touch screens
+(`sysboard/inputbridge.cpp`: tap to click, two-finger scroll and click, natural scrolling, palm and typing rejection, acceleration, touch
+points) and Qt's evdev keyboard plugin. The pointer is an arrow drawn by the shell (`Main.qml`, `Host.pointerPosition`): Qt's own eglfs
+cursor did not show. If libinput cannot start, Qt's evdev mouse and touch plugins take over (no touchpad). The recovery card works with Up,
+Down and Return as well. `astra.debug` on the kernel command line logs what the devices deliver. Verified in QEMU (USB keyboard and
+mouse: keys, moves, clicks, typing in the Terminal); **not on a real touchpad**.
+
 ## Desktop details
 
 * The widgets on the left of the desktop: at most **two**, or one **giant folder** (a tall tile with apps); drag to reorder, right
@@ -201,7 +211,7 @@ The kernel, firmware and drivers are Debian's and update with `apt`.
 | M3 | DesktopShell: bar, Dock, windows, Activities, lock screen, setup | done and rendered (below); the feel (animations, pointer) needs a real screen |
 | M4 | PetalDrop and Phone Linker in astrad; ShareSheet; Settings pages | done, tested against astrad (below); the phone side of Phone Linker and signed PetalDrop transfers are not |
 | M5 | Desktop apps, `Astra.Desktop` controls | Files done; the other apps run as mobile builds in phone windows; no Market client for the desktop yet |
-| M6 | The Debian image, systemd units, drivers, OTA | scaffold in `distro/` and the update service; **not built or booted** |
+| M6 | The Debian image, systemd units, drivers, OTA | the ISO builds and boots in QEMU (recovery, Terminal, install); real hardware: tested by the user, input and drivers still being fixed |
 
 ## Verified, and not
 
@@ -221,7 +231,19 @@ Run on this machine (WSL2, Qt 6.8.3, a virtual X display, software rendering), h
 * `tests/manual/phonelink-desktop.py` against astrad and a real astra-cloud server: the desktop signs in as a desktop, links
   with a phone played over HTTP, and a notification, contacts and a photo from it arrive. All pass.
 
+* The ISO in QEMU (KVM, BIOS, std VGA, USB keyboard and mouse): it boots to the recovery (Install astraOS, Disk Utility, Browser, Terminal);
+  the Terminal opens and runs commands; keys, pointer moves and clicks reach the shell; **an unattended install** (`astra.autoinstall=/dev/vda`,
+  `scripts/dev-qemu.sh`) copies the system, installs GRUB and the installed disk boots silently into the boot animation and the setup wizard
+  (full screen "Welcome to astraOS"); **a dual boot install** (`--root /dev/vda4 --esp /dev/vda2 --bootdisk /dev/vda --dual`, next to a
+  system already on the disk) leaves the other system alone, finds it with os-prober and shows GRUB's menu at every start. Running these
+  found and fixed: `sfdisk` missing from the image, rsync's exit status killing the installer silently, `grub-install` failing on a BIOS
+  start because of the EFI variables, the Japanese "hello" of the setup drawn as boxes (no CJK font), a disk check line on the screen at boot.
+
 **Not verified** (be careful with anything below this line):
+
+* The install from the **Install astraOS app** (the click path: disk list, erase/dual choice, the partition size slider); the tests above ran
+  the same `install.sh` through the unattended hook. UEFI boot of an installed system (QEMU ran BIOS), Secure Boot.
+* BIOS boot still prints "GRUB loading." and "Welcome to GRUB!" for a moment (GRUB's own first stage; UEFI GRUB prints nothing when hidden).
 
 * Moving, resizing, maximising and minimising windows with a pointer, the Dock's magnification, the Alt+Tab and the keyboard
   shortcuts, the context menus, typing in the lock screen and in Files (the dev automation has taps and swipes only).
@@ -229,8 +251,9 @@ Run on this machine (WSL2, Qt 6.8.3, a virtual X display, software rendering), h
   design (the same engine as the phone), not a measurement.
 * The phone's side of Phone Linker (sending notifications, photos and contacts) and PetalDrop's account signed transfers ("my
   devices"), which need two devices; the PetalDrop transfer is not encrypted on the wire.
-* The Debian image (`distro/build.sh`), booting, systemd units, the setup on a real first boot, NetworkManager (astrad's
-  network service speaks to iwd and BlueZ: **Wi-Fi does not work on a Debian desktop yet**), the OTA apply on a real disk.
+* The ISO on **real hardware**: it boots there, but the first real-hardware tests found no mouse, keyboard or touchpad in the recovery (fixed
+  since, see Input, and verified only in QEMU) and missing drivers are suspected (firmware and microcode packages were added, GPU paths
+  other than the virtual one are not tested). NetworkManager on a real Debian, the OTA apply on a real disk, the setup on a real first boot.
 * The Market client (`apps/market`) on the desktop (it runs in a phone window; its requests carry the runtime's User-Agent, which says "desktop" there, so the
   server gives it the desktop builds: that path is tested on the server only, not through the app), and the web page of the cloud.
 * The other mobile apps in phone windows beyond Settings; their desktop builds (only Files was rewritten).

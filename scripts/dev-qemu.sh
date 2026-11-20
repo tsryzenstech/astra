@@ -35,6 +35,9 @@ start)
     DISK=${3:-}
     APPEND=${4:-}
     ARGS=()
+    # "-" as the ISO: boot the disk alone (an installed system).
+    CD=(-cdrom "$ISO" -boot d)
+    [ "$ISO" = "-" ] && CD=(-boot c)
     [ -n "$DISK" ] && ARGS+=(-drive "file=$DISK,if=virtio,format=raw")
     # Extra kernel arguments (astra.debug, astra.autoinstall=/dev/vda, ...) need the kernel outside the ISO.
     if [ -n "$APPEND" ]; then
@@ -46,7 +49,7 @@ start)
     [ -w /dev/kvm ] && ACCEL=kvm
     rm -f "$SOCK"
     qemu-system-x86_64 -accel "$ACCEL" -m 4096 -smp 2 -vga std \
-        -cdrom "$ISO" -boot d "${ARGS[@]}" \
+        "${CD[@]}" "${ARGS[@]}" \
         -usb -device usb-kbd -device usb-mouse \
         -display none -serial "file:$DIR/serial.log" \
         -monitor "unix:$SOCK,server,nowait" \

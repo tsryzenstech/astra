@@ -19,12 +19,20 @@ cat > /data/system/settings.json <<'JSON'
 JSON
 
 # Unattended installation (tests, deployments): astra.autoinstall=/dev/vda on the kernel command line installs on that disk
-# once the system is up, then powers off. The log is in /var/log/astra-autoinstall.log (and on the serial console).
+# once the system is up, then powers off. astra.autoinstall.args=--root,/dev/vda4,--esp,/dev/vda2,--dual (commas for spaces) gives
+# install.sh its own arguments instead (the dual boot test). The log is in /var/log/astra-autoinstall.log (and on the serial console).
+ARGS=""
+for arg in $(cat /proc/cmdline); do
+    case "$arg" in
+        astra.autoinstall.args=*) ARGS=$(echo "${arg#astra.autoinstall.args=}" | tr , ' ') ;;
+    esac
+done
 for arg in $(cat /proc/cmdline); do
     case "$arg" in
         astra.autoinstall=*)
             disk=${arg#astra.autoinstall=}
-            systemd-run --no-block --unit=astra-autoinstall /bin/sh -c "sleep 25; /usr/lib/astra/installer/install.sh --disk $disk 2>&1 | tee /var/log/astra-autoinstall.log > /dev/ttyS0; echo AUTOINSTALL-FINISHED > /dev/ttyS0; systemctl poweroff"
+            [ -n "$ARGS" ] || ARGS="--disk $disk"
+            systemd-run --no-block --unit=astra-autoinstall /bin/sh -c "sleep 25; /usr/lib/astra/installer/install.sh $ARGS 2>&1 | tee /var/log/astra-autoinstall.log > /dev/ttyS0; echo AUTOINSTALL-FINISHED > /dev/ttyS0; systemctl poweroff"
             ;;
     esac
 done

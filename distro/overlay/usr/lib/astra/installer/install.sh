@@ -80,6 +80,8 @@ fi
 # ---- 2. the system -----------------------------------------------------------------------------------------
 progress 12 "Copying the system"
 last=12
+# (not under set -e: rsync exits 23 or 24 when a file could not be copied or vanished, and the user must still get the message)
+set +e
 rsync -aHAXx --info=progress2 --no-inc-recursive \
       --exclude='/proc/*' --exclude='/sys/*' --exclude='/dev/*' --exclude='/run/*' --exclude='/tmp/*' \
       --exclude='/mnt/*' --exclude='/boot/efi/*' --exclude='/etc/fstab' --exclude='/etc/astra/live' \
@@ -88,9 +90,14 @@ rsync -aHAXx --info=progress2 --no-inc-recursive \
     if [ -n "${pct:-}" ]; then
         p=$((12 + pct * 72 / 100))
         [ "$p" -gt "$last" ] && { last=$p; progress "$p" "Copying the system"; }
+    else
+        echo "rsync: $line" >&2
     fi
 done
-[ "${PIPESTATUS[0]}" = 0 ] || fail "copying the system failed"
+rc=${PIPESTATUS[0]}
+set -e
+# 24: files that vanished while copying (the live system is running); anything else is a failure.
+case "$rc" in 0|24) ;; *) fail "copying the system failed (rsync $rc)" ;; esac
 mkdir -p "$TARGET"/{proc,sys,dev,run,tmp,mnt}
 chmod 1777 "$TARGET/tmp"
 
@@ -122,21 +129,30 @@ rm -rf "$TARGET/data/system" "$TARGET/data/app" "$TARGET/data/data" "$TARGET/dat
 if [ "$BOOT" = 1 ]; then
     progress 90 "Installing the bootloader"
     for m in dev dev/pts proc sys run; do mount --bind "/$m" "$TARGET/$m"; done
+    BOOTED=0
     if [ -n "$ESP" ]; then
-        chroot "$TARGET" grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=astraOS --recheck >/dev/null 2>&1 \
-            || fail "cannot install the EFI bootloader"
-        # Removable path too: firmware that forgets its boot entries still finds it.
-        chroot "$TARGET" grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable >/dev/null 2>&1 || true
+        # With the firmware's own boot entry; on a machine that started in BIOS mode (no EFI variables) that part fails, so
+        # without it. The removable path too: firmware that forgets its boot entries still finds it.
+        if chroot "$TARGET" grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=astraOS --recheck >/dev/null 2>&1 ||
+           chroot "$TARGET" grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=astraOS --no-nvram >/dev/null 2>&1; then
+            BOOTED=1
+        fi
+        chroot "$TARGET" grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable >/dev/null 2>&1 && BOOTED=1
     fi
     BD=${DISK:-$BOOTDISK}
-    if [ -n "$BD" ] && command -v grub-install >/dev/null; then
-        chroot "$TARGET" grub-install --target=i386-pc "$BD" >/dev/null 2>&1 || echo "note: no BIOS bootloader (the disk boots with UEFI only)"
+    if [ -n "$BD" ]; then
+        if chroot "$TARGET" grub-install --target=i386-pc "$BD" >/dev/null 2>&1; then
+            BOOTED=1
+        else
+            echo "note: no BIOS bootloader (the disk boots with UEFI only)"
+        fi
     fi
+    [ "$BOOTED" = 1 ] || fail "cannot install the bootloader"
     # A quiet start: no text on the screen at any time (the boot animation, then the shell), and no menu.
     mkdir -p "$TARGET/etc/default"
     touch "$TARGET/etc/default/grub"
     sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/d; /^GRUB_TIMEOUT/d; /^GRUB_TERMINAL/d; /^GRUB_DISABLE_OS_PROBER/d; /^GRUB_RECORDFAIL/d' "$TARGET/etc/default/grub"
-    echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=0 systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0 plymouth.enable=0"' >> "$TARGET/etc/default/grub"
+    echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=0 systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0 plymouth.enable=0 fsck.mode=skip"' >> "$TARGET/etc/default/grub"
     if [ "$DUAL" = 1 ]; then
         # Another system on the disk: the menu is there at every start, with the other systems in it.
         printf 'GRUB_TIMEOUT=5
