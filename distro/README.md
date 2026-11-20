@@ -2,61 +2,63 @@
 
 The Debian based image of astraOS Desktop (architecture: [docs/DESKTOP.md](../docs/DESKTOP.md)).
 
-> **Status: a scaffold. None of this has been run to the end, and no image has been booted.** The astra part (SysBoard,
-> astrad, the apps) runs on a desktop Linux in a window (`scripts/dev-desktop.sh`, verified headless). What is
-> written here is what turns it into a system you boot: the Debian root, the systemd units, the update. Expect to fix
-> things on the first real build and the first real boot, and test on a spare machine or a VM with a GPU first.
+```
+sudo distro/build.sh iso      out/distro/astraOS-<version>-desktop.iso     live ISO (BIOS + UEFI): recovery and installer
+sudo distro/build.sh ota      out/distro/astraOS-<version>-desktop-system.tar.gz + ota.json    the update
+sudo distro/build.sh rootfs   out/distro/rootfs                            only the root file system
+```
+
+Run it as root on Debian/Ubuntu or WSL2 (debootstrap, squashfs-tools, xorriso, grub-pc-bin, grub-efi-amd64-bin, mtools, rsync;
+and to build astra itself `libinput-dev libudev-dev` next to the Qt 6.8.3 SDK).
 
 ```
 distro/
-  build.sh                 builds the root file system (mmdebstrap), installs astra, writes the .img (GPT, ESP + ext4, GRUB)
-  packages.list            the Debian packages
+  build.sh                 astra built for the desktop + the Debian root + squashfs + the ISO / the OTA tarball
+  collect-qt.sh            copies the Qt astra was built with (found with ldd) into the image's /system
+  packages.list            the Debian packages (drivers, firmware, microcode, Firefox ESR, NetworkManager, ...)
   overlay/                 copied over the root file system
-    etc/systemd/system/    astra-bootanim, astra-session (astrad + SysBoard), astra-ota-apply
-    usr/lib/astra/         session.sh, session-prepare.sh, ota-apply.sh
+    etc/systemd/system/    astra-bootanim, astra-session (astrad + SysBoard), astra-first-boot, astra-live, astra-ota-apply
+    usr/lib/astra/         session.sh, session-prepare.sh, live-setup.sh, first-boot.sh, ota-apply.sh, installer/install.sh
+    system/media/bootanimation/desc.txt     the boot animation of the desktop (smaller, held until the shell draws)
+    Applications/          Linux programs as apps (Browser.legacy.json)
 ```
 
 ## How it boots
 
-1. UEFI → GRUB → Debian's kernel and initramfs → **systemd** (PID 1; astra's own init is the phone's).
-2. `astra-bootanim.service` shows the same boot animation as the phone as soon as the display driver is there.
-3. `astra-ota-apply.service`: when astrad downloaded an update, puts the new `/system` and `/Applications` in place.
-4. `astra-session.service` (on `graphical.target`, on tty1, instead of a login manager): `session.sh` starts `astrad` as
-   root and SysBoard as the `astra-system` user with the groups `video render input audio media_rw`. SysBoard
-   draws on the display through KMS (`eglfs_kms`, as on the phone), takes the boot animation's place and shows the
-   lock screen. The first start shows the setup, full screen.
-5. Network: NetworkManager (astrad's network service talks to iwd and BlueZ on the phone; the desktop's one on top of
-   NetworkManager is **not written yet**: Wi-Fi in the setup and in Settings needs it, see "Not done").
+1. UEFI/BIOS → GRUB → Debian's kernel and initramfs → **systemd**. The kernel command line is quiet (`quiet loglevel=0
+   systemd.show_status=false ... vt.global_cursor_default=0`): no log line is ever on the screen. `astra.debug` on the command
+   line turns the logs and the input debugging back on; `astra.env.NAME=VALUE` sets a variable for the session.
+2. `astra-bootanim.service`: the phone's boot animation, smaller, until `/run/astra/shell.ready` (SysBoard drew its first frame).
+3. `astra-ota-apply.service`: puts a downloaded update in place.
+4. `astra-session.service` (instead of a login manager): `astrad` as root, SysBoard as `astra-system` through KMS (`eglfs_kms`).
+   The pointers and touch go through libinput, the keyboard through Qt's evdev plugin (`sysboard/inputbridge.cpp`, `main.cpp`).
+5. Live ISO (`astra.live=1`): `astra-live.service` marks the system live, SysBoard starts the **recovery** (Install astraOS,
+   Disk Utility, Browser, Terminal; no Activities, no Dock). The installed system starts with the setup wizard.
+
+## The installer and the boot menu
+
+`installer/install.sh` (called by astrad's `installer` service) writes a GPT disk (BIOS boot, EFI, ext4), copies the live
+system with `rsync`, and installs GRUB for UEFI and BIOS.
+
+* **Erase the disk**: astraOS alone, GRUB starts it silently (no menu, no timeout).
+* **Dual boot** (`--dual`): astraOS goes in a partition the user chose or made in free space; the other systems are not
+  touched; `os-prober` finds them and GRUB shows its menu at every start.
 
 ## Drivers
 
-Mesa (AMD, Intel, nouveau) and the Vulkan drivers are in `packages.list`. NVIDIA's proprietary driver is
-installed from Debian's `non-free` (`nvidia-driver`) by a first-boot step that is **not written yet**. A GPU Qt cannot use
-makes SysBoard fall back to software rendering (`llvmpipe`), as it does on the phone when there is no GPU, and that is
-not smooth: the "smooth from the first frame" goal needs a real test on real GPUs.
+Mesa (AMD, Intel, nouveau), Vulkan, `firmware-linux`, `firmware-misc-nonfree`, `firmware-amd-graphics`, `firmware-intel-graphics`,
+`firmware-iwlwifi`, `firmware-realtek`, `firmware-atheros`, `firmware-brcm80211`, `firmware-sof-signed` and the AMD/Intel microcode
+are in `packages.list`. NVIDIA's proprietary driver is installed by `first-boot.sh` on the installed system. When Qt cannot use
+the GPU SysBoard renders in software (llvmpipe). **None of the real-GPU paths has been run on real hardware by the build.**
 
 ## Updates
 
-Like the phone: GitHub releases of the image's repository (`OTA_REPOSITORY`, default `tsryzenstech/astra`: **that
-repository has to be created**), each with `ota.json` and `astraOS-<tag>-desktop-system.tar.gz`:
-
-```json
-{ "format": 1, "device": "desktop", "tag": "27.1.3-rev1", "version": "27.1.3-rev1", "codename": "Candyland",
-  "channel": "prerelease", "time": 1762531200, "notes": ["..."],
-  "files": { "system": { "name": "astraOS-27.1.3-rev1-desktop-system.tar.gz", "size": 0, "sha256": "...",
-                         "raw_size": 0, "raw_sha256": "..." } } }
-```
-
-`astrad`'s update service (`updateservice.cpp`) handles both: on a desktop its one file is `system` (a tar of `system/` and
-`Applications/`), unpacked to `/data/ota/apply/system.tar` and checked; "Install and restart" runs `systemctl reboot`.
-Pre-release and release channels are the build's, as on the phone (`docs/VERSIONING.md`). The kernel, firmware and
-drivers are Debian's and update with `apt`.
+GitHub releases (`OTA_REPOSITORY`, default `tsryzenstech/astra`), each with `ota.json` and
+`astraOS-<tag>-desktop-system.tar.gz`; versions as the phone's (`docs/VERSIONING.md`). The workflow that builds them,
+`.github/workflows/desktop-iso.yml`, is **deliberately not committed yet**: it goes in when the desktop is done.
 
 ## Not done
 
-* the build and the boot (see the top);
-* the NetworkManager backend of astrad's network service, the audio mixer on PipeWire for the desktop, brightness and
-  battery on a laptop (`hardwareservice` reads the phone's sysfs paths), suspend on lid close;
-* NVIDIA's driver; Secure Boot; an installer that writes the image to a disk (today: write the `.img` to a USB stick);
-* the GitHub Actions workflow that builds the image and publishes the OTA release (it goes with the repository above);
-* multi-user: the Mac-like `/Users`, but the shell has one user (the first in `/home`).
+* Secure Boot; suspend on lid close; the keyboard layout chosen in the setup is not applied to SysBoard (US layout);
+* the audio mixer on PipeWire for the desktop;
+* multi-user (the shell has one user, the first in `/home`).

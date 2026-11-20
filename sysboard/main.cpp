@@ -8,6 +8,9 @@
 // transitions driven by the AnimationEngine.
 
 #include "host.h"
+#ifdef ASTRA_HAVE_INPUTBRIDGE
+#include "inputbridge.h"
+#endif
 
 #include <astra/client.h>
 #include <astra/form.h>
@@ -20,6 +23,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QFontDatabase>
+#include <QGenericPluginFactory>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
@@ -103,9 +107,15 @@ int main(int argc, char **argv)
         setDefaultEnv("QT_QPA_PLATFORM", "eglfs");
         setDefaultEnv("QT_QPA_EGLFS_INTEGRATION", "eglfs_kms");
         setDefaultEnv("QT_QPA_EGLFS_KMS_ATOMIC", "1");
-        // The phone has no pointer; the desktop has one, and it must be seen.
         if (!astra::Form::isDesktop())
             setDefaultEnv("QT_QPA_EGLFS_HIDECURSOR", "1");
+        else {
+            // The desktop's pointer is drawn by the shell (Main.qml), not by Qt's eglfs cursor.
+            setDefaultEnv("QT_QPA_EGLFS_HIDECURSOR", "1");
+            // The desktop's pointers and touch go through libinput (inputbridge.cpp), its keyboard through Qt's evdev
+            // plugin, both started below: Qt's own eglfs input here is evdev only, and that cannot drive a touchpad.
+            setDefaultEnv("QT_QPA_EGLFS_DISABLE_INPUT", "1");
+        }
         // The render thread loses effects: on the phone the battery glyph and, on
         // each start, a different few icons never appeared, while the same QML
         // alone drew them. It also takes the shell 20 s to load instead of 4.
@@ -181,6 +191,21 @@ int main(int argc, char **argv)
                 QFontDatabase::addApplicationFallbackFontFamily(QChar::Script_Common, family);
     }
     QGuiApplication::setFont(QFont(QStringLiteral("Poppins")));
+
+#ifdef ASTRA_HAVE_INPUTBRIDGE
+    if (astra::Form::isDesktop() && !Paths::isDevelopmentRoot()) {
+        // The keyboard: Qt's evdev one (the layout is the build's US one; the setup's layout choice is not applied yet).
+        QGenericPluginFactory::create(QStringLiteral("evdevkeyboard"), QString());
+        auto *bridge = new InputBridge(&app);
+        QObject::connect(bridge, &InputBridge::pointerChanged, SysBoardHost::instance(), &SysBoardHost::setPointer);
+        if (!bridge->start()) {
+            // No libinput (no udev, no access to /dev/input): Qt's evdev mouse and touch, which read a plain mouse.
+            qWarning("sysboard: libinput did not start, falling back to evdev");
+            QGenericPluginFactory::create(QStringLiteral("evdevmouse"), QString());
+            QGenericPluginFactory::create(QStringLiteral("evdevtouch"), QString());
+        }
+    }
+#endif
 
     SysBoardHost::instance();
     auto *l10n = astra::Localization::instance();

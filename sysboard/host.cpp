@@ -162,6 +162,15 @@ bool SysBoardHost::desktop() const
     return astra::Form::isDesktop();
 }
 
+void SysBoardHost::setPointer(const QPointF &position, bool visible)
+{
+    if (m_pointerPosition == position && m_pointerVisible == visible)
+        return;
+    m_pointerPosition = position;
+    m_pointerVisible = visible;
+    Q_EMIT pointerChanged();
+}
+
 bool SysBoardHost::installer() const
 {
     return astra::Form::isDesktop() &&

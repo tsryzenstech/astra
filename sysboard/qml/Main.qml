@@ -23,6 +23,36 @@ WaylandCompositor {
             color: "black"
             title: "astraOS"
 
+            // The desktop's pointer: an arrow over everything, at the place libinput put it (inputbridge.cpp).
+            Canvas {
+                id: pointer
+                z: 100000
+                width: 22; height: 28
+                x: Host.pointerPosition.x - 1.5
+                y: Host.pointerPosition.y - 1.5
+                visible: Host.desktop && Host.pointerVisible
+                antialiasing: true
+                onPaint: {
+                    const c = getContext("2d")
+                    c.reset()
+                    c.beginPath()
+                    c.moveTo(2, 2)
+                    c.lineTo(2, 20)
+                    c.lineTo(6.5, 15.8)
+                    c.lineTo(9.6, 23.2)
+                    c.lineTo(12.6, 22)
+                    c.lineTo(9.6, 14.8)
+                    c.lineTo(15.8, 14.4)
+                    c.closePath()
+                    c.fillStyle = "#ffffff"
+                    c.strokeStyle = "#1a1a1a"
+                    c.lineWidth = 1.6
+                    c.lineJoin = "round"
+                    c.stroke()
+                    c.fill()
+                }
+            }
+
             // The shell, which opens on the lock screen, loads in the
             // background while the boot logo is up.
             Loader {

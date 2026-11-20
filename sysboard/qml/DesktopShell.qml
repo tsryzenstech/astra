@@ -390,6 +390,7 @@ Item {
         // "desktop.lock_timeout": minutes; 0, never. The display sleeps a little later than the lock.
         interval: Math.max(1, Number(Settings.values["desktop.lock_timeout"] ?? 10)) * 60000
         running: !shell.locked && Host.screenOn && Number(Settings.values["desktop.lock_timeout"] ?? 10) > 0 && !Host.development
+                 && !Host.installer
                  && !alarm.active
         onTriggered: shell.lock()
     }

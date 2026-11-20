@@ -18,6 +18,21 @@ Item {
     ]
     property string selected: "com.astra.installer"
 
+    // The keyboard: Up and Down choose, Return opens (a Shortcut works without anything having the focus).
+    // Only while nothing else is open and the lock screen is not up: a Shortcut also catches the keys of an app.
+    readonly property bool active: !!shell && !shell.appOpen && !shell.locked
+    function move(step) {
+        const ids = utilities.map(u => u.package).filter(id => !!Packages.get(id).package)
+        if (ids.length === 0)
+            return
+        const at = ids.indexOf(selected)
+        selected = ids[(at < 0 ? 0 : at + step + ids.length) % ids.length]
+    }
+    Shortcut { sequence: "Up"; enabled: root.visible && root.active; onActivated: root.move(-1) }
+    Shortcut { sequence: "Down"; enabled: root.visible && root.active; onActivated: root.move(1) }
+    Shortcut { sequence: "Return"; enabled: root.visible && root.active; onActivated: root.shell.launch(root.selected, {}, null) }
+    Shortcut { sequence: "Enter"; enabled: root.visible && root.active; onActivated: root.shell.launch(root.selected, {}, null) }
+
     Rectangle {
         id: card
         anchors.centerIn: parent

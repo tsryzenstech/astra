@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QObject>
+#include <QPointF>
 #include <QPointer>
 #include <QQmlEngine>
 #include <QQuickWindow>
@@ -38,6 +39,9 @@ class SysBoardHost : public QObject
     Q_PROPERTY(bool virtualKeyboard READ virtualKeyboard CONSTANT)
     // The input method bridge (visible, hints, commit(), backspace(), enter(), hide()).
     Q_PROPERTY(QObject *keyboard READ keyboard CONSTANT)
+    // The desktop's pointer, drawn by the shell itself (Qt's eglfs cursor is not reliable on every GPU path).
+    Q_PROPERTY(QPointF pointerPosition READ pointerPosition NOTIFY pointerChanged)
+    Q_PROPERTY(bool pointerVisible READ pointerVisible NOTIFY pointerChanged)
 
 public:
     static SysBoardHost *instance();
@@ -55,6 +59,9 @@ public:
     bool screenOn() const { return m_screenOn; }
     bool virtualKeyboard() const; // is the astraOS input method loaded?
     QObject *keyboard() const;
+    QPointF pointerPosition() const { return m_pointerPosition; }
+    bool pointerVisible() const { return m_pointerVisible; }
+    void setPointer(const QPointF &position, bool visible);
 
     // Blocks until the boot animation released the display (max ~1.5 s).
     static void stopBootAnimation();
@@ -71,6 +78,7 @@ public:
     Q_INVOKABLE bool removeScreenshot(const QString &path);
 
 Q_SIGNALS:
+    void pointerChanged();
     // Hardware buttons (development trees: F12 power, F11 volume up, F10 volume down)
     void powerKeyPressed();        // short press
     void powerKeyLongPressed();    // held for 600 ms: power menu
@@ -95,6 +103,8 @@ private:
     QPointer<QQuickWindow> m_window;
     QLocalServer *m_automation = nullptr;
     bool m_screenOn = true;
+    QPointF m_pointerPosition;
+    bool m_pointerVisible = false;
 
     // Button state
     bool m_powerDown = false;
