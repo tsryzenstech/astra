@@ -42,7 +42,9 @@ jobs:
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           VERSION=$(python3 -c "import json; v=json.load(open('version.json')); print('%d.%d.%d' % (v['major'], v['minor'], v.get('patch', 0)))")
-          N=$(( $(gh release list --limit 300 | awk '{print $1}' | grep -c "^$VERSION-rev") + 1 ))
+          # (grep -c exits 1 when nothing matches, which is the first build of a version: not an error under bash -e)
+          COUNT=$(gh release list --limit 300 --json tagName -q '.[].tagName' | grep -c "^$VERSION-rev" || true)
+          N=$((COUNT + 1))
           if [ "${{ github.event.inputs.release }}" = true ] && ! gh release view "$VERSION" >/dev/null 2>&1; then
             TAG=$VERSION; PRE=false
           else
