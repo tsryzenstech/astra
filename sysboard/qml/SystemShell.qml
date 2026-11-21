@@ -426,15 +426,6 @@ Item {
         MouseArea { anchors.fill: parent }
     }
 
-    // ---- the lock screens to choose from (hold the lock screen) ---------------------------
-    function openLockPicker() { lockPicker.open() }
-    LockPicker {
-        id: lockPicker
-        shell: shell
-        blurSource: screenContent
-        z: 60
-    }
-
     // ---- the charger plugged in --------------------------------------------
     ChargeAnimation {
         id: charge

@@ -60,7 +60,9 @@ Item {
                     Qt.inputMethod.hide()
             }
         }
-        userScripts: [
+        // (In Qt 6 userScripts is a collection that is filled through its `collection`, not a list
+        // to assign: assigning one is an error that stopped Planet from loading.)
+        userScripts.collection: [
             WebEngineScript {
                 name: "astra-editable"
                 injectionPoint: WebEngineScript.DocumentCreation

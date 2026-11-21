@@ -17,8 +17,6 @@ Item {
     readonly property bool pinPadVisible: pinPad.progress > 0.01
     readonly property bool musicExpanded: music.expanded
     property var pendingAction: null
-    // Something to do once the PIN is right that does not unlock the phone (the lock screen picker).
-    property var pendingVerify: null
 
     readonly property var clockWeights: ({
         "Thin": Font.Thin, "ExtraLight": Font.ExtraLight, "Light": Font.Light, "Regular": Font.Normal,
@@ -34,7 +32,6 @@ Item {
         pinPad.hide(true)
         music.expanded = false
         pendingAction = null
-        pendingVerify = null
     }
 
     // Ask for the PIN (if any), then run action after unlocking.
@@ -45,17 +42,6 @@ Item {
             pinPad.show()
         } else {
             finishUnlock()
-        }
-    }
-
-    // Ask for the PIN (if any) and run fn, with the phone staying locked.
-    function verifyThen(fn) {
-        if (Lock.hasPin) {
-            pendingVerify = fn
-            swipe.animateTo(1, 0)
-            pinPad.show()
-        } else {
-            fn()
         }
     }
 
@@ -79,13 +65,56 @@ Item {
         id: lockContent
         anchors.fill: parent
 
-        // The wallpaper, the date, the clock and the widgets of the lock screen in use
-        // (LockSlots): the same face the picker and the editor draw.
-        LockFace {
+        Image {
+            anchors.fill: parent
+            source: root.shell ? root.shell.wallpaper : Host.wallpaper
+            fillMode: Image.PreserveAspectCrop
+            sourceSize: Qt.size(width * 2, height * 2)
+            asynchronous: true
+        }
+
+        Item {
             id: faceplate
             anchors.fill: parent
-            contentOpacity: (1 - swipe.value) * (1 - music.progress)
-            contentLift: -swipe.value * 120
+            opacity: (1 - swipe.value) * (1 - music.progress)
+            y: -swipe.value * 120
+
+            Icon {
+                name: "lock"
+                size: 22
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 78
+                opacity: 0.85
+            }
+
+            Text {
+                id: time
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.baseline: parent.top
+                anchors.baselineOffset: 228
+                text: SystemClock.time
+                // Settings > Lock Screen: Poppins at any weight, or another installed family.
+                font.family: Settings.values["lockscreen.clock_font"] || Theme.fontFamily
+                font.pixelSize: 118
+                font.weight: root.clockWeights[Settings.values["lockscreen.clock_weight"] || "SemiBold"] ?? Font.DemiBold
+                font.letterSpacing: -3
+                color: "white"
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.baseline: parent.top
+                anchors.baselineOffset: 263
+                text: SystemClock.longDate
+                font.family: Theme.fontFamily
+                font.pixelSize: 21
+                color: "white"
+            }
+
+            LockWidgets {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 278
+            }
         }
 
         LockButton {
@@ -95,7 +124,7 @@ Item {
             anchors.verticalCenterOffset: -79
             iconName: "flashlight"
             checked: System.torch
-            opacity: faceplate.contentOpacity
+            opacity: faceplate.opacity
             onActivated: System.setTorch(!System.torch)
         }
 
@@ -106,7 +135,7 @@ Item {
             anchors.verticalCenter: parent.bottom
             anchors.verticalCenterOffset: -79
             iconName: "camera"
-            opacity: faceplate.contentOpacity
+            opacity: faceplate.opacity
             onActivated: root.authenticate(() => root.shell.launch("com.astra.camera"))
         }
 
@@ -115,7 +144,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.bottom
             anchors.verticalCenterOffset: -77
-            opacity: faceplate.contentOpacity
+            opacity: faceplate.opacity
             onExpandRequested: music.expanded = true
         }
     }
@@ -140,16 +169,11 @@ Item {
             moved = false
             velocity.reset()
             velocity.addPoint(m.x, m.y)
-            holdTimer.restart()
         }
         onPositionChanged: (m) => {
             velocity.addPoint(m.x, m.y)
             const dy = m.y - start.y
-            // A finger resting on glass drifts a few millimetres: that is not a swipe.
-            const drift = Math.hypot(m.x - start.x, dy)
-            if (drift > holdSlop)
-                holdTimer.stop()
-            if (!moved && Math.abs(dy) > 24)
+            if (!moved && Math.abs(dy) > 10)
                 moved = true
             if (!moved)
                 return
@@ -160,9 +184,7 @@ Item {
             else if (dy < 0)
                 swipe.value = Math.min(1, -dy / (root.height * 0.45))
         }
-        onCanceled: holdTimer.stop()
         onReleased: {
-            holdTimer.stop()
             const vy = velocity.velocity().y
             if (music.expanded) {
                 music.release(vy)
@@ -178,17 +200,10 @@ Item {
                     swipe.animateTo(0, -vy / (root.height * 0.45))
             }
         }
-        // Held for three seconds on an empty place: the PIN (if any), then the lock screens to
-        // choose from and customise. A timer of our own (a MouseArea's press-and-hold is cancelled by
-        // the first few pixels a finger drifts, which over three seconds always happen).
-        readonly property real holdSlop: 56
-        Timer {
-            id: holdTimer
-            interval: 3000
-            onTriggered: {
-                if (!surface.moved && !music.expanded && root.active && !root.pinPadVisible)
-                    root.verifyThen(() => root.shell.openLockPicker())
-            }
+        pressAndHoldInterval: 650
+        onPressAndHold: {
+            if (!moved && !music.expanded)
+                root.authenticate(() => root.shell.launch("com.astra.settings", { page: "lockscreen" }))
         }
     }
 
@@ -202,20 +217,9 @@ Item {
     PinPad {
         id: pinPad
         anchors.fill: parent
-        onAccepted: {
-            if (root.pendingVerify) {
-                const fn = root.pendingVerify
-                root.pendingVerify = null
-                pinPad.hide(true)
-                swipe.animateTo(0, 0)
-                fn()
-            } else {
-                root.finishUnlock()
-            }
-        }
+        onAccepted: root.finishUnlock()
         onCancelled: {
             root.pendingAction = null
-            root.pendingVerify = null
             swipe.animateTo(0, 0)
         }
     }
